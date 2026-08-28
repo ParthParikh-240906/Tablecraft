@@ -28,12 +28,14 @@
 
 ## Day-by-Day Plan
 
-### Day 1 — Scaffold + Schema
+### Day 1 — Scaffold + Schema ✅
 - [x] Next.js (App Router) + Tailwind scaffold; Supabase client + env setup; git init + branch discipline. GitHub repo created (private), clean history pushed to main + feature/schema.
-- [ ] **Schema Agent:** `/supabase/migrations/*.sql` — 6 tables + RLS + `seed.sql` (Demo Diner)
-- [ ] REVIEW GATE: full schema/RLS diff shown to user before merge
+- [x] **Schema Agent:** `/supabase/migrations/*.sql` — 6 tables + RLS + `seed.sql` (Demo Diner)
+- [x] REVIEW GATE: full schema/RLS diff shown to user & approved; merged to main (c5b36b3)
+- [ ] Apply migrations to a real Supabase project (pending Supabase setup — Day 2)
 
 ### Day 2 — Schema solidify + Auth foundation
+- [ ] Stand up Supabase: link project (or local), set env, run `supabase db push`
 - [ ] Apply migrations; verify seed; confirm public-read + org-scope RLS
 - [ ] Supabase Auth with `staff_users ↔ auth_user_id` linking; API-route write path for bookings
 
@@ -89,4 +91,5 @@ _Append a row after completing each task._
 | Date | Task | Agent | Branch | Status | Notes |
 |------|------|-------|--------|--------|-------|
 | Day 1 | Repo + scaffold + shared Supabase client | Coordinator | main | DONE | 33d1785 pushed; clean history |
-| Day 1 | Schema migration + RLS + seed | Schema | feature/schema | IN PROGRESS | pending review gate |
+| Day 1 | Schema migration + RLS + seed | Schema/Coordinator | feature/schema | DONE | Committed 6d3864e; user-approved; merged c5b36b3 |
+| Day 1 | Schema apply to real Supabase | — | main | PENDING | Needs Supabase project link (Day 2) |
