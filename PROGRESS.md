@@ -29,7 +29,7 @@
 ## Day-by-Day Plan
 
 ### Day 1 — Scaffold + Schema
-- [ ] Next.js (App Router) + Tailwind scaffold; Supabase client + env setup; git init + branch discipline
+- [x] Next.js (App Router) + Tailwind scaffold; Supabase client + env setup; git init + branch discipline. GitHub repo created (private), clean history pushed to main + feature/schema.
 - [ ] **Schema Agent:** `/supabase/migrations/*.sql` — 6 tables + RLS + `seed.sql` (Demo Diner)
 - [ ] REVIEW GATE: full schema/RLS diff shown to user before merge
 
@@ -88,6 +88,5 @@ _Append a row after completing each task._
 
 | Date | Task | Agent | Branch | Status | Notes |
 |------|------|-------|--------|--------|-------|
-| Day 1 | Scaffold + schema | Coordinator / Schema | feature/schema | IN PROGRESS | Greenfield start |
-</task_progress>
-</write_to_file>
+| Day 1 | Repo + scaffold + shared Supabase client | Coordinator | main | DONE | 33d1785 pushed; clean history |
+| Day 1 | Schema migration + RLS + seed | Schema | feature/schema | IN PROGRESS | pending review gate |
