@@ -14,24 +14,6 @@
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
--- Helper: resolve the caller's organization id from their auth.uid()
--- Maps Supabase Auth user -> staff_users row -> that staff member's org_id.
--- Returns NULL (deny) when the caller is not a staff member.
--- -----------------------------------------------------------------------------
-create or replace function public.f_current_org_id()
-returns uuid
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select org_id
-  from public.staff_users
-  where auth_user_id = auth.uid()
-  limit 1;
-$$;
-
--- -----------------------------------------------------------------------------
 -- Table: organizations
 -- -----------------------------------------------------------------------------
 create table public.organizations (
@@ -104,6 +86,26 @@ create table public.orders (
   stripe_session_id text unique,
   status            text not null default 'pending' check (status in ('pending', 'paid', 'failed'))
 );
+
+-- -----------------------------------------------------------------------------
+-- Helper: resolve the caller's organization id from their auth.uid()
+-- Maps Supabase Auth user -> staff_users row -> that staff member's org_id.
+-- Returns NULL (deny) when the caller is not a staff member.
+-- NOTE: defined AFTER the tables so the SQL body validates against existing
+-- tables (language sql functions are validated at creation time).
+-- -----------------------------------------------------------------------------
+create or replace function public.f_current_org_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select org_id
+  from public.staff_users
+  where auth_user_id = auth.uid()
+  limit 1;
+$$;
 
 -- -----------------------------------------------------------------------------
 -- Row Level Security
