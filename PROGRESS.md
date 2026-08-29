@@ -32,11 +32,11 @@
 - [x] Next.js (App Router) + Tailwind scaffold; Supabase client + env setup; git init + branch discipline. GitHub repo created (private), clean history pushed to main + feature/schema.
 - [x] **Schema Agent:** `/supabase/migrations/*.sql` — 6 tables + RLS + `seed.sql` (Demo Diner)
 - [x] REVIEW GATE: full schema/RLS diff shown to user & approved; merged to main (c5b36b3)
-- [ ] Apply migrations to a real Supabase project (pending Supabase setup — Day 2)
 
-### Day 2 — Schema solidify + Auth foundation
-- [ ] Stand up Supabase: link project (or local), set env, run `supabase db push`
-- [ ] Apply migrations; verify seed; confirm public-read + org-scope RLS
+### Day 2 — Schema solidify + Auth foundation (in progress)
+- [x] Stand up Supabase: linked project `iydildntxvztbnlpjcoa` (hosted, free tier), env set in `.env.local`
+- [x] Applied migrations (`supabase db push`); fixed `f_current_org_id()` ordering so migration applies (42ea23e)
+- [x] Verified seed (Demo Diner, 6 menu items, T1–T6) + RLS (public reads menu/tables, blocked from orgs)
 - [ ] Supabase Auth with `staff_users ↔ auth_user_id` linking; API-route write path for bookings
 
 ### Day 3 — Web Agent slice 1: landing + menu
@@ -92,4 +92,6 @@ _Append a row after completing each task._
 |------|------|-------|--------|--------|-------|
 | Day 1 | Repo + scaffold + shared Supabase client | Coordinator | main | DONE | 33d1785 pushed; clean history |
 | Day 1 | Schema migration + RLS + seed | Schema/Coordinator | feature/schema | DONE | Committed 6d3864e; user-approved; merged c5b36b3 |
-| Day 1 | Schema apply to real Supabase | — | main | PENDING | Needs Supabase project link (Day 2) |
+| Day 2 | Supabase link + apply migrations | Coordinator | main | DONE | Project iydildntxvztbnlpjcoa; fixed function ordering (42ea23e) |
+| Day 2 | Verify seed + RLS | Coordinator | main | DONE | Public reads menu/tables; orgs blocked |
+| Day 2 | Auth foundation (staff link + bookings API) | — | — | PENDING | Next up |
