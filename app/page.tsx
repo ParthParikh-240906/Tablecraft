@@ -99,7 +99,10 @@ export default function MarketingHomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-[var(--rule)] py-8 text-center">
+      <footer className="border-t border-[var(--rule)] py-8 text-center space-y-3">
+        <Link href="/console/login" className="text-sm text-[var(--ink-soft)] hover:underline">
+          Sign in to your console
+        </Link>
         <p className="label-caps text-[color:var(--ink-faint)]">
           Tablecraft · Built for restaurants
         </p>

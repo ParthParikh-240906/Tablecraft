@@ -68,6 +68,15 @@ export default async function ConsoleLayout({
               <Link href="/console/menu" className="hover:underline">
                 Menu
               </Link>
+              <span className="text-[var(--rule)]">|</span>
+              {org?.slug && (
+                <Link href={`/${org.slug}`} className="hover:underline">
+                  View my restaurant
+                </Link>
+              )}
+              <Link href="/" className="hover:underline">
+                Back to Tablecraft
+              </Link>
             </nav>
             <span className="text-[var(--ink-faint)]">{staff.email}</span>
             <span className="px-2 py-0.5 rounded-sm border border-[var(--rule)] text-xs font-medium">

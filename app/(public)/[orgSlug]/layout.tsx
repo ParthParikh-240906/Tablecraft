@@ -65,10 +65,12 @@ export default async function PublicLayout({
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t py-6 text-center text-sm text-gray-500">
-        <p>
-          © {new Date().getFullYear()} {org.name}
-        </p>
+      <footer className="border-t border-[var(--rule)] py-6 text-center text-sm text-[var(--ink-faint)]">
+        <Link href="/console/login" className="hover:underline">
+          Staff login
+        </Link>
+        <span className="mx-2">·</span>
+        <span>© {new Date().getFullYear()} {org.name}</span>
       </footer>
     </div>
     </CartProvider>

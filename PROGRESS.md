@@ -26,83 +26,41 @@
 
 ---
 
-## Day-by-Day Plan
+## Done
 
-### Day 1 — Scaffold + Schema ✅
-- [x] Next.js (App Router) + Tailwind scaffold; Supabase client + env setup; git init + branch discipline. GitHub repo created (private), clean history pushed to main + feature/schema.
-- [x] **Schema Agent:** `/supabase/migrations/*.sql` — 6 tables + RLS + `seed.sql` (Demo Diner)
-- [x] REVIEW GATE: full schema/RLS diff shown to user & approved; merged to main (c5b36b3)
+### Product & content
+- **Marketing homepage** (`/`) — product pitch: four pillars, how-it-works ticket, "Create your restaurant" CTA → `/signup`, "Contact us" mailto, "Sign in to your console" link. `4b018cb`
+- **Restaurant directory** (`/restaurants`) — lists all live orgs. `4b018cb`
+- **Org public site** (`/{slug}`) — landing, menu, reserve, cart. Each org's `theme_color` drives accents. `21d0484`, `c9b8a69`
+- **In-app signup** (`/signup`) — email/password (no OAuth), creates org + owner + auth user → redirects to new public URL. `7132cbe`
+- **Operator console** (`/console/*`) — staff login (Supabase Auth), live table status grid, bookings list, menu management. `5207858`, `c9b8a69`
+- **Cross-product navigation** — marketing ↔ console ↔ public site links. (pending commit)
 
-### Day 2 — Schema solidify + Auth foundation ✅
-- [x] Stand up Supabase: linked project `iydildntxvztbnlpjcoa` (hosted, free tier), env set in `.env.local`
-- [x] Applied migrations (`supabase db push`); fixed `f_current_org_id()` ordering so migration applies (42ea23e)
-- [x] Verified seed (Demo Diner, 6 menu items, T1–T6) + RLS (public reads menu/tables, blocked from orgs)
-- [x] Auth foundation: `lib/supabase/admin.ts` (service-role), `app/api/bookings` (public write path), `app/api/signup` (in-app org+owner signup, Option A). Demo owner auth user created + linked. REVIEW GATE approved; merged (5207858)
+### Data & backend
+- **Schema** — 6 tables, RLS (public read menu/tables/orgs; staff CRUD scoped to own org), realtime publication on `tables`. `c5b36b3`
+- **Migrations applied** to hosted Supabase project `iydildntxvztlpjcoa`. `42ea23e`
+- **Demo data** — Demo Diner (6 menu items, T1–T6, demo owner `demo-owner@demo.com` / `demo-password-123`). Linked to auth user.
+- **Bookings API** (`/api/bookings`) — public write path, validated, RLS-bypass via service-role. Tested live. `5207858`
+- **Signup API** (`/api/signup`) — org + owner + auth user creation with rollback. Tested live. `5207858`
+- **Admin client** (`lib/supabase/admin.ts`) — server-only service-role client. `5207858`
 
-### Day 3 — Web Agent slice 1: landing + menu ✅
-- [x] `app/(public)/[orgSlug]/page.tsx` landing; `menu/page.tsx` + category view (public policy read)
-- [x] `lib/org.ts` shared helpers; `0003_public_read_organizations.sql` (public org metadata read). REVIEW GATE approved; merged (21d0484)
-- [x] Tested live: landing 200, menu 200 (items render), missing org 404
+### Realtime
+- **Realtime hook** (`lib/realtime.ts`) — `useTableRealtime`, org-scoped channel. Smoke-tested live. `8256d6e`
 
-### Day 4 — Realtime foundation ✅
-- [x] Supabase Realtime channel abstraction for `tables` (`lib/realtime.ts` — `useTableRealtime` hook, org-scoped)
-- [x] Verified live: smoke test confirmed channel + org filter receive status changes (merged 8256d6e)
-
-### Day 5 — Web Agent slice 2: booking form + cart ✅
-- [x] `app/(public)/[orgSlug]/reserve` (live table availability via realtime hook, "Size" label); cart context + `cart/page.tsx` + add-to-cart on menu
-- [x] Tested live: reserve 200, cart 200, Add buttons render
-
-### Day 6 — Console Agent slice 1: auth + table grid ✅
-- [x] `middleware.ts` gates `/console/*`; console layout resolves org via `staff_users`; login page; live table status grid (direct authenticated updates, RLS-scoped)
-- [x] REVIEW GATE approved; merged (c9b8a69). Verified: unauthenticated → 307 redirect; demo owner sign-in works
-
-### Day 7 — Console Agent slice 2: bookings list + realtime + menu management ✅
-- [x] Bookings list (upcoming/past, RLS-scoped); menu management (add/edit/toggle availability); console nav
-- [x] Realtime console→public verified via Day 4 smoke test; REVIEW GATE approved; merged (c9b8a69)
-
-### Bonus slice — Marketing homepage + signup UI + restaurant directory ✅
-- [x] `app/page.tsx` — **Tablecraft marketing homepage** (product pitch: four pillars, how-it-works ticket, "Create your restaurant" CTA → `/signup`, "Contact us" mailto) replacing the Next.js starter
-- [x] `app/restaurants/page.tsx` — restaurant directory (list of live orgs) relocated from `/`
-- [x] `app/signup/page.tsx` — signup form (auto-suggested slug, owner email/password, no OAuth) → creates org via existing `/api/signup` → redirects to new public URL. Closes the "sign up a new restaurant org" DoD gap.
-- [x] Merged (4b018cb)
-
-### Day 8 — Payments Agent: checkout + webhook
-- [ ] `app/api/checkout/*` (Stripe Checkout Session); `app/api/webhooks/stripe` → `orders.status=paid`
-- [ ] REVIEW GATE: payments diff shown to user
-
-### Day 9 — Integration: cart → checkout → confirmation
-- [ ] cart → checkout session → webhook → order confirmation (Stripe test)
-
-### Day 10 — QA full flow
-- [ ] create org → view site → book table → toggle capacity → checkout; numbered bug list → fix
-
-### Day 11 — Public site polish
-- [ ] Responsiveness, loading/empty/error states, speed cleanup
-
-### Day 12 — Console polish + realtime reliability
-- [ ] Console UX, channel reconnect/edge cases
-
-### Day 13 — Stripe edge cases
-- [ ] Session expiration, webhook idempotency, order status reconciliation
-
-### Day 14 — QA final pass + demo assets
-- [ ] Full re-run; polish seeded demo data for judges
-
-### Day 15 — Dress rehearsal + deploy
-- [ ] Rehearse demo script; deploy to Vercel; final fixes; buffer day (Day 16–18 spillover)
+### Design system
+- **Token system** (`globals.css`) — paper/ink/rules/accent palette, Fraunces serif + Inter sans, hairline rules, small-caps labels, ticket/receipt motifs, `.surface-dark` utility. `2fc4b94`
+- **Dark theme** applied across signup, console login, console dashboard. `2fc4b94`
+- **Console login contrast bug** fixed (gray-400/500 on light bg → paper-raised on ink). `2fc4b94`
 
 ---
 
-## Task Log
+## To do (priority order)
 
-_Append a row after completing each task._
-
-| Date | Task | Agent | Branch | Status | Notes |
-|------|------|-------|--------|--------|-------|
-| Day 1 | Repo + scaffold + shared Supabase client | Coordinator | main | DONE | 33d1785 pushed; clean history |
-| Day 1 | Schema migration + RLS + seed | Schema/Coordinator | feature/schema | DONE | Committed 6d3864e; user-approved; merged c5b36b3 |
-| Day 2 | Supabase link + apply migrations | Coordinator | main | DONE | Project iydildntxvztbnlpjcoa; fixed function ordering (42ea23e) |
-| Day 2 | Verify seed + RLS | Coordinator | main | DONE | Public reads menu/tables; orgs blocked |
-| Day 2 | Auth foundation (admin client, bookings, signup) | Coordinator | feature/auth-foundation | DONE | User-approved; merged 5207858 |
-| Day 3 | Public landing + menu pages + org read policy | Coordinator | feature/public-site | DONE | User-approved; merged 21d0484 |
-| Day 7 | Menu management (owner CRUD on menu_items) | Console | feature/console | PLANNED | Added per user request; reuses existing RLS + admin client |
+1. **Stripe payments** (`/api/checkout`, `/api/webhooks/stripe`) — Checkout Session creation, webhook marks `orders.status = paid`. Needs user's test-mode `STRIPE_SECRET_KEY` in `.env.local` + `stripe` package install. **REVIEW GATE** (payments).
+2. **Cart → checkout → order confirmation** — wire cart to checkout session, webhook, order status. Depends on #1.
+3. **End-to-end QA pass** — create org → view site → book table → toggle capacity → checkout; numbered bug list → fix cycle.
+4. **Public site polish** — responsiveness, loading/empty/error states, speed cleanup.
+5. **Console polish + realtime reliability** — UX, channel reconnect/edge cases.
+6. **Stripe edge cases** — session expiration, webhook idempotency, order status reconciliation.
+7. **Demo assets** — polish seeded demo data for judges.
+8. **Deploy** — Vercel, final fixes, dress rehearsal.
