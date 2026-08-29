@@ -44,8 +44,9 @@
 - [x] `lib/org.ts` shared helpers; `0003_public_read_organizations.sql` (public org metadata read). REVIEW GATE approved; merged (21d0484)
 - [x] Tested live: landing 200, menu 200 (items render), missing org 404
 
-### Day 4 — Realtime foundation
-- [ ] Supabase Realtime channel abstraction for `tables`
+### Day 4 — Realtime foundation ✅
+- [x] Supabase Realtime channel abstraction for `tables` (`lib/realtime.ts` — `useTableRealtime` hook, org-scoped)
+- [x] Verified live: smoke test confirmed channel + org filter receive status changes (merged 8256d6e)
 
 ### Day 5 — Web Agent slice 2: booking form + cart
 - [ ] `app/(public)/[orgSlug]/reserve`; cart context + `cart/page.tsx`
