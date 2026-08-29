@@ -55,8 +55,9 @@
 - [ ] `app/(console)/login` (Supabase Auth gated by `staff_users`); `tables` status toggle grid
 - [ ] REVIEW GATE: auth-gating diff shown to user
 
-### Day 7 — Console Agent slice 2: bookings list + realtime
+### Day 7 — Console Agent slice 2: bookings list + realtime + menu management
 - [ ] Bookings list page; wire realtime console→public within ~2s
+- [ ] **Menu management** (owner adds/edits/toggles menu items) — reuses Day 6 auth-gating + staff-scoped RLS on `menu_items` + admin-client pattern. Compact UI slice; no new schema needed.
 
 ### Day 8 — Payments Agent: checkout + webhook
 - [ ] `app/api/checkout/*` (Stripe Checkout Session); `app/api/webhooks/stripe` → `orders.status=paid`
@@ -97,3 +98,4 @@ _Append a row after completing each task._
 | Day 2 | Verify seed + RLS | Coordinator | main | DONE | Public reads menu/tables; orgs blocked |
 | Day 2 | Auth foundation (admin client, bookings, signup) | Coordinator | feature/auth-foundation | DONE | User-approved; merged 5207858 |
 | Day 3 | Public landing + menu pages + org read policy | Coordinator | feature/public-site | DONE | User-approved; merged 21d0484 |
+| Day 7 | Menu management (owner CRUD on menu_items) | Console | feature/console | PLANNED | Added per user request; reuses existing RLS + admin client |
