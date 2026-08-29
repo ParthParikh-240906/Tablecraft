@@ -60,6 +60,11 @@
 - [x] Bookings list (upcoming/past, RLS-scoped); menu management (add/edit/toggle availability); console nav
 - [x] Realtime console→public verified via Day 4 smoke test; REVIEW GATE approved; merged (c9b8a69)
 
+### Bonus slice — Root directory + signup UI ✅
+- [x] `app/page.tsx` — restaurant directory (lists all orgs, "Create your restaurant" CTA, staff console link) replacing the Next.js starter
+- [x] `app/signup/page.tsx` — signup form (auto-suggested slug, owner email/password) → creates org via existing `/api/signup` → redirects to new public URL. Closes the "sign up a new restaurant org" DoD gap.
+- [x] Merged (7132cbe)
+
 ### Day 8 — Payments Agent: checkout + webhook
 - [ ] `app/api/checkout/*` (Stripe Checkout Session); `app/api/webhooks/stripe` → `orders.status=paid`
 - [ ] REVIEW GATE: payments diff shown to user
