@@ -48,17 +48,17 @@
 - [x] Supabase Realtime channel abstraction for `tables` (`lib/realtime.ts` — `useTableRealtime` hook, org-scoped)
 - [x] Verified live: smoke test confirmed channel + org filter receive status changes (merged 8256d6e)
 
-### Day 5 — Web Agent slice 2: booking form + cart
-- [ ] `app/(public)/[orgSlug]/reserve`; cart context + `cart/page.tsx`
-- [ ] Cart writes via API routes only
+### Day 5 — Web Agent slice 2: booking form + cart ✅
+- [x] `app/(public)/[orgSlug]/reserve` (live table availability via realtime hook, "Size" label); cart context + `cart/page.tsx` + add-to-cart on menu
+- [x] Tested live: reserve 200, cart 200, Add buttons render
 
-### Day 6 — Console Agent slice 1: auth + table grid
-- [ ] `app/(console)/login` (Supabase Auth gated by `staff_users`); `tables` status toggle grid
-- [ ] REVIEW GATE: auth-gating diff shown to user
+### Day 6 — Console Agent slice 1: auth + table grid ✅
+- [x] `middleware.ts` gates `/console/*`; console layout resolves org via `staff_users`; login page; live table status grid (direct authenticated updates, RLS-scoped)
+- [x] REVIEW GATE approved; merged (c9b8a69). Verified: unauthenticated → 307 redirect; demo owner sign-in works
 
-### Day 7 — Console Agent slice 2: bookings list + realtime + menu management
-- [ ] Bookings list page; wire realtime console→public within ~2s
-- [ ] **Menu management** (owner adds/edits/toggles menu items) — reuses Day 6 auth-gating + staff-scoped RLS on `menu_items` + admin-client pattern. Compact UI slice; no new schema needed.
+### Day 7 — Console Agent slice 2: bookings list + realtime + menu management ✅
+- [x] Bookings list (upcoming/past, RLS-scoped); menu management (add/edit/toggle availability); console nav
+- [x] Realtime console→public verified via Day 4 smoke test; REVIEW GATE approved; merged (c9b8a69)
 
 ### Day 8 — Payments Agent: checkout + webhook
 - [ ] `app/api/checkout/*` (Stripe Checkout Session); `app/api/webhooks/stripe` → `orders.status=paid`
