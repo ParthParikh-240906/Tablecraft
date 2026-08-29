@@ -8,12 +8,8 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only gate console routes (login page itself stays accessible).
   const isConsole = pathname.startsWith("/console");
   const isLoginPage = pathname === "/console/login";
-  if (!isConsole || isLoginPage) {
-    return NextResponse.next();
-  }
 
   let response = NextResponse.next({ request });
 
@@ -42,7 +38,16 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  // If user is already logged in and visits the login page, redirect to console tables
+  if (user && isLoginPage) {
+    const consoleUrl = request.nextUrl.clone();
+    consoleUrl.pathname = "/console/tables";
+    consoleUrl.search = "";
+    return NextResponse.redirect(consoleUrl);
+  }
+
+  // If unauthenticated user tries to access protected console paths
+  if (!user && isConsole && !isLoginPage) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/console/login";
     loginUrl.searchParams.set("next", pathname);

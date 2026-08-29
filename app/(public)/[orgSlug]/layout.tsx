@@ -20,10 +20,14 @@ export default async function PublicLayout({
   const accent = org.theme_color ?? "#f97316";
 
   return (
-    <CartProvider>
-    <div className="min-h-screen flex flex-col">
+    <CartProvider orgSlug={org.slug}>
+    <div
+      data-theme="light"
+      className="theme-light min-h-screen flex flex-col bg-[var(--paper)] text-[var(--ink)]"
+      style={{ ["--accent" as string]: accent }}
+    >
       <header
-        className="border-b"
+        className="border-b bg-[var(--paper-raised)]"
         style={{ borderColor: `${accent}33` }}
       >
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">

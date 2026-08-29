@@ -54,13 +54,30 @@
 
 ---
 
+### Payments & Checkout
+- **Stripe Integration** (`lib/stripe.ts`, `/api/checkout`, `/api/webhooks/stripe`) — Created checkout sessions with metadata and line items, robust Stripe webhook handling `checkout.session.completed` updating `orders.status = 'paid'` and storing `stripe_session_id`.
+- **Order Confirmation Page** (`/[orgSlug]/orders/[orderId]`) — Ticket/receipt style display of ordered items, amounts, and live payment status confirmation.
+- **Cart Organization Scoping** (`lib/cart.tsx`) — LocalStorage key and in-memory items isolated per `orgSlug` to eliminate cross-restaurant contamination.
+
+### Console Enhancements
+- **Booking Management** (`/console/bookings`, `booking-actions.tsx`) — Interactive booking status updates (Confirm / Cancel / Delete), dynamic table assignment limited to available/open tables, auto-marking tables as reserved in DB upon booking creation.
+- **Booking Search & Filters** (`/console/bookings/page.tsx`) — Instant search filter in console bookings matching customer name or booking date/time strings.
+- **Intelligent Table Allocation & 2-Hour Sliding Window** (`/api/bookings/route.ts`, `booking-form.tsx`) — Automated table allocation choosing the best-fit table (capacity ≥ party_size with least excess seats) scoped by `org_id`. Reservations have an automatic 2-hour max duration window; tables are released and available for booking outside any 2-hour overlapping confirmed reservation. Public booking form automatically handles table assignment without exposing manual table pickers.
+- **Reservation Page Navigation** (`/[orgSlug]/reserve/page.tsx`) — Added 2 dedicated back buttons (top navigation arrow + bottom overview link) to navigate effortlessly back to the restaurant page.
+- **Cart Feedback Centering** (`menu-items.tsx`) — Positioned the cart addition toast at the bottom-center of the viewport.
+- **Menu Management with Images** (`/console/menu`, `menu-manager.tsx`) — Full image URL support in creation and edit forms, with image thumbnails displayed in the console list.
+- **Interactive Table Status Controls** (`/console/tables/table-grid.tsx`) — Explicit 3-button status selector (Open / Occupied / Reserved) directly on each table card with real-time broadcast and DB synchronization.
+- **Operator Session & Auth UX** — Auth callback (`/auth/callback`), Google OAuth buttons on login, session auto-redirect from `/`, `/console/login`, and `/signup` to `/console/tables` for logged-in operators, and dedicated "Sign out" control in operator console layout.
+- **Contact & Reservation Hardening** — Contact form hooked directly to backend endpoint targeting `tablecraft8@gmail.com`; booking reservation forms block past dates/times with dynamic min bounds and instant validation.
+- **UI & Experience Polish** — Added toast feedback notification on adding items to cart on public menu (`menu-items.tsx`); unified currency display across all public pages, cart, orders, and console to `AED`.
+- **Operator Console Orders Management** (`/console/orders`, `orders-list.tsx`, `/api/orders/status`) — Full kitchen & online order management screen with filtering for Dine-in Table vs Online Orders, line item breakdowns, and real-time status management (Paid, Preparing, Ready, Completed, Cancelled).
+- **Table vs Online Checkout Selection** (`/cart`, `/api/checkout`) — Dine-in guests can specify their table number or choose online takeout.
+- **Button Debouncing & Simplified Reservation UI** (`menu-items.tsx`, `booking-form.tsx`) — Click-throttling on Add-to-cart buttons; simplified and clean confirmation message on booking creation.
+
+---
+
 ## To do (priority order)
 
-1. **Stripe payments** (`/api/checkout`, `/api/webhooks/stripe`) — Checkout Session creation, webhook marks `orders.status = paid`. Needs user's test-mode `STRIPE_SECRET_KEY` in `.env.local` + `stripe` package install. **REVIEW GATE** (payments).
-2. **Cart → checkout → order confirmation** — wire cart to checkout session, webhook, order status. Depends on #1.
-3. **End-to-end QA pass** — create org → view site → book table → toggle capacity → checkout; numbered bug list → fix cycle.
-4. **Public site polish** — responsiveness, loading/empty/error states, speed cleanup.
-5. **Console polish + realtime reliability** — UX, channel reconnect/edge cases.
-6. **Stripe edge cases** — session expiration, webhook idempotency, order status reconciliation.
-7. **Demo assets** — polish seeded demo data for judges.
-8. **Deploy** — Vercel, final fixes, dress rehearsal.
+1. **Stripe Keys Configuration** — Add live/test `STRIPE_SECRET_KEY` & `STRIPE_WEBHOOK_SECRET` in `.env.local` (or Supabase/Vercel secrets) to test live payment card processing end-to-end.
+2. **End-to-end QA pass** — create org (`/signup`) → view site (`/{slug}`) → book table (`/reserve`) → toggle table status in console (`/console/tables`) & observe realtime change → checkout cart with Stripe → confirm order.
+3. **Deploy & Production Readiness** — Deploy to Vercel, configure production environment variables, run dress rehearsal.

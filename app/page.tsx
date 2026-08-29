@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ContactForm } from "./contact-form";
 
 export default function MarketingHomePage() {
   return (
@@ -80,7 +81,7 @@ export default function MarketingHomePage() {
 
       {/* Contact */}
       <section className="max-w-2xl mx-auto px-4 py-20 text-center">
-        <p className="label-caps text-[color:var(--ink-soft)] mb-3">
+        <p className="label-caps text-[color:var(--accent)] mb-3">
           Get in touch
         </p>
         <h2 className="font-display text-3xl md:text-4xl mb-4">
@@ -90,12 +91,7 @@ export default function MarketingHomePage() {
           We'd love to hear from you — whether you're a restaurant
           owner, a developer, or just curious.
         </p>
-        <a
-          href="mailto:hello@tablecraft.app"
-          className="btn btn-ink"
-        >
-          Contact us
-        </a>
+        <ContactForm />
       </section>
 
       {/* Footer */}

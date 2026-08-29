@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 export interface CartItem {
   id: string;
@@ -10,6 +10,7 @@ export interface CartItem {
 }
 
 interface CartContextValue {
+  orgSlug: string;
   items: CartItem[];
   addItem: (item: { id: string; name: string; price: number }) => void;
   removeItem: (id: string) => void;
@@ -22,12 +23,34 @@ interface CartContextValue {
 const CartContext = createContext<CartContextValue | null>(null);
 
 /**
- * Client-side cart state. Items live in memory until checkout (Day 8),
- * where the order is written via the /api/checkout route — never directly
- * from the browser to the DB.
+ * Client-side cart state isolated per restaurant (namespaced by orgSlug).
+ * Items persist in localStorage under `tablecraft_cart_${orgSlug}` until checkout.
  */
-export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+export function CartProvider({
+  children,
+  orgSlug,
+}: {
+  children: React.ReactNode;
+  orgSlug: string;
+}) {
+  const storageKey = `tablecraft_cart_${orgSlug}`;
+  const [items, setItems] = useState<CartItem[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const stored = localStorage.getItem(`tablecraft_cart_${orgSlug}`);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(items));
+    } catch {
+      // Ignore storage write errors
+    }
+  }, [items, storageKey]);
 
   const value = useMemo<CartContextValue>(() => {
     const addItem = (item: { id: string; name: string; price: number }) => {
@@ -55,13 +78,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       );
     };
 
-    const clear = () => setItems([]);
+    const clear = () => {
+      setItems([]);
+      try {
+        localStorage.removeItem(storageKey);
+      } catch {}
+    };
 
     const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
     const count = items.reduce((sum, i) => sum + i.quantity, 0);
 
-    return { items, addItem, removeItem, setQuantity, clear, total, count };
-  }, [items]);
+    return { orgSlug, items, addItem, removeItem, setQuantity, clear, total, count };
+  }, [items, orgSlug, storageKey]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

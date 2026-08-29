@@ -3,33 +3,48 @@
 import { useState } from "react";
 import { useTableRealtime } from "@/lib/realtime";
 
-export function BookingForm({ orgId, accent }: { orgId: string; accent: string }) {
+export function BookingForm({
+  orgId,
+  orgSlug,
+  accent,
+}: {
+  orgId: string;
+  orgSlug: string;
+  accent: string;
+}) {
   const { tables, connected } = useTableRealtime(orgId);
-  const openTables = tables.filter((t) => t.status === "open");
 
-  const [tableId, setTableId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [size, setSize] = useState(2);
   const [datetime, setDatetime] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [confirmedDetails, setConfirmedDetails] = useState<{
+    tableLabel?: string;
+    capacity?: number;
+  } | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
 
+    const bookingDate = new Date(datetime);
+    if (bookingDate.getTime() < Date.now() - 60000) {
+      setError("Booking date & time cannot be in the past.");
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          orgSlug: window.location.pathname.split("/")[1],
-          tableId,
+          orgSlug,
           customerName,
           partySize: size,
-          datetime: new Date(datetime).toISOString(),
+          datetime: bookingDate.toISOString(),
         }),
       });
 
@@ -37,7 +52,10 @@ export function BookingForm({ orgId, accent }: { orgId: string; accent: string }
       if (!res.ok) {
         setError(data.error ?? "Could not create booking");
       } else {
-        setSuccess(true);
+        setConfirmedDetails({
+          tableLabel: data.table?.label,
+          capacity: data.table?.capacity,
+        });
       }
     } catch {
       setError("Network error — please try again");
@@ -46,18 +64,18 @@ export function BookingForm({ orgId, accent }: { orgId: string; accent: string }
     }
   }
 
-  if (success) {
+  if (confirmedDetails) {
     return (
-      <div className="rounded-2xl border p-8 text-center">
+      <div className="rounded-2xl border border-[var(--rule)] bg-[var(--paper-raised)] p-8 text-center shadow-sm">
         <div
           className="h-12 w-12 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-xl"
           style={{ backgroundColor: accent }}
         >
           ✓
         </div>
-        <h2 className="text-xl font-semibold mb-2">Booking confirmed!</h2>
+        <h2 className="text-xl font-semibold mb-2">Booking Confirmed!</h2>
         <p className="text-gray-600">
-          Your table is reserved. We look forward to seeing you.
+          Your table has been reserved. We look forward to seeing you.
         </p>
       </div>
     );
@@ -65,36 +83,15 @@ export function BookingForm({ orgId, accent }: { orgId: string; accent: string }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Table picker — live availability */}
-      <div>
-        <label htmlFor="table" className="block text-sm font-medium mb-1.5">
-          Table
-        </label>
-        {openTables.length === 0 ? (
-          <p className="text-sm text-gray-500 py-2">
-            {connected ? "No open tables right now — check back soon." : "Loading tables…"}
-          </p>
-        ) : (
-          <select
-            id="table"
-            value={tableId}
-            onChange={(e) => setTableId(e.target.value)}
-            required
-            className="w-full rounded-lg border px-3 py-2.5 text-sm bg-white"
-          >
-            <option value="" disabled>
-              Choose a table…
-            </option>
-            {openTables.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label} — seats {t.capacity}
-              </option>
-            ))}
-          </select>
-        )}
-        <p className="text-xs text-gray-400 mt-1">
-          {connected ? "● Live availability" : "○ Connecting…"}
-        </p>
+      {/* Auto table assignment info badge */}
+      <div className="rounded-xl border border-dashed border-[var(--rule)] bg-[var(--paper-raised)] p-3.5 text-xs text-gray-600 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: accent }} />
+          <span>Table will be automatically assigned for optimal seating</span>
+        </div>
+        <span className="text-[11px] text-gray-400 font-mono">
+          {connected ? "● Live system" : "○ Connecting…"}
+        </span>
       </div>
 
       {/* Name */}
@@ -110,14 +107,14 @@ export function BookingForm({ orgId, accent }: { orgId: string; accent: string }
           required
           minLength={2}
           placeholder="Jane Doe"
-          className="w-full rounded-lg border px-3 py-2.5 text-sm"
+          className="w-full rounded-lg border px-3 py-2.5 text-sm bg-white"
         />
       </div>
 
       {/* Size */}
       <div>
         <label htmlFor="size" className="block text-sm font-medium mb-1.5">
-          Size
+          Party Size (Guests)
         </label>
         <input
           id="size"
@@ -127,7 +124,7 @@ export function BookingForm({ orgId, accent }: { orgId: string; accent: string }
           value={size}
           onChange={(e) => setSize(Number(e.target.value))}
           required
-          className="w-full rounded-lg border px-3 py-2.5 text-sm"
+          className="w-full rounded-lg border px-3 py-2.5 text-sm bg-white"
         />
       </div>
 
@@ -141,22 +138,28 @@ export function BookingForm({ orgId, accent }: { orgId: string; accent: string }
           type="datetime-local"
           value={datetime}
           onChange={(e) => setDatetime(e.target.value)}
+          min={new Date().toISOString().slice(0, 16)}
           required
-          className="w-full rounded-lg border px-3 py-2.5 text-sm"
+          className="w-full rounded-lg border px-3 py-2.5 text-sm bg-white"
         />
+        <p className="text-xs text-gray-400 mt-1">
+          Reservations are booked for a 2-hour duration.
+        </p>
       </div>
 
       {error && (
-        <p className="text-sm text-red-600 rounded-lg bg-red-50 px-3 py-2">{error}</p>
+        <p className="text-sm text-red-600 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+          {error}
+        </p>
       )}
 
       <button
         type="submit"
-        disabled={submitting || !tableId || openTables.length === 0}
-        className="w-full py-3 rounded-full text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled={submitting}
+        className="w-full py-3 rounded-full text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow transition-transform active:scale-[0.99]"
         style={{ backgroundColor: accent }}
       >
-        {submitting ? "Booking…" : "Confirm booking"}
+        {submitting ? "Reserving table…" : "Confirm booking"}
       </button>
     </form>
   );

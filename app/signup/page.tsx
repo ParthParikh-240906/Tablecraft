@@ -59,21 +59,30 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-[var(--ink)] text-[var(--paper-raised)]">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12 bg-[var(--paper)] text-[var(--ink)]">
+      <div className="w-full max-w-md mb-6">
+        <Link
+          href="/"
+          className="inline-flex items-center text-xs font-sans tracking-widest uppercase font-medium text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors"
+        >
+          ← Back to Tablecraft
+        </Link>
+      </div>
+
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <p className="label-caps text-[color:var(--accent)] mb-1">
             Tablecraft
           </p>
-          <h1 className="font-display text-3xl">Create your restaurant</h1>
-          <p className="text-sm text-[var(--ink-faint)] mt-2">
+          <h1 className="font-display text-3xl text-[var(--ink)]">Create your restaurant</h1>
+          <p className="text-sm text-[var(--ink-soft)] mt-2">
             Get a public menu, reservations, and online ordering.
           </p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-5 border border-[var(--rule)] p-6 rounded-sm"
+          className="ticket p-6 space-y-5"
         >
           <div>
             <label htmlFor="orgName" className="block text-sm font-medium mb-1.5">
@@ -87,7 +96,7 @@ export default function SignupPage() {
               required
               minLength={2}
               placeholder="Bella Napoli"
-              className="input text-[var(--paper-raised)] placeholder:text-[var(--ink-faint)]"
+              className="input placeholder:text-[var(--ink-faint)]"
             />
           </div>
 
@@ -95,8 +104,8 @@ export default function SignupPage() {
             <label htmlFor="slug" className="block text-sm font-medium mb-1.5">
               Your public URL
             </label>
-            <div className="flex items-center border-b border-[var(--rule)] px-0.5 py-2 text-sm">
-              <span className="text-[var(--ink-faint)] select-none">/</span>
+            <div className="flex items-center input">
+              <span className="text-[var(--ink-faint)] select-none mr-1">/</span>
               <input
                 id="slug"
                 type="text"
@@ -108,7 +117,7 @@ export default function SignupPage() {
                 required
                 pattern="[a-z0-9-]{2,40}"
                 placeholder="bella-napoli"
-                className="flex-1 outline-none ml-0.5 bg-transparent text-[var(--paper-raised)] placeholder:text-[var(--ink-faint)]"
+                className="flex-1 bg-transparent text-[var(--ink)] placeholder:text-[var(--ink-faint)] outline-none"
               />
             </div>
             <p className="text-xs text-[var(--ink-faint)] mt-1">
@@ -127,7 +136,7 @@ export default function SignupPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="you@restaurant.com"
-              className="input text-[var(--paper-raised)] placeholder:text-[var(--ink-faint)]"
+              className="input placeholder:text-[var(--ink-faint)]"
             />
           </div>
 
@@ -142,7 +151,7 @@ export default function SignupPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={8}
-              className="input text-[var(--paper-raised)] placeholder:text-[var(--ink-faint)]"
+              className="input placeholder:text-[var(--ink-faint)]"
             />
             <p className="text-xs text-[var(--ink-faint)] mt-1">
               At least 8 characters. You'll use this to sign in to your console.
@@ -165,7 +174,7 @@ export default function SignupPage() {
 
           <p className="text-xs text-center text-[var(--ink-faint)]">
             Already have an account?{" "}
-            <Link href="/console/login" className="underline hover:text-[var(--paper-raised)]">
+            <Link href="/console/login" className="underline hover:text-[var(--ink)]">
               Sign in to your console
             </Link>
           </p>

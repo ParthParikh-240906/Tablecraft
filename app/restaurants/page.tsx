@@ -10,17 +10,36 @@ export default async function RestaurantsPage() {
     .order("created_at", { ascending: true });
 
   return (
-    <div>
-      <section className="px-4 pt-20 pb-16 text-center">
-        <p className="label-caps text-[color:var(--ink-soft)] mb-3">
-          Tablecraft
+    <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)]">
+      <header className="border-b border-[var(--rule)] bg-[var(--paper)]/90 backdrop-blur sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+          <Link
+            href="/"
+            className="text-xs font-sans tracking-widest uppercase font-medium text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors"
+          >
+            ← Tablecraft
+          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/signup"
+              className="btn btn-accent text-xs"
+            >
+              Start free
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <section className="px-4 pt-16 pb-12 text-center">
+        <p className="label-caps text-[var(--accent)] mb-3">
+          Directory
         </p>
-        <h1 className="font-display text-4xl md:text-5xl tracking-tight mb-4">
-          Restaurants
+        <h1 className="font-display text-4xl md:text-5xl tracking-tight mb-4 text-[var(--ink)]">
+          Live Restaurants
         </h1>
         <hr className="rule max-w-[120px] mx-auto mb-4" />
-        <p className="text-ink-soft max-w-md mx-auto">
-          Browse restaurants running on Tablecraft.
+        <p className="text-[var(--ink-soft)] max-w-md mx-auto">
+          Browse restaurants powered by Tablecraft. View real-time availability, explore menus, and reserve a seat.
         </p>
       </section>
 

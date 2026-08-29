@@ -9,6 +9,7 @@ interface MenuItem {
   description: string | null;
   price: number;
   category: string | null;
+  image_url: string | null;
   available: boolean;
 }
 
@@ -17,6 +18,7 @@ const EMPTY_FORM = {
   description: "",
   price: "",
   category: "",
+  image_url: "",
 };
 
 export function MenuManager({ orgId }: { orgId: string }) {
@@ -59,6 +61,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
       description: item.description ?? "",
       price: String(item.price),
       category: item.category ?? "",
+      image_url: item.image_url ?? "",
     });
     setShowForm(true);
     setError(null);
@@ -161,7 +164,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
               type="number"
               step="0.01"
               min="0"
-              placeholder="Price (e.g. 12.50)"
+              placeholder="Price in AED (e.g. 45.00)"
               value={form.price}
               onChange={(e) => setForm({ ...form, price: e.target.value })}
               required
@@ -180,6 +183,13 @@ export function MenuManager({ orgId }: { orgId: string }) {
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               className="input"
+            />
+            <input
+              type="url"
+              placeholder="Image URL (optional, e.g. https://...)"
+              value={form.image_url}
+              onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+              className="input sm:col-span-2"
             />
           </div>
           {error && (
@@ -206,14 +216,23 @@ export function MenuManager({ orgId }: { orgId: string }) {
         <ul className="rounded-sm border border-[var(--rule)] divide-y divide-[var(--rule)]">
           {items.map((item) => (
             <li key={item.id} className="px-4 py-3 flex items-center justify-between gap-4">
-              <div>
-                <p className={`font-medium ${item.available ? "" : "line-through opacity-50"}`}>
-                  {item.name}
-                </p>
-                <p className="text-sm text-[var(--ink-faint)]">
-                  ${Number(item.price).toFixed(2)}
-                  {item.category ? ` · ${item.category}` : ""}
-                </p>
+              <div className="flex items-center gap-3">
+                {item.image_url && (
+                  <img
+                    src={item.image_url}
+                    alt={item.name}
+                    className="w-10 h-10 object-cover rounded-sm border border-[var(--rule)]"
+                  />
+                )}
+                <div>
+                  <p className={`font-medium ${item.available ? "" : "line-through opacity-50"}`}>
+                    {item.name}
+                  </p>
+                  <p className="text-sm text-[var(--ink-faint)]">
+                    AED {Number(item.price).toFixed(2)}
+                    {item.category ? ` · ${item.category}` : ""}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
