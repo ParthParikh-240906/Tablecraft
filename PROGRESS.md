@@ -33,15 +33,16 @@
 - [x] **Schema Agent:** `/supabase/migrations/*.sql` — 6 tables + RLS + `seed.sql` (Demo Diner)
 - [x] REVIEW GATE: full schema/RLS diff shown to user & approved; merged to main (c5b36b3)
 
-### Day 2 — Schema solidify + Auth foundation (in progress)
+### Day 2 — Schema solidify + Auth foundation ✅
 - [x] Stand up Supabase: linked project `iydildntxvztbnlpjcoa` (hosted, free tier), env set in `.env.local`
 - [x] Applied migrations (`supabase db push`); fixed `f_current_org_id()` ordering so migration applies (42ea23e)
 - [x] Verified seed (Demo Diner, 6 menu items, T1–T6) + RLS (public reads menu/tables, blocked from orgs)
-- [ ] Supabase Auth with `staff_users ↔ auth_user_id` linking; API-route write path for bookings
+- [x] Auth foundation: `lib/supabase/admin.ts` (service-role), `app/api/bookings` (public write path), `app/api/signup` (in-app org+owner signup, Option A). Demo owner auth user created + linked. REVIEW GATE approved; merged (5207858)
 
-### Day 3 — Web Agent slice 1: landing + menu
-- [ ] `app/(public)/[orgSlug]/page.tsx` landing; `menu/page.tsx` + category view (public policy read)
-- [ ] Auto-approve (read + styling)
+### Day 3 — Web Agent slice 1: landing + menu ✅
+- [x] `app/(public)/[orgSlug]/page.tsx` landing; `menu/page.tsx` + category view (public policy read)
+- [x] `lib/org.ts` shared helpers; `0003_public_read_organizations.sql` (public org metadata read). REVIEW GATE approved; merged (21d0484)
+- [x] Tested live: landing 200, menu 200 (items render), missing org 404
 
 ### Day 4 — Realtime foundation
 - [ ] Supabase Realtime channel abstraction for `tables`
@@ -94,4 +95,5 @@ _Append a row after completing each task._
 | Day 1 | Schema migration + RLS + seed | Schema/Coordinator | feature/schema | DONE | Committed 6d3864e; user-approved; merged c5b36b3 |
 | Day 2 | Supabase link + apply migrations | Coordinator | main | DONE | Project iydildntxvztbnlpjcoa; fixed function ordering (42ea23e) |
 | Day 2 | Verify seed + RLS | Coordinator | main | DONE | Public reads menu/tables; orgs blocked |
-| Day 2 | Auth foundation (staff link + bookings API) | — | — | PENDING | Next up |
+| Day 2 | Auth foundation (admin client, bookings, signup) | Coordinator | feature/auth-foundation | DONE | User-approved; merged 5207858 |
+| Day 3 | Public landing + menu pages + org read policy | Coordinator | feature/public-site | DONE | User-approved; merged 21d0484 |
