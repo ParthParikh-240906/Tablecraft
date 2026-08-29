@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug, getMenuByOrg } from "@/lib/org";
+import { MenuItems } from "./menu-items";
 
 export default async function MenuPage({
   params,
@@ -29,33 +30,7 @@ export default async function MenuPage({
           <p className="text-sm mt-1">Check back soon — we're updating our menu.</p>
         </div>
       ) : (
-        <div className="space-y-10">
-          {menu.map(({ category, items }) => (
-            <section key={category}>
-              <h2
-                className="text-sm font-semibold uppercase tracking-wider mb-4"
-                style={{ color: accent }}
-              >
-                {category}
-              </h2>
-              <ul className="divide-y">
-                {items.map((item) => (
-                  <li key={item.id} className="py-4 flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="font-medium">{item.name}</h3>
-                      {item.description && (
-                        <p className="text-sm text-gray-600 mt-1">{item.description}</p>
-                      )}
-                    </div>
-                    <span className="font-semibold whitespace-nowrap">
-                      ${Number(item.price).toFixed(2)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
+        <MenuItems grouped={menu} accent={accent} />
       )}
     </div>
   );

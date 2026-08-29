@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org";
+import { CartProvider } from "@/lib/cart";
 
 export default async function PublicLayout({
   children,
@@ -19,6 +20,7 @@ export default async function PublicLayout({
   const accent = org.theme_color ?? "#f97316";
 
   return (
+    <CartProvider>
     <div className="min-h-screen flex flex-col">
       <header
         className="border-b"
@@ -47,6 +49,9 @@ export default async function PublicLayout({
             <Link href={`/${org.slug}/menu`} className="hover:underline">
               Menu
             </Link>
+            <Link href={`/${org.slug}/cart`} className="hover:underline">
+              Cart
+            </Link>
             <Link
               href={`/${org.slug}/reserve`}
               className="px-3 py-1.5 rounded-full text-white text-sm font-medium"
@@ -66,5 +71,6 @@ export default async function PublicLayout({
         </p>
       </footer>
     </div>
+    </CartProvider>
   );
 }
