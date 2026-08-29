@@ -5,9 +5,9 @@ import { useTableRealtime, type TableStatus } from "@/lib/realtime";
 import { createClient } from "@/lib/supabase/client";
 
 const STATUS_STYLES: Record<TableStatus, string> = {
-  open: "bg-green-100 text-green-800 border-green-300",
-  occupied: "bg-red-100 text-red-800 border-red-300",
-  reserved: "bg-amber-100 text-amber-800 border-amber-300",
+  open: "bg-green-900/40 text-green-300 border-green-800",
+  occupied: "bg-red-900/40 text-red-300 border-red-800",
+  reserved: "bg-amber-900/40 text-amber-300 border-amber-800",
 };
 
 const NEXT_STATUS: Record<TableStatus, TableStatus> = {
@@ -43,42 +43,42 @@ export function TableGrid({ orgId }: { orgId: string }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold">Tables</h1>
-        <span className="text-xs text-gray-400">
+        <h1 className="font-display text-xl">Tables</h1>
+        <span className="text-xs text-[var(--ink-faint)]">
           {connected ? "● Live" : "○ Connecting…"}
         </span>
       </div>
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-sm text-[var(--ink-faint)] mb-4">
         Click a table to cycle its status: open → occupied → reserved.
       </p>
 
-      {sorted.length === 0 ? (
-        <div className="rounded-2xl border border-dashed p-10 text-center text-gray-500">
-          No tables yet.
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-          {sorted.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => toggleStatus(t.id, t.status)}
-              disabled={updating === t.id}
-              className={`rounded-2xl border p-4 text-left transition-colors ${STATUS_STYLES[t.status]} ${
-                updating === t.id ? "opacity-50 cursor-wait" : "hover:shadow-sm"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-lg">{t.label}</span>
-                <span className="text-xs font-medium uppercase tracking-wide">
-                  {t.status}
-                </span>
-              </div>
-              <p className="text-sm mt-1 opacity-75">Seats {t.capacity}</p>
-            </button>
-          ))}
-        </div>
-      )}
+        {sorted.length === 0 ? (
+          <div className="rounded-sm border border-dashed border-[var(--rule)] p-10 text-center text-[var(--ink-faint)]">
+            No tables yet.
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+            {sorted.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => toggleStatus(t.id, t.status)}
+                disabled={updating === t.id}
+                className={`rounded-sm border p-4 text-left transition-colors ${STATUS_STYLES[t.status]} ${
+                  updating === t.id ? "opacity-50 cursor-wait" : "hover:opacity-90"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-display text-lg">{t.label}</span>
+                  <span className="text-xs font-medium uppercase tracking-wide">
+                    {t.status}
+                  </span>
+                </div>
+                <p className="text-sm mt-1 opacity-75">Seats {t.capacity}</p>
+              </button>
+            ))}
+          </div>
+        )}
     </div>
   );
 }

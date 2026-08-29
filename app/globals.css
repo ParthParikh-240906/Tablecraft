@@ -1,26 +1,187 @@
 @import "tailwindcss";
 
+/* =============================================================================
+   Tablecraft design system — "printed menu / order ticket"
+   Warm paper ground, near-black ink, hairline rules, small-caps labels.
+   Org theme_color drives accents via inline style (see --accent usage);
+   the base scaffold stays neutral so any restaurant color works.
+   ============================================================================= */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Paper — warm white, not cream. Slight warmth, no yellow cast. */
+  --paper: #faf9f6;
+  --paper-raised: #ffffff;
+
+  /* Ink — near-black with warmth, not pure #000. */
+  --ink: #1c1917;
+  --ink-soft: #57534e;
+  --ink-faint: #a8a29e;
+
+  /* Hairline rules, like printed rules on a menu. */
+  --rule: #e7e2d9;
+  --rule-strong: #1c1917;
+
+  /* Accent is overridden per-org at runtime (inline style on <html>/wrapper). */
+  --accent: #b45309;
+
+  --font-serif: var(--font-display), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--color-ink-soft, #57534e);
+  --color-ink-soft: var(--ink-soft);
+  --color-rule: var(--rule);
+  --color-accent: var(--accent);
+
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Type scale & component language ---------- */
+
+/* Small caps labels — the "section header" voice of a printed menu. */
+.label-caps {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* Serif display for headings and menu item names. */
+.font-display {
+  font-family: var(--font-serif);
+}
+
+/* Hairline divider. */
+.rule {
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+
+/* Ticket/receipt structure: dashed tear line. */
+.rule-dashed {
+  border: 0;
+  border-top: 1px dashed var(--rule);
+}
+
+/* Dotted leader between a menu item and its price, like a printed menu. */
+.leader {
+  flex: 1;
+  border-bottom: 1px dotted var(--rule);
+  margin: 0 0.5rem;
+  transform: translateY(-0.25rem);
+}
+
+/* Buttons: ink-filled or accent-filled, pill-free — squared with slight radius. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.625rem 1.25rem;
+  border-radius: 2px;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+.btn:hover {
+  opacity: 0.85;
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-accent {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-ink {
+  background: var(--ink);
+  color: var(--paper-raised);
+}
+.btn-outline {
+  border: 1px solid var(--rule-strong);
+  color: var(--ink);
+  background: transparent;
+}
+.btn-outline:hover {
+  background: var(--paper-raised);
+}
+
+/* Inputs: underline style, like filling in a printed form. */
+.input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  padding: 0.5rem 0.125rem;
+  font-size: 0.875rem;
+  border-radius: 0;
+}
+.input:focus {
+  outline: none;
+  border-bottom-color: var(--rule-strong);
+}
+
+/* Card: paper sheet, hairline border, no drop shadow. */
+.ticket {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+}
+
+/* Small caps label utility. */
+.small-caps {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+/* Shared dark surface — the marketing page identity, reused everywhere
+   the page should feel like a dark panel rather than a light document. */
+.surface-dark {
+  background: var(--ink);
+  color: var(--paper-raised);
+}
+.surface-dark .input {
+  color: var(--paper-raised);
+}
+.surface-dark .input::placeholder {
+  color: var(--ink-faint);
+}
+
+/* Motion: one considered entrance moment, nothing scattered. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #14120f;
+    --paper-raised: #1c1917;
+    --ink: #ece9e2;
+    --ink-soft: #a8a29e;
+    --rule: #2c2925;
+    --rule-strong: #ece9e2;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }

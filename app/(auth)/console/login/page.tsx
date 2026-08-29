@@ -36,7 +36,7 @@ function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 bg-white rounded-2xl border p-6">
+    <form onSubmit={handleSubmit} className="space-y-5 border border-[var(--rule)] p-6 rounded-sm">
       <div>
         <label htmlFor="email" className="block text-sm font-medium mb-1.5">
           Email
@@ -48,7 +48,7 @@ function LoginForm() {
           onChange={(e) => setEmail(e.target.value)}
           required
           placeholder="you@restaurant.com"
-          className="w-full rounded-lg border px-3 py-2.5 text-sm"
+          className="input"
         />
       </div>
       <div>
@@ -61,12 +61,12 @@ function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          className="w-full rounded-lg border px-3 py-2.5 text-sm"
+          className="input"
         />
       </div>
 
       {error && (
-        <p className="text-sm text-red-600 rounded-lg bg-red-50 px-3 py-2">
+        <p className="text-sm text-red-400 rounded-sm bg-red-900/40 px-3 py-2">
           {error}
         </p>
       )}
@@ -74,7 +74,7 @@ function LoginForm() {
       <button
         type="submit"
         disabled={submitting}
-        className="w-full py-2.5 rounded-full bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
+        className="btn btn-accent w-full"
       >
         {submitting ? "Signing in…" : "Sign in"}
       </button>
@@ -84,14 +84,14 @@ function LoginForm() {
 
 export default function ConsoleLoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
+    <div className="surface-dark min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">
+          <p className="label-caps text-[color:var(--accent)] mb-1">
             Tablecraft
           </p>
-          <h1 className="text-2xl font-bold">Operator Console</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="font-display text-2xl">Operator Console</h1>
+          <p className="text-sm text-[var(--ink-faint)] mt-1">
             Sign in with your staff account
           </p>
         </div>

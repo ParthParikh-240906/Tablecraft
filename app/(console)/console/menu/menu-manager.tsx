@@ -128,18 +128,14 @@ export function MenuManager({ orgId }: { orgId: string }) {
   }
 
   if (loading) {
-    return <p className="text-sm text-gray-500">Loading menu…</p>;
+    return <p className="text-sm text-[var(--ink-faint)]">Loading menu…</p>;
   }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold">Menu</h1>
-        <button
-          type="button"
-          onClick={startAdd}
-          className="px-4 py-2 rounded-full bg-gray-900 text-white text-sm font-medium"
-        >
+        <h1 className="font-display text-xl">Menu</h1>
+        <button type="button" onClick={startAdd} className="btn btn-accent">
           + Add item
         </button>
       </div>
@@ -147,7 +143,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
       {showForm && (
         <form
           onSubmit={handleSave}
-          className="bg-white rounded-2xl border p-5 mb-6 space-y-3"
+          className="ticket p-5 mb-6 space-y-3"
         >
           <h2 className="font-medium text-sm">
             {editingId ? "Edit item" : "New item"}
@@ -159,7 +155,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
-              className="rounded-lg border px-3 py-2 text-sm"
+              className="input"
             />
             <input
               type="number"
@@ -169,41 +165,33 @@ export function MenuManager({ orgId }: { orgId: string }) {
               value={form.price}
               onChange={(e) => setForm({ ...form, price: e.target.value })}
               required
-              className="rounded-lg border px-3 py-2 text-sm"
+              className="input"
             />
             <input
               type="text"
               placeholder="Category (e.g. Mains)"
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })}
-              className="rounded-lg border px-3 py-2 text-sm"
+              className="input"
             />
             <input
               type="text"
               placeholder="Description (optional)"
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="rounded-lg border px-3 py-2 text-sm"
+              className="input"
             />
           </div>
           {error && (
-            <p className="text-sm text-red-600 rounded-lg bg-red-50 px-3 py-2">
+            <p className="text-sm text-red-400 rounded-sm bg-red-900/40 px-3 py-2">
               {error}
             </p>
           )}
           <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 rounded-full bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
-            >
+            <button type="submit" disabled={saving} className="btn btn-accent">
               {saving ? "Saving…" : "Save"}
             </button>
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="px-4 py-2 rounded-full border text-sm"
-            >
+            <button type="button" onClick={() => setShowForm(false)} className="btn btn-outline">
               Cancel
             </button>
           </div>
@@ -211,18 +199,18 @@ export function MenuManager({ orgId }: { orgId: string }) {
       )}
 
       {items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed p-10 text-center text-gray-500">
+        <div className="rounded-sm border border-dashed border-[var(--rule)] p-10 text-center text-[var(--ink-faint)]">
           No menu items yet. Add your first one.
         </div>
       ) : (
-        <ul className="bg-white rounded-2xl border divide-y">
+        <ul className="rounded-sm border border-[var(--rule)] divide-y divide-[var(--rule)]">
           {items.map((item) => (
             <li key={item.id} className="px-4 py-3 flex items-center justify-between gap-4">
               <div>
                 <p className={`font-medium ${item.available ? "" : "line-through opacity-50"}`}>
                   {item.name}
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-[var(--ink-faint)]">
                   ${Number(item.price).toFixed(2)}
                   {item.category ? ` · ${item.category}` : ""}
                 </p>
@@ -231,10 +219,10 @@ export function MenuManager({ orgId }: { orgId: string }) {
                 <button
                   type="button"
                   onClick={() => toggleAvailable(item)}
-                  className={`text-xs font-medium px-2.5 py-1 rounded-full border ${
+                  className={`text-xs font-medium px-2.5 py-1 rounded-sm border ${
                     item.available
-                      ? "bg-green-50 text-green-700 border-green-200"
-                      : "bg-gray-50 text-gray-500 border-gray-200"
+                      ? "bg-green-900/40 text-green-300 border-green-800"
+                      : "border-[var(--rule)] text-[var(--ink-faint)]"
                   }`}
                 >
                   {item.available ? "Available" : "Unavailable"}
@@ -242,7 +230,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
                 <button
                   type="button"
                   onClick={() => startEdit(item)}
-                  className="text-xs text-gray-600 hover:underline"
+                  className="text-xs text-[var(--ink-faint)] hover:underline"
                 >
                   Edit
                 </button>
