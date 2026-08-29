@@ -60,10 +60,11 @@
 - [x] Bookings list (upcoming/past, RLS-scoped); menu management (add/edit/toggle availability); console nav
 - [x] Realtime console→public verified via Day 4 smoke test; REVIEW GATE approved; merged (c9b8a69)
 
-### Bonus slice — Root directory + signup UI ✅
-- [x] `app/page.tsx` — restaurant directory (lists all orgs, "Create your restaurant" CTA, staff console link) replacing the Next.js starter
-- [x] `app/signup/page.tsx` — signup form (auto-suggested slug, owner email/password) → creates org via existing `/api/signup` → redirects to new public URL. Closes the "sign up a new restaurant org" DoD gap.
-- [x] Merged (7132cbe)
+### Bonus slice — Marketing homepage + signup UI + restaurant directory ✅
+- [x] `app/page.tsx` — **Tablecraft marketing homepage** (product pitch: four pillars, how-it-works ticket, "Create your restaurant" CTA → `/signup`, "Contact us" mailto) replacing the Next.js starter
+- [x] `app/restaurants/page.tsx` — restaurant directory (list of live orgs) relocated from `/`
+- [x] `app/signup/page.tsx` — signup form (auto-suggested slug, owner email/password, no OAuth) → creates org via existing `/api/signup` → redirects to new public URL. Closes the "sign up a new restaurant org" DoD gap.
+- [x] Merged (4b018cb)
 
 ### Day 8 — Payments Agent: checkout + webhook
 - [ ] `app/api/checkout/*` (Stripe Checkout Session); `app/api/webhooks/stripe` → `orders.status=paid`
