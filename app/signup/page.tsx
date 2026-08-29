@@ -59,19 +59,22 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-[var(--ink)] text-[var(--paper-raised)]">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <p className="text-xs uppercase tracking-widest text-orange-500 font-semibold mb-1">
+          <p className="label-caps text-[color:var(--accent)] mb-1">
             Tablecraft
           </p>
-          <h1 className="text-2xl font-bold">Create your restaurant</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="font-display text-3xl">Create your restaurant</h1>
+          <p className="text-sm text-[var(--ink-faint)] mt-2">
             Get a public menu, reservations, and online ordering.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 bg-white rounded-2xl border p-6">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-5 border border-[var(--rule)] p-6 rounded-sm"
+        >
           <div>
             <label htmlFor="orgName" className="block text-sm font-medium mb-1.5">
               Restaurant name
@@ -84,7 +87,7 @@ export default function SignupPage() {
               required
               minLength={2}
               placeholder="Bella Napoli"
-              className="w-full rounded-lg border px-3 py-2.5 text-sm"
+              className="input text-[var(--paper-raised)] placeholder:text-[var(--ink-faint)]"
             />
           </div>
 
@@ -92,8 +95,8 @@ export default function SignupPage() {
             <label htmlFor="slug" className="block text-sm font-medium mb-1.5">
               Your public URL
             </label>
-            <div className="flex items-center rounded-lg border px-3 py-2.5 text-sm">
-              <span className="text-gray-400 select-none">/</span>
+            <div className="flex items-center border-b border-[var(--rule)] px-0.5 py-2 text-sm">
+              <span className="text-[var(--ink-faint)] select-none">/</span>
               <input
                 id="slug"
                 type="text"
@@ -105,10 +108,10 @@ export default function SignupPage() {
                 required
                 pattern="[a-z0-9-]{2,40}"
                 placeholder="bella-napoli"
-                className="flex-1 outline-none ml-0.5"
+                className="flex-1 outline-none ml-0.5 bg-transparent text-[var(--paper-raised)] placeholder:text-[var(--ink-faint)]"
               />
             </div>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-[var(--ink-faint)] mt-1">
               Lowercase letters, numbers, and hyphens.
             </p>
           </div>
@@ -124,7 +127,7 @@ export default function SignupPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="you@restaurant.com"
-              className="w-full rounded-lg border px-3 py-2.5 text-sm"
+              className="input text-[var(--paper-raised)] placeholder:text-[var(--ink-faint)]"
             />
           </div>
 
@@ -139,15 +142,15 @@ export default function SignupPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={8}
-              className="w-full rounded-lg border px-3 py-2.5 text-sm"
+              className="input text-[var(--paper-raised)] placeholder:text-[var(--ink-faint)]"
             />
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-[var(--ink-faint)] mt-1">
               At least 8 characters. You'll use this to sign in to your console.
             </p>
           </div>
 
           {error && (
-            <p className="text-sm text-red-600 rounded-lg bg-red-50 px-3 py-2">
+            <p className="text-sm text-red-400 rounded-sm bg-red-900/40 px-3 py-2">
               {error}
             </p>
           )}
@@ -155,14 +158,14 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-2.5 rounded-full bg-orange-500 text-white text-sm font-medium disabled:opacity-50"
+            className="btn btn-accent w-full"
           >
             {submitting ? "Creating…" : "Create restaurant"}
           </button>
 
-          <p className="text-xs text-center text-gray-400">
+          <p className="text-xs text-center text-[var(--ink-faint)]">
             Already have an account?{" "}
-            <Link href="/console/login" className="underline">
+            <Link href="/console/login" className="underline hover:text-[var(--paper-raised)]">
               Sign in to your console
             </Link>
           </p>
