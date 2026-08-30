@@ -76,8 +76,25 @@
 - **Back Tablecraft Link on Public Sites** (`app/(public)/[orgSlug]/layout.tsx`) — Footer "Back Tablecraft" link on every org public site navigates back to the Tablecraft marketing page. Verified.
 - **Network Access Fix (non-localhost)** (`next.config.ts`, `app/api/checkout/route.ts`, `lib/cart.tsx`, `app/(public)/[orgSlug]/cart/page.tsx`, `app/(auth)/console/login/page.tsx`, `.env.example`) — Added `allowedDevOrigins: ['192.168.1.30']` to fix Next.js dev server cross-origin blocking. Checkout route uses `NEXT_PUBLIC_APP_URL` / request origin / x-forwarded headers (no hardcoded localhost). Cart uses relative `/api/checkout` fetch. Login uses `window.location.origin` for OAuth redirect. `.env.example` documents `NEXT_PUBLIC_APP_URL`. NOTE: Supabase dashboard Authentication → URL Configuration must add `http://192.168.1.30:3000` to Site URL / Redirect URLs (manual dashboard step, not code). Verified.
 - **Booking "Table Table 5" Duplication Fix** (`app/(console)/console/bookings/booking-actions.tsx`) — Display now uses `Table {table?.label}` (label already contains "Table 5"), no more duplication. Verified.
-- **Booking Table Status Update Error Handling** (`app/(console)/console/bookings/booking-actions.tsx`) — Confirming a booking marks the table reserved; cancelling releases it to open; both with error logging. Verified.
-- **Derived Table Status (2h window)** (`app/(console)/console/tables/table-grid.tsx`) — Computed status: table auto-shows "Reserved" starting 2h before a confirmed booking time, displays "Reserved {time}" under the table. Read-time derived, no cron job. Verified.
+  - **Booking Table Status Update Error Handling** (`app/(console)/console/bookings/booking-actions.tsx`) — Confirming a booking marks the table reserved; cancelling releases it to open; both with error logging. Verified.
+  - **Derived Table Status (2h window)** (`app/(console)/console/tables/table-grid.tsx`) — Computed status: table auto-shows "Reserved" starting 2h before a confirmed booking time, displays "Reserved {time}" under the table. Read-time derived, no cron job. Verified.
+
+### Theme System Enhancements
+- **Theme Preset System** (`lib/theme.ts`) — 5 curated theme presets (Midnight Ember, Forest Canopy, Ocean Depth, Sunset Clay, Racing Silver) with predefined main, text, and secondary colors for instant theming.
+- **Enhanced Signup Theme Selection** (`app/signup/page.tsx`) — Interactive theme picker with visual color swatches, immediate selection feedback, and preset-based color application to new restaurants.
+- **Secondary Color & Text Color Support** — Extended theme system with `theme_secondary_color` (buttons, headers) and `theme_text_color` (foreground readability) for complete visual customization.
+- **Tagline Support** — Added optional tagline field to signup and organizations table for personalized restaurant messaging on public sites.
+- **Optional Signup Fields** — Branches/locations, contact phone/email/address fields for comprehensive restaurant profile data.
+- **Restaurant Image Upload** — Added restaurant photo upload (separate from logo/background) with dedicated storage bucket `org-restaurant-images`, displayed on public landing pages.
+- **About Text Section** — Added `about_text` field and textarea in signup form for restaurant descriptions, enabling scrollable About sections on public sites.
+- **Theme Text Color Migration** — Added migration 0007_theme_text_color.sql for `theme_text_color` column with default values for existing orgs.
+
+### Bug Fixes & Safety Improvements
+- **Auth User Deletion Fix** (`scripts/delete-org.mjs`, `app/api/orgs/[orgId]/route.ts`) — Fixed deletion logic to properly remove Supabase Auth users when deleting organizations. Uses org-first order (safer failure mode) with auth cleanup as non-critical post-delete step. Both manual script and API route now consistent.
+- **Header Color Scheme Fix** (`app/(public)/[orgSlug]/layout.tsx`) — Changed header background to use secondary color instead of main color for better visual hierarchy (e.g., Racing Silver: white background, black text, red button).
+- **Login Error Security** (`app/(auth)/console/login/page.tsx`) — Changed login error messages from detailed staff role information to generic "Invalid credentials" for security.
+- **About Text Data Flow** (`app/signup/page.tsx`, `app/api/signup/route.ts`) — Added missing about_text field to signup form, state management, FormData submission, and API handling for complete About section functionality.
+- **Delete Logic Safety** — Verified multi-org safety (unique constraint on auth_user_id prevents cross-org impact), implemented fail-safe deletion order, added proper error handling for both terminal script and API route contexts.
 
 ---
 

@@ -28,7 +28,7 @@ function LoginForm() {
     });
 
     if (authError) {
-      setError(authError.message);
+      setError("Invalid credentials. Please try again.");
       setSubmitting(false);
       return;
     }

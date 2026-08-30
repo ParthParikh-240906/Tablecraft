@@ -10,7 +10,7 @@ export async function getOrgBySlug(slug: string) {
 
   const { data, error } = await supabase
     .from("organizations")
-    .select("id, name, slug, logo_url, theme_color")
+    .select("id, name, slug, logo_url, background_image_url, theme_color, theme_text_color, theme_secondary_color, theme_font_pair, theme_motif, tagline, about_text, restaurant_image_url, branches, contact_phone, contact_email, contact_address")
     .eq("slug", slug)
     .maybeSingle();
 

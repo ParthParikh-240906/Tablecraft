@@ -17,18 +17,27 @@ export default async function PublicLayout({
     notFound();
   }
 
-  const accent = org.theme_color ?? "#f97316";
+  const mainColor = org.theme_color ?? "#141414";
+  const textColor = org.theme_text_color ?? "#f5f5f4";
+  const highlightColor = org.theme_secondary_color ?? "#f97316";
 
   return (
     <CartProvider orgSlug={org.slug}>
     <div
       data-theme="light"
-      className="theme-light min-h-screen flex flex-col bg-[var(--paper)] text-[var(--ink)]"
-      style={{ ["--accent" as string]: accent }}
+      className="theme-light min-h-screen flex flex-col"
+      style={{ 
+        backgroundColor: mainColor,
+        color: textColor,
+        ["--accent" as string]: highlightColor,
+      }}
     >
       <header
-        className="border-b bg-[var(--paper-raised)]"
-        style={{ borderColor: `${accent}33` }}
+        className="border-b"
+        style={{ 
+          backgroundColor: `${highlightColor}ee`,
+          borderColor: `${highlightColor}33`
+        }}
       >
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href={`/${org.slug}`} className="flex items-center gap-2">
@@ -41,8 +50,8 @@ export default async function PublicLayout({
               />
             ) : (
               <span
-                className="h-8 w-8 rounded-full flex items-center justify-center text-white font-bold text-sm"
-                style={{ backgroundColor: accent }}
+                className="h-8 w-8 rounded-full flex items-center justify-center font-bold text-sm"
+                style={{ backgroundColor: highlightColor, color: mainColor }}
               >
                 {org.name.charAt(0).toUpperCase()}
               </span>
@@ -58,8 +67,8 @@ export default async function PublicLayout({
             </Link>
             <Link
               href={`/${org.slug}/reserve`}
-              className="px-3 py-1.5 rounded-full text-white text-sm font-medium"
-              style={{ backgroundColor: accent }}
+              className="px-3 py-1.5 rounded-full text-sm font-medium"
+              style={{ backgroundColor: highlightColor, color: mainColor }}
             >
               Book a table
             </Link>

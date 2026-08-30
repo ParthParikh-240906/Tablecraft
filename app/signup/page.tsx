@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { THEME_PRESETS, type ThemePresetKey } from "@/lib/theme";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -11,8 +12,22 @@ export default function SignupPage() {
   const [slug, setSlug] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [tagline, setTagline] = useState("");
+  const [selectedPreset, setSelectedPreset] = useState<ThemePresetKey>("midnight-ember");
+  
+  // Optional fields
+  const [branches, setBranches] = useState<string[]>([""]);
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactAddress, setContactAddress] = useState("");
+  const [aboutText, setAboutText] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
+  const [restaurantImageFile, setRestaurantImageFile] = useState<File | null>(null);
+  
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   // Auto-suggest a slug from the org name.
   function handleNameChange(value: string) {
@@ -29,23 +44,63 @@ export default function SignupPage() {
   }
 
   const [slugTouched, setSlugTouched] = useState(false);
+  
+  // Handler for branches array
+  function handleBranchChange(index: number, value: string) {
+    const newBranches = [...branches];
+    newBranches[index] = value;
+    setBranches(newBranches);
+  }
+  
+  function addBranch() {
+    setBranches([...branches, ""]);
+  }
+  
+  function removeBranch(index: number) {
+    setBranches(branches.filter((_, i) => i !== index));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
+    setUploading(true);
 
     try {
+      // Filter out empty branches
+      const validBranches = branches.filter(b => b.trim().length > 0);
+      
+      // Prepare form data for file uploads
+      const formData = new FormData();
+      formData.append('orgName', orgName);
+      formData.append('slug', slug);
+      formData.append('email', email);
+      formData.append('password', password);
+      formData.append('tagline', tagline);
+      formData.append('preset', selectedPreset);
+      
+      // Optional fields
+      if (validBranches.length > 0) {
+        formData.append('branches', JSON.stringify(validBranches));
+      }
+      if (contactPhone) formData.append('contactPhone', contactPhone);
+      if (contactEmail) formData.append('contactEmail', contactEmail);
+      if (contactAddress) formData.append('contactAddress', contactAddress);
+      if (aboutText) formData.append('aboutText', aboutText);
+      if (logoFile) formData.append('logoFile', logoFile);
+      if (backgroundFile) formData.append('backgroundFile', backgroundFile);
+      if (restaurantImageFile) formData.append('restaurantImageFile', restaurantImageFile);
+
       const res = await fetch("/api/signup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgName, slug, email, password }),
+        body: formData,
       });
 
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Could not create your restaurant");
         setSubmitting(false);
+        setUploading(false);
         return;
       }
 
@@ -55,6 +110,7 @@ export default function SignupPage() {
     } catch {
       setError("Network error — please try again");
       setSubmitting(false);
+      setUploading(false);
     }
   }
 
@@ -98,6 +154,24 @@ export default function SignupPage() {
               placeholder="Bella Napoli"
               className="input placeholder:text-[var(--ink-faint)]"
             />
+          </div>
+
+          <div>
+            <label htmlFor="tagline" className="block text-sm font-medium mb-1.5">
+              Tagline (optional)
+            </label>
+            <input
+              id="tagline"
+              type="text"
+              value={tagline}
+              onChange={(e) => setTagline(e.target.value)}
+              maxLength={120}
+              placeholder="Fresh food, warm welcome."
+              className="input placeholder:text-[var(--ink-faint)]"
+            />
+            <p className="text-xs text-[var(--ink-faint)] mt-1">
+              A short one-line tagline displayed on your landing page.
+            </p>
           </div>
 
           <div>
@@ -156,6 +230,194 @@ export default function SignupPage() {
             <p className="text-xs text-[var(--ink-faint)] mt-1">
               At least 8 characters. You'll use this to sign in to your console.
             </p>
+          </div>
+
+          {/* Theme preset picker */}
+          <div>
+            <label className="block text-sm font-medium mb-3">
+              Choose your theme
+            </label>
+            <div className="grid grid-cols-1 gap-2">
+              {(Object.keys(THEME_PRESETS) as ThemePresetKey[]).map((key) => {
+                const preset = THEME_PRESETS[key];
+                const isSelected = selectedPreset === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSelectedPreset(key)}
+                    className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
+                      isSelected ? 'border-[var(--accent)] bg-[var(--accent)]/5' : 'border-[var(--rule)] hover:border-[var(--ink-soft)]'
+                    }`}
+                  >
+                    {/* Color swatch */}
+                    <div className="flex gap-1">
+                      <div 
+                        className="w-8 h-8 rounded-l" 
+                        style={{ backgroundColor: preset.main }}
+                      />
+                      <div 
+                        className="w-8 h-8" 
+                        style={{ backgroundColor: preset.text }}
+                      />
+                      <div 
+                        className="w-8 h-8 rounded-r" 
+                        style={{ backgroundColor: preset.highlight }}
+                      />
+                    </div>
+                    <span className="font-medium">{preset.name}</span>
+                    {isSelected && (
+                      <span className="ml-auto text-[var(--accent)]">✓</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Optional fields section */}
+          <div className="border-t border-[var(--rule)] pt-4 space-y-4">
+            <p className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wide">
+              Optional Details
+            </p>
+
+            {/* Branches */}
+            <div>
+              <label className="block text-sm font-medium mb-1.5">
+                Branches / Locations (optional)
+              </label>
+              {branches.map((branch, index) => (
+                <div key={index} className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={branch}
+                    onChange={(e) => handleBranchChange(index, e.target.value)}
+                    placeholder="Abu Dhabi"
+                    className="input flex-1 placeholder:text-[var(--ink-faint)]"
+                  />
+                  {branches.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeBranch(index)}
+                      className="px-2 py-1 text-xs text-red-400 hover:text-red-300"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={addBranch}
+                className="text-xs text-[var(--accent)] hover:underline"
+              >
+                + Add another location
+              </button>
+            </div>
+
+            {/* Contact info */}
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label htmlFor="contactPhone" className="block text-sm font-medium mb-1.5">
+                  Phone (optional)
+                </label>
+                <input
+                  id="contactPhone"
+                  type="tel"
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                  placeholder="+971 2 123 4567"
+                  className="input placeholder:text-[var(--ink-faint)]"
+                />
+              </div>
+              <div>
+                <label htmlFor="contactEmail" className="block text-sm font-medium mb-1.5">
+                  Contact email (optional)
+                </label>
+                <input
+                  id="contactEmail"
+                  type="email"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  placeholder="info@restaurant.com"
+                  className="input placeholder:text-[var(--ink-faint)]"
+                />
+              </div>
+              <div>
+                <label htmlFor="contactAddress" className="block text-sm font-medium mb-1.5">
+                  Address (optional)
+                </label>
+                <input
+                  id="contactAddress"
+                  type="text"
+                  value={contactAddress}
+                  onChange={(e) => setContactAddress(e.target.value)}
+                  placeholder="123 Main St, City"
+                  className="input placeholder:text-[var(--ink-faint)]"
+                />
+              </div>
+            </div>
+
+            {/* About text */}
+            <div>
+              <label htmlFor="aboutText" className="block text-sm font-medium mb-1.5">
+                About your restaurant (optional)
+              </label>
+              <textarea
+                id="aboutText"
+                value={aboutText}
+                onChange={(e) => setAboutText(e.target.value)}
+                rows={4}
+                placeholder="Tell us about your restaurant's story, cuisine, and atmosphere..."
+                className="input placeholder:text-[var(--ink-faint)]"
+              />
+              <p className="text-xs text-[var(--ink-faint)] mt-1">
+                This will be displayed on your landing page's About section.
+              </p>
+            </div>
+
+            {/* File uploads */}
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label htmlFor="logoFile" className="block text-sm font-medium mb-1.5">
+                  Logo image (optional)
+                </label>
+                <input
+                  id="logoFile"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+                  className="input"
+                />
+              </div>
+              <div>
+                <label htmlFor="backgroundFile" className="block text-sm font-medium mb-1.5">
+                  Background image (optional)
+                </label>
+                <input
+                  id="backgroundFile"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setBackgroundFile(e.target.files?.[0] || null)}
+                  className="input"
+                />
+              </div>
+              <div>
+                <label htmlFor="restaurantImageFile" className="block text-sm font-medium mb-1.5">
+                  Restaurant photo (optional)
+                </label>
+                <input
+                  id="restaurantImageFile"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setRestaurantImageFile(e.target.files?.[0] || null)}
+                  className="input"
+                />
+                <p className="text-xs text-[var(--ink-faint)] mt-1">
+                  A photo of your restaurant interior or food. Displayed on the landing page.
+                </p>
+              </div>
+            </div>
           </div>
 
           {error && (

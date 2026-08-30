@@ -15,7 +15,7 @@ export default async function ReservePage({
     notFound();
   }
 
-  const accent = org.theme_color ?? "#f97316";
+  const highlightColor = org.theme_secondary_color ?? "#f97316";
 
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
@@ -23,7 +23,7 @@ export default async function ReservePage({
       <div className="mb-6">
         <Link
           href={`/${org.slug}`}
-          className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-black transition-colors"
+          className="inline-flex items-center gap-2 text-sm font-medium text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors"
         >
           <span aria-hidden="true">&larr;</span>
           <span>Back to {org.name}</span>
@@ -31,19 +31,19 @@ export default async function ReservePage({
       </div>
 
       <h1 className="text-3xl font-bold mb-2">Book a Table</h1>
-      <p className="text-gray-600 mb-8">
+      <p className="text-[var(--ink-faint)] mb-8">
         Reserve your spot at {org.name}. Choose your party size, tell us when, and
         we will automatically prepare the optimal table for you (2-hour reservation).
       </p>
 
-      <BookingForm orgId={org.id} orgSlug={org.slug} accent={accent} />
+      <BookingForm orgId={org.id} orgSlug={org.slug} accent={highlightColor} />
 
       {/* Bottom Back Button */}
       <div className="mt-8 pt-6 border-t border-[var(--rule)] text-center">
         <Link
           href={`/${org.slug}`}
           className="inline-flex items-center gap-2 text-sm font-medium hover:underline"
-          style={{ color: accent }}
+          style={{ color: highlightColor }}
         >
           <span aria-hidden="true">&larr;</span>
           <span>Return to {org.name} overview</span>
