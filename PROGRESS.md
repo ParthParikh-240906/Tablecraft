@@ -73,6 +73,11 @@
 - **Operator Console Orders Management** (`/console/orders`, `orders-list.tsx`, `/api/orders/status`) — Full kitchen & online order management screen with filtering for Dine-in Table vs Online Orders, line item breakdowns, and real-time status management (Paid, Preparing, Ready, Completed, Cancelled).
 - **Table vs Online Checkout Selection** (`/cart`, `/api/checkout`) — Dine-in guests can specify their table number or choose online takeout.
 - **Button Debouncing & Simplified Reservation UI** (`menu-items.tsx`, `booking-form.tsx`) — Click-throttling on Add-to-cart buttons; simplified and clean confirmation message on booking creation.
+- **Back Tablecraft Link on Public Sites** (`app/(public)/[orgSlug]/layout.tsx`) — Footer "Back Tablecraft" link on every org public site navigates back to the Tablecraft marketing page. Verified.
+- **Network Access Fix (non-localhost)** (`next.config.ts`, `app/api/checkout/route.ts`, `lib/cart.tsx`, `app/(public)/[orgSlug]/cart/page.tsx`, `app/(auth)/console/login/page.tsx`, `.env.example`) — Added `allowedDevOrigins: ['192.168.1.30']` to fix Next.js dev server cross-origin blocking. Checkout route uses `NEXT_PUBLIC_APP_URL` / request origin / x-forwarded headers (no hardcoded localhost). Cart uses relative `/api/checkout` fetch. Login uses `window.location.origin` for OAuth redirect. `.env.example` documents `NEXT_PUBLIC_APP_URL`. NOTE: Supabase dashboard Authentication → URL Configuration must add `http://192.168.1.30:3000` to Site URL / Redirect URLs (manual dashboard step, not code). Verified.
+- **Booking "Table Table 5" Duplication Fix** (`app/(console)/console/bookings/booking-actions.tsx`) — Display now uses `Table {table?.label}` (label already contains "Table 5"), no more duplication. Verified.
+- **Booking Table Status Update Error Handling** (`app/(console)/console/bookings/booking-actions.tsx`) — Confirming a booking marks the table reserved; cancelling releases it to open; both with error logging. Verified.
+- **Derived Table Status (2h window)** (`app/(console)/console/tables/table-grid.tsx`) — Computed status: table auto-shows "Reserved" starting 2h before a confirmed booking time, displays "Reserved {time}" under the table. Read-time derived, no cron job. Verified.
 
 ---
 

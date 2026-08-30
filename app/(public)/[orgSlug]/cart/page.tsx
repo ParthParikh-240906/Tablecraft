@@ -6,12 +6,10 @@ import { useCart } from "@/lib/cart";
 import Link from "next/link";
 
 export default function CartPage() {
-  const { items, setQuantity, removeItem, total, count } = useCart();
+  const { items, setQuantity, removeItem, total, count, isLoaded } = useCart();
   const params = useParams();
   const orgSlug = typeof params?.orgSlug === "string" ? params.orgSlug : "";
 
-  const [orderType, setOrderType] = useState<"online" | "table">("online");
-  const [tableNumber, setTableNumber] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,11 +19,6 @@ export default function CartPage() {
     e.preventDefault();
     if (!customerName.trim()) {
       setError("Please enter your name for the order.");
-      return;
-    }
-
-    if (orderType === "table" && !tableNumber.trim()) {
-      setError("Please enter your table number.");
       return;
     }
 
@@ -40,8 +33,6 @@ export default function CartPage() {
           orgSlug,
           customerName: customerName.trim(),
           customerEmail: customerEmail.trim() || undefined,
-          orderType,
-          tableNumber: orderType === "table" ? tableNumber.trim() : undefined,
           items: items.map((i) => ({
             id: i.id,
             name: i.name,
@@ -67,6 +58,14 @@ export default function CartPage() {
     }
   }
 
+  if (!isLoaded) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-20 text-center text-sm text-[var(--ink-faint)]">
+        Loading cart…
+      </div>
+    );
+  }
+
   if (count === 0) {
     return (
       <div className="max-w-xl mx-auto px-4 py-20 text-center">
@@ -86,7 +85,7 @@ export default function CartPage() {
 
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
-      <h1 className="font-display text-3xl font-bold mb-6">Your Order Ticket</h1>
+      <h1 className="font-display text-3xl font-bold mb-6">Cart</h1>
 
       <ul className="divide-y divide-[var(--rule)] mb-6">
         {items.map((item) => (
@@ -148,49 +147,6 @@ export default function CartPage() {
         {error && (
           <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 text-xs rounded-sm">
             {error}
-          </div>
-        )}
-
-        {/* Order Type Toggle */}
-        <div>
-          <label className="label-caps block text-[var(--ink-soft)] mb-2">Order Type</label>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setOrderType("online")}
-              className={`py-2 px-3 text-xs font-medium rounded-md border text-center transition-all ${
-                orderType === "online"
-                  ? "bg-[var(--accent)] text-white border-[var(--accent)] shadow-sm"
-                  : "border-[var(--rule)] text-[var(--ink-soft)] hover:bg-[var(--paper-raised)]"
-              }`}
-            >
-              🛍️ Online / Takeout
-            </button>
-            <button
-              type="button"
-              onClick={() => setOrderType("table")}
-              className={`py-2 px-3 text-xs font-medium rounded-md border text-center transition-all ${
-                orderType === "table"
-                  ? "bg-[var(--accent)] text-white border-[var(--accent)] shadow-sm"
-                  : "border-[var(--rule)] text-[var(--ink-soft)] hover:bg-[var(--paper-raised)]"
-              }`}
-            >
-              🍽️ Dine-in (Table Order)
-            </button>
-          </div>
-        </div>
-
-        {orderType === "table" && (
-          <div>
-            <label className="label-caps block text-[var(--ink-soft)] mb-1">Table Number</label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. 5 or A3"
-              value={tableNumber}
-              onChange={(e) => setTableNumber(e.target.value)}
-              className="input"
-            />
           </div>
         )}
 

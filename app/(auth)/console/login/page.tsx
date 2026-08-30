@@ -8,9 +8,10 @@ import { createClient } from "@/lib/supabase/client";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const orgSlug = searchParams.get("org");
   const next = searchParams.get("next") ?? "/console/tables";
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(orgSlug === "rasam" ? "owner@rasam.test" : orgSlug === "demo-diner" ? "owner@demodiner.test" : "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -38,6 +39,14 @@ function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="ticket p-6 space-y-5">
+      {orgSlug && (
+        <div className="bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded-sm px-3 py-2 text-xs">
+          <p className="font-semibold text-[var(--accent)]">
+            Logging in for: {orgSlug}
+          </p>
+        </div>
+      )}
+
       <div>
         <label htmlFor="email" className="block text-sm font-medium mb-1.5">
           Email

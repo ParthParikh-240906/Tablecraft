@@ -150,15 +150,21 @@ export function BookingActionsList({
       console.error("Failed to update booking status:", error);
     } else {
       if (newStatus === "confirmed" && booking.table_id) {
-        await supabase
+        const { error: tableError } = await supabase
           .from("tables")
           .update({ status: "reserved" })
           .eq("id", booking.table_id);
+        if (tableError) {
+          console.error("Failed to mark table reserved:", tableError);
+        }
       } else if (newStatus === "cancelled" && booking.table_id) {
-        await supabase
+        const { error: tableError } = await supabase
           .from("tables")
           .update({ status: "open" })
           .eq("id", booking.table_id);
+        if (tableError) {
+          console.error("Failed to release table:", tableError);
+        }
       }
 
       setUpcoming((prev) =>

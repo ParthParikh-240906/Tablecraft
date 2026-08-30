@@ -124,7 +124,13 @@ export async function POST(request: Request) {
     }
 
     // 5. Determine base URL
-    const origin = request.headers.get("origin") || "http://localhost:3000";
+    // Prefer explicit config (Vercel/Prod), then request origin (works on any dev host),
+    // then fall back to a configurable env var. Never hardcode localhost.
+    const origin =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      request.headers.get("origin") ||
+      request.headers.get("x-forwarded-proto") + "://" + request.headers.get("x-forwarded-host") ||
+      "";
 
     // 6. Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({

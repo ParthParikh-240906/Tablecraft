@@ -1,8 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTableRealtime, type TableStatus } from "@/lib/realtime";
 import { createClient } from "@/lib/supabase/client";
+
+interface UpcomingBooking {
+  id: string;
+  table_id: string;
+  datetime: string;
+  status: string;
+}
 
 const STATUS_BADGE: Record<TableStatus, { label: string; style: string }> = {
   open: {
@@ -29,6 +36,33 @@ export function TableGrid({ orgId }: { orgId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const supabase = createClient();
+  const [upcomingBookings, setUpcomingBookings] = useState<UpcomingBooking[]>([]);
+
+  // Fetch upcoming confirmed bookings so tables auto-show as reserved
+  // starting 2 hours before their booking time (computed, not stored).
+  useEffect(() => {
+    let active = true;
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+
+    supabase
+      .from("bookings")
+      .select("id, table_id, datetime, status")
+      .eq("org_id", orgId)
+      .eq("status", "confirmed")
+      .gte("datetime", twoHoursAgo)
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          console.error("Failed to fetch upcoming bookings:", error);
+          return;
+        }
+        setUpcomingBookings((data ?? []) as UpcomingBooking[]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [orgId, supabase]);
 
   async function handleAddTable(e: React.FormEvent) {
     e.preventDefault();
@@ -90,6 +124,22 @@ export function TableGrid({ orgId }: { orgId: string }) {
   }
 
   const sorted = [...tables].sort((a, b) => a.label.localeCompare(b.label));
+
+  // Compute derived status: a table is "reserved" if it has a confirmed
+  // booking within the next 2 hours (from now until the booking time).
+  function getDerivedStatus(t: { id: string; status: TableStatus }) {
+    const now = Date.now();
+    const upcoming = upcomingBookings.find(
+      (b) => b.table_id === t.id && new Date(b.datetime).getTime() > now
+    );
+    if (upcoming) {
+      const bookingTime = new Date(upcoming.datetime).getTime();
+      if (bookingTime - now <= 2 * 60 * 60 * 1000) {
+        return { status: "reserved" as TableStatus, booking: upcoming };
+      }
+    }
+    return { status: t.status, booking: null };
+  }
 
   return (
     <div>
@@ -176,28 +226,41 @@ export function TableGrid({ orgId }: { orgId: string }) {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {sorted.map((t) => {
-            const badge = STATUS_BADGE[t.status];
-            const isUpdating = updating === t.id;
+        {sorted.map((t) => {
+          const derived = getDerivedStatus(t);
+          const effectiveStatus = derived.status;
+          const badge = STATUS_BADGE[effectiveStatus];
+          const isUpdating = updating === t.id;
+          const bookingTime = derived.booking
+            ? new Date(derived.booking.datetime).toLocaleTimeString(undefined, {
+                hour: "numeric",
+                minute: "2-digit",
+              })
+            : null;
 
             return (
               <div
                 key={t.id}
                 className="ticket p-4 flex flex-col justify-between space-y-4 bg-[var(--paper-raised)] border border-[var(--rule)] rounded-sm"
               >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-display text-lg text-[var(--ink)]">{t.label}</span>
-                    <span
-                      className={`text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm border ${badge.style}`}
-                    >
-                      {badge.label}
-                    </span>
-                  </div>
-                  <p className="text-xs text-[var(--ink-faint)] mt-1">
-                    Seats {t.capacity} {t.capacity === 1 ? "guest" : "guests"}
-                  </p>
-                </div>
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="font-display text-lg text-[var(--ink)]">{t.label}</span>
+              <span
+                className={`text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm border ${badge.style}`}
+              >
+                {badge.label}
+              </span>
+            </div>
+            <p className="text-xs text-[var(--ink-faint)] mt-1">
+              Seats {t.capacity} {t.capacity === 1 ? "guest" : "guests"}
+            </p>
+            {bookingTime && (
+              <p className="text-xs text-amber-300 mt-1">
+                Reserved {bookingTime}
+              </p>
+            )}
+          </div>
 
                 <div className="pt-2 border-t border-[var(--rule)] flex flex-col gap-2">
                   <span className="text-[10px] uppercase tracking-widest font-semibold text-[var(--ink-soft)]">

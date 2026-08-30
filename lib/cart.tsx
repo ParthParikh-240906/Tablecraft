@@ -18,6 +18,7 @@ interface CartContextValue {
   clear: () => void;
   total: number;
   count: number;
+  isLoaded: boolean;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -34,23 +35,29 @@ export function CartProvider({
   orgSlug: string;
 }) {
   const storageKey = `tablecraft_cart_${orgSlug}`;
-  const [items, setItems] = useState<CartItem[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const stored = localStorage.getItem(`tablecraft_cart_${orgSlug}`);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        setItems(JSON.parse(stored));
+      }
+    } catch {
+      // Ignore storage read errors
+    }
+    setIsLoaded(true);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
     try {
       localStorage.setItem(storageKey, JSON.stringify(items));
     } catch {
       // Ignore storage write errors
     }
-  }, [items, storageKey]);
+  }, [items, storageKey, isLoaded]);
 
   const value = useMemo<CartContextValue>(() => {
     const addItem = (item: { id: string; name: string; price: number }) => {
@@ -88,8 +95,8 @@ export function CartProvider({
     const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
     const count = items.reduce((sum, i) => sum + i.quantity, 0);
 
-    return { orgSlug, items, addItem, removeItem, setQuantity, clear, total, count };
-  }, [items, orgSlug, storageKey]);
+    return { orgSlug, items, addItem, removeItem, setQuantity, clear, total, count, isLoaded };
+  }, [items, orgSlug, storageKey, isLoaded]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
