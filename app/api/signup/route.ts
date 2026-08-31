@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getPresetColors, DEFAULT_PRESET, isValidPreset, type ThemePresetKey } from "@/lib/theme";
+import { getThemeColors } from "@/lib/theme";
 
 /**
  * POST /api/signup
@@ -9,7 +9,7 @@ import { getPresetColors, DEFAULT_PRESET, isValidPreset, type ThemePresetKey } f
  * Flow:
  *   1. Validate inputs (org name, slug, owner email, password)
  *   2. Create the Supabase Auth user (admin API, email confirmed)
- *   3. Upload logo/background images if provided
+ *   3. Upload logo if provided
  *   4. Create the organization row with optional fields
  *   5. Create the staff_users owner row linked to the auth user
  *
@@ -32,7 +32,6 @@ export async function POST(request: Request) {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
   const tagline = formData.get('tagline') as string;
-  const presetKey = formData.get('preset') as string;
   
   // Optional fields
   const branchesStr = formData.get('branches') as string;
@@ -41,10 +40,9 @@ export async function POST(request: Request) {
   const contactAddress = formData.get('contactAddress') as string;
   const aboutText = formData.get('aboutText') as string;
   const logoFile = formData.get('logoFile') as File;
-  const backgroundFile = formData.get('backgroundFile') as File;
   const restaurantImageFile = formData.get('restaurantImageFile') as File;
 
-  console.log("[SIGNUP] Incoming request:", { orgName, slug, email, hasTagline: !!tagline, presetKey, hasLogo: !!logoFile, hasBackground: !!backgroundFile, hasRestaurantImage: !!restaurantImageFile });
+  console.log("[SIGNUP] Incoming request:", { orgName, slug, email, hasTagline: !!tagline, hasLogo: !!logoFile, hasRestaurantImage: !!restaurantImageFile });
 
   // --- Validate inputs ---
   if (!orgName || typeof orgName !== "string" || orgName.trim().length < 2) {
@@ -105,97 +103,74 @@ export async function POST(request: Request) {
     }
   }
 
-  // --- Theme preset (required; use default if invalid) ---
-  const validPresetKey = (presetKey && isValidPreset(presetKey)) ? presetKey as ThemePresetKey : DEFAULT_PRESET;
-  const presetColors = getPresetColors(validPresetKey);
+  // --- Theme (unified for all restaurants) ---
+  const themeColors = getThemeColors();
   
-  console.log("[SIGNUP] Using preset:", validPresetKey, presetColors);
+  console.log("[SIGNUP] Using unified theme:", themeColors);
 
-  // --- File uploads (if provided) ---
-  let logoUrl: string | null = null;
-  let backgroundUrl: string | null = null;
-  let restaurantImageUrl: string | null = null;
+   // --- File uploads (if provided) ---
+   let logoUrl: string | null = null;
+   let restaurantImageUrl: string | null = null;
 
-  if (logoFile || backgroundFile || restaurantImageFile) {
-    console.log("[SIGNUP] Processing file uploads...");
-    const admin = createAdminClient();
-    
-    try {
-      // Upload logo
-      if (logoFile) {
-        const fileExt = logoFile.name.split('.').pop();
-        const fileName = `logo-${Date.now()}.${fileExt}`;
-        const filePath = `${slug}/${fileName}`;
-        
-        const { data: logoData, error: logoError } = await admin.storage
-          .from('org-logos')
-          .upload(filePath, logoFile);
-          
-        if (logoError) {
-          console.error("[SIGNUP] Logo upload failed:", logoError);
-        } else {
-          const { data: { publicUrl } } = admin.storage
-            .from('org-logos')
-            .getPublicUrl(filePath);
-          logoUrl = publicUrl;
-          console.log("[SIGNUP] Logo uploaded:", logoUrl);
-        }
-      }
+   if (logoFile || restaurantImageFile) {
+     console.log("[SIGNUP] Processing file uploads...");
+     const admin = createAdminClient();
+     
+     try {
+       // Upload logo
+       if (logoFile) {
+         const fileExt = logoFile.name.split('.').pop();
+         const fileName = `logo-${Date.now()}.${fileExt}`;
+         const filePath = `${slug}/${fileName}`;
+         
+         const { data: logoData, error: logoError } = await admin.storage
+           .from('org-logos')
+           .upload(filePath, logoFile);
+           
+         if (logoError) {
+           console.error("[SIGNUP] Logo upload failed:", logoError);
+         } else {
+           const { data: { publicUrl } } = admin.storage
+             .from('org-logos')
+             .getPublicUrl(filePath);
+           logoUrl = publicUrl;
+           console.log("[SIGNUP] Logo uploaded:", logoUrl);
+         }
+       }
 
-      // Upload background
-      if (backgroundFile) {
-        const fileExt = backgroundFile.name.split('.').pop();
-        const fileName = `background-${Date.now()}.${fileExt}`;
-        const filePath = `${slug}/${fileName}`;
-        
-        const { data: bgData, error: bgError } = await admin.storage
-          .from('org-backgrounds')
-          .upload(filePath, backgroundFile);
-          
-        if (bgError) {
-          console.error("[SIGNUP] Background upload failed:", bgError);
-        } else {
-          const { data: { publicUrl } } = admin.storage
-            .from('org-backgrounds')
-            .getPublicUrl(filePath);
-          backgroundUrl = publicUrl;
-          console.log("[SIGNUP] Background uploaded:", backgroundUrl);
-        }
-      }
-
-      // Upload restaurant image
-      if (restaurantImageFile) {
-        const fileExt = restaurantImageFile.name.split('.').pop();
-        const fileName = `restaurant-${Date.now()}.${fileExt}`;
-        const filePath = `${slug}/${fileName}`;
-        
-        const { data: restaurantImageData, error: restaurantImageError } = await admin.storage
-          .from('org-restaurant-images')
-          .upload(filePath, restaurantImageFile);
-          
-        if (restaurantImageError) {
-          console.error("[SIGNUP] Restaurant image upload failed:", restaurantImageError);
-        } else {
-          const { data: { publicUrl } } = admin.storage
-            .from('org-restaurant-images')
-            .getPublicUrl(filePath);
-          restaurantImageUrl = publicUrl;
-          console.log("[SIGNUP] Restaurant image uploaded:", restaurantImageUrl);
-        }
-      }
-    } catch (e) {
-      console.error("[SIGNUP] File upload error:", e);
-      // Continue without uploads - non-blocking
-    }
-  }
+       // Upload restaurant image
+       if (restaurantImageFile) {
+         const fileExt = restaurantImageFile.name.split('.').pop();
+         const fileName = `restaurant-${Date.now()}.${fileExt}`;
+         const filePath = `${slug}/${fileName}`;
+         
+         const { data: restaurantImageData, error: restaurantImageError } = await admin.storage
+           .from('org-restaurant-images')
+           .upload(filePath, restaurantImageFile);
+           
+         if (restaurantImageError) {
+           console.error("[SIGNUP] Restaurant image upload failed:", restaurantImageError);
+         } else {
+           const { data: { publicUrl } } = admin.storage
+             .from('org-restaurant-images')
+             .getPublicUrl(filePath);
+           restaurantImageUrl = publicUrl;
+           console.log("[SIGNUP] Restaurant image uploaded:", restaurantImageUrl);
+         }
+       }
+     } catch (e) {
+       console.error("[SIGNUP] File upload error:", e);
+       // Continue without uploads - non-blocking
+     }
+   }
 
   // --- Create the organization with optional fields ---
   const orgData: any = {
     name: orgName.trim(),
     slug,
-    theme_color: presetColors.main,
-    theme_text_color: presetColors.text,
-    theme_secondary_color: presetColors.highlight,
+    theme_color: themeColors.main,
+    theme_text_color: themeColors.text,
+    theme_secondary_color: themeColors.highlight,
     tagline: tagline && tagline.trim().length > 0 ? tagline.trim() : null,
   };
 
@@ -206,7 +181,6 @@ export async function POST(request: Request) {
   if (contactAddress) orgData.contact_address = contactAddress;
   if (aboutText) orgData.about_text = aboutText;
   if (logoUrl) orgData.logo_url = logoUrl;
-  if (backgroundUrl) orgData.background_image_url = backgroundUrl;
   if (restaurantImageUrl) orgData.restaurant_image_url = restaurantImageUrl;
 
   const { data: org, error: orgError } = await admin

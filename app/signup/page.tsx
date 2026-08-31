@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { THEME_PRESETS, type ThemePresetKey } from "@/lib/theme";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -13,7 +12,6 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [tagline, setTagline] = useState("");
-  const [selectedPreset, setSelectedPreset] = useState<ThemePresetKey>("midnight-ember");
   
   // Optional fields
   const [branches, setBranches] = useState<string[]>([""]);
@@ -22,7 +20,6 @@ export default function SignupPage() {
   const [contactAddress, setContactAddress] = useState("");
   const [aboutText, setAboutText] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
   const [restaurantImageFile, setRestaurantImageFile] = useState<File | null>(null);
   
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +74,6 @@ export default function SignupPage() {
       formData.append('email', email);
       formData.append('password', password);
       formData.append('tagline', tagline);
-      formData.append('preset', selectedPreset);
       
       // Optional fields
       if (validBranches.length > 0) {
@@ -88,7 +84,6 @@ export default function SignupPage() {
       if (contactAddress) formData.append('contactAddress', contactAddress);
       if (aboutText) formData.append('aboutText', aboutText);
       if (logoFile) formData.append('logoFile', logoFile);
-      if (backgroundFile) formData.append('backgroundFile', backgroundFile);
       if (restaurantImageFile) formData.append('restaurantImageFile', restaurantImageFile);
 
       const res = await fetch("/api/signup", {
@@ -232,49 +227,6 @@ export default function SignupPage() {
             </p>
           </div>
 
-          {/* Theme preset picker */}
-          <div>
-            <label className="block text-sm font-medium mb-3">
-              Choose your theme
-            </label>
-            <div className="grid grid-cols-1 gap-2">
-              {(Object.keys(THEME_PRESETS) as ThemePresetKey[]).map((key) => {
-                const preset = THEME_PRESETS[key];
-                const isSelected = selectedPreset === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setSelectedPreset(key)}
-                    className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
-                      isSelected ? 'border-[var(--accent)] bg-[var(--accent)]/5' : 'border-[var(--rule)] hover:border-[var(--ink-soft)]'
-                    }`}
-                  >
-                    {/* Color swatch */}
-                    <div className="flex gap-1">
-                      <div 
-                        className="w-8 h-8 rounded-l" 
-                        style={{ backgroundColor: preset.main }}
-                      />
-                      <div 
-                        className="w-8 h-8" 
-                        style={{ backgroundColor: preset.text }}
-                      />
-                      <div 
-                        className="w-8 h-8 rounded-r" 
-                        style={{ backgroundColor: preset.highlight }}
-                      />
-                    </div>
-                    <span className="font-medium">{preset.name}</span>
-                    {isSelected && (
-                      <span className="ml-auto text-[var(--accent)]">✓</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Optional fields section */}
           <div className="border-t border-[var(--rule)] pt-4 space-y-4">
             <p className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wide">
@@ -390,19 +342,7 @@ export default function SignupPage() {
                   className="input"
                 />
               </div>
-              <div>
-                <label htmlFor="backgroundFile" className="block text-sm font-medium mb-1.5">
-                  Background image (optional)
-                </label>
-                <input
-                  id="backgroundFile"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setBackgroundFile(e.target.files?.[0] || null)}
-                  className="input"
-                />
-              </div>
-              <div>
+               <div>
                 <label htmlFor="restaurantImageFile" className="block text-sm font-medium mb-1.5">
                   Restaurant photo (optional)
                 </label>

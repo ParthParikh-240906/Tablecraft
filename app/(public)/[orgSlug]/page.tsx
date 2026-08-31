@@ -3,6 +3,14 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org";
 import type { Metadata } from "next";
 
+// Helper function to capitalize first letter of each word
+function capitalizeWords(str: string): string {
+  return str
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -19,7 +27,7 @@ export async function generateMetadata({
 
   return {
     title: org.name,
-    description: org.tagline || `Welcome to ${org.name} - Browse our menu, book a table, and order ahead.`,
+    description: org.tagline || `${capitalizeWords(org.name)} - Browse our menu, book a table, and order ahead.`,
   };
 }
 
@@ -45,9 +53,6 @@ export default async function OrgLandingPage({
       <div
         className="fixed inset-0 -z-10"
         style={{
-          backgroundImage: org.background_image_url
-            ? `url(${org.background_image_url})`
-            : undefined,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundAttachment: "fixed",
@@ -59,7 +64,7 @@ export default async function OrgLandingPage({
 
       {/* Hero Section */}
       <section className="py-20 px-4 text-center relative">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto animate-[fade-up_600ms_ease-out_both]">
           {org.logo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -76,7 +81,7 @@ export default async function OrgLandingPage({
             </div>
           )}
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
-            Welcome to {org.name}
+            {capitalizeWords(org.name)}
           </h1>
           {org.tagline && (
             <p className="text-xl mb-2 italic" style={{ color: `${textColor}cc` }}>
