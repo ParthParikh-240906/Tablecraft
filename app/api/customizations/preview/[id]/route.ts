@@ -3,14 +3,15 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
+  const { id } = await params;
   
   const { data: req } = await supabase
     .from("customization_requests")
     .select("*")
-    .eq("id", params.id)
+    .eq("id", id)
     .single();
   
   if (!req) {

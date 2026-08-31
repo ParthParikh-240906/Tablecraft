@@ -6,7 +6,7 @@ import type { RestaurantSettings } from "@/types/customization";
 
 interface CustomizationRequest {
   id: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'processing' | 'pending_review' | 'failed';
   requested_changes: Partial<RestaurantSettings>;
   proposed_settings: RestaurantSettings;
   user_request_text: string | null;
@@ -50,54 +50,55 @@ export default function DesignPage() {
     if (!requestText.trim()) return;
     setIsSubmitting(true);
     try {
-      // Parse the user's natural language request into structured changes
-      // In production, this would be done by an LLM
-      const parsedChanges = parseUserRequest(requestText);
-      
+      // Parse the user's request via the parser route (lightweight keyword parse)
+      const parseRes = await fetch("/api/customizations/parse-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userRequestText: requestText,
+          currentSettings
+        })
+      });
+      if (!parseRes.ok) {
+        console.error("Parse failed");
+        return;
+      }
+      const { description, settingsDelta } = await parseRes.json();
+
+      // Create the request record
       const res = await fetch("/api/customizations/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_request_text: requestText,
-          requested_changes: parsedChanges
+          requested_changes: settingsDelta,
+          description: description
         })
       });
-      
-      if (res.ok) {
-        setRequestText("");
-        await loadData();
+
+      if (!res.ok) {
+        console.error("Request create failed", res.status);
+        return;
       }
+
+      const { request } = await res.json();
+
+      // Kick off Kiro-frontend generation for this request
+      if (request?.id) {
+        await fetch("/api/customizations/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ requestId: request.id })
+        });
+      }
+
+      setRequestText("");
+      await loadData();
     } catch (e) {
       console.error("Request failed", e);
     } finally {
       setIsSubmitting(false);
     }
-  }
-
-  // Simple parser for demo — in production, use LLM
-  function parseUserRequest(text: string): Partial<RestaurantSettings> {
-    const lower = text.toLowerCase();
-    const changes: Partial<RestaurantSettings> = {};
-    
-    if (lower.includes('left')) changes.menuPosition = 'left';
-    if (lower.includes('right')) changes.menuPosition = 'right';
-    if (lower.includes('top')) changes.menuPosition = 'top';
-    
-    if (lower.includes('burgundy') || lower.includes('wine')) {
-      changes.primaryColor = '#722F37';
-    }
-    if (lower.includes('blue') || lower.includes('ocean')) {
-      changes.primaryColor = '#1e40af';
-    }
-    if (lower.includes('green') || lower.includes('forest')) {
-      changes.primaryColor = '#166534';
-    }
-    
-    if (lower.includes('modal') || lower.includes('popup')) {
-      changes.bookingPosition = 'modal';
-    }
-    
-    return changes;
   }
 
   async function approveRequest(requestId: string) {
@@ -144,7 +145,8 @@ export default function DesignPage() {
   }
 
   const pendingRequests = requests.filter(r => r.status === 'pending');
-  const pastRequests = requests.filter(r => r.status !== 'pending');
+  const inProgressRequests = requests.filter(r => r.status === 'processing' || r.status === 'pending_review');
+  const pastRequests = requests.filter(r => !['pending', 'processing', 'pending_review'].includes(r.status));
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-12">
@@ -161,7 +163,7 @@ export default function DesignPage() {
           </label>
           <textarea
             className="w-full p-3 border rounded-md bg-gray-50 text-gray-900 min-h-[100px] resize-none"
-            placeholder="Examples:&#10;• Move the menu to the left sidebar&#10;• Change the theme to deep ocean blue&#10;• Make the booking form a popup modal"
+            placeholder={"Examples:\n• Move the menu to the left sidebar\n• Change the theme to deep ocean blue\n• Make the booking form a popup modal\n• Dark luxury theme with gold accents"}
             value={requestText}
             onChange={(e) => setRequestText(e.target.value)}
           />
@@ -207,7 +209,7 @@ export default function DesignPage() {
                         Proposed Change
                       </span>
                       <p className="mt-1 text-lg font-medium text-gray-900">
-                        {req.description || req.user_request_text || "Custom layout change"}
+                        {req.description || "Processing your request..."}
                       </p>
                       {req.user_request_text && req.description && (
                         <p className="mt-1 text-sm text-muted-foreground italic">
@@ -226,7 +228,7 @@ export default function DesignPage() {
                   <div className="flex gap-3 mb-4">
                     <button
                       onClick={() => setPreviewOpen(previewOpen === req.id ? null : req.id)}
-                      className="text-sm border px-4 py-2 rounded hover:bg-gray-50 transition-colors"
+                      className="text-sm border px-4 py-2 rounded hover:bg-gray-50 transition-colors text-black"
                     >
                       {previewOpen === req.id ? "Hide Preview" : "Show Preview"}
                     </button>
@@ -234,7 +236,7 @@ export default function DesignPage() {
                       href={`/api/customizations/preview/${req.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm border px-4 py-2 rounded hover:bg-gray-50 transition-colors"
+                      className="text-sm border px-4 py-2 rounded hover:bg-gray-50 transition-colors text-black"
                     >
                       Open Full Preview
                     </a>
@@ -265,7 +267,7 @@ export default function DesignPage() {
                 <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
                   <button
                     onClick={() => rejectRequest(req.id)}
-                    className="px-4 py-2 border rounded hover:bg-white transition-colors text-sm"
+                    className="px-4 py-2 border rounded hover:bg-white transition-colors text-sm text-black"
                   >
                     Request Changes
                   </button>
@@ -281,6 +283,32 @@ export default function DesignPage() {
           </div>
         )}
       </section>
+
+      {/* In Progress (being generated / awaiting internal review) */}
+      {inProgressRequests.length > 0 && (
+        <section>
+          <h2 className="text-xl font-bold mb-4">In Progress</h2>
+          <div className="space-y-3">
+            {inProgressRequests.map((req) => (
+              <div key={req.id} className="border rounded-lg bg-white shadow-sm p-5 flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-medium text-gray-900">
+                    {req.user_request_text || "Customization request"}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {req.status === 'processing'
+                      ? "Our design team is generating your preview. This usually takes a moment."
+                      : "Your preview is being quality-checked before it reaches you."}
+                  </p>
+                </div>
+                <span className="text-xs px-3 py-1 rounded font-medium bg-amber-100 text-amber-800 whitespace-nowrap">
+                  {req.status === 'processing' ? 'Generating…' : 'Finalizing…'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Current Settings */}
       <section>
@@ -324,6 +352,8 @@ function formatChange(key: string, value: unknown): string {
     primaryColor: 'Primary color',
     accentColor: 'Accent color',
     fontFamily: 'Font',
+    customCss: 'Custom CSS',
+    theme: 'Theme',
   };
   
   return `${labels[key] || key} → ${value}`;

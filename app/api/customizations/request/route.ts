@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const { requested_changes, user_request_text } = body;
+  const { requested_changes, user_request_text, description } = body;
 
   const { data: staff } = await supabase
     .from("staff_users")
@@ -36,6 +36,7 @@ export async function POST(request: Request) {
       requested_changes,
       proposed_settings: proposedSettings,
       user_request_text: user_request_text || null,
+      description: description || null,
       status: 'pending'
     })
     .select();

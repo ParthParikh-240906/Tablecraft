@@ -11,3 +11,8 @@ alter table public.customization_requests
 -- Add a column to store the raw user request text
 alter table public.customization_requests
   add column if not exists user_request_text text;
+
+-- Add columns for the human/agent review gate
+alter table public.customization_requests
+  add column if not exists review_notes text,
+  add column if not exists reviewed_at timestamp with time zone;
