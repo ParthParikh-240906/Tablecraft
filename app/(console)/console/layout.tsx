@@ -75,9 +75,6 @@ export default async function ConsoleLayout({
               <Link href="/console/menu" className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
                 Menu
               </Link>
-              <Link href="/console/design" className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-                Design
-              </Link>
               <span className="text-[var(--rule)]">|</span>
               {org?.slug && (
                 <Link href={`/${org.slug}`} className="text-[var(--accent)] hover:underline font-medium">

@@ -67,7 +67,7 @@ export default async function PublicLayout({
             <Link href={`/${org.slug}/menu`} className="hover:underline">
               Menu
             </Link>
-            <Link href={`/${org.slug}/cart`} className="hover:underline">
+            <Link href={`/${org.slug}/cart`} className="flex items-center gap-1 hover:underline">
               Cart
             </Link>
             <Link

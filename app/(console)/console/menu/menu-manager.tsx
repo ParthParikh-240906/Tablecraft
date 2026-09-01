@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 interface MenuItem {
@@ -30,6 +30,13 @@ export function MenuManager({ orgId }: { orgId: string }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Scan/upload state
+  const [scanMode, setScanMode] = useState<"append" | "replace">("append");
+  const [scanning, setScanning] = useState(false);
+  const [scanStatus, setScanStatus] = useState<string>("");
+  const [scanError, setScanError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!orgId) return;
@@ -130,6 +137,64 @@ export function MenuManager({ orgId }: { orgId: string }) {
     setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
   }
 
+  async function handleDelete(id: string) {
+    const { error: deleteError } = await supabase
+      .from("menu_items")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) {
+      console.error("delete failed:", deleteError);
+      return;
+    }
+    setItems((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setScanning(true);
+    setScanError(null);
+    setScanStatus("Uploading and extracting text...");
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("orgId", orgId);
+    formData.append("mode", scanMode);
+
+    try {
+      const res = await fetch("/api/menu/vision-parse", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || "Scan failed");
+      }
+
+      setScanStatus(`✓ Added ${result.itemCount} items (${result.mode} mode)`);
+      // Refresh menu list
+      const { data } = await supabase
+        .from("menu_items")
+        .select("id, name, description, price, category, available")
+        .eq("org_id", orgId)
+        .order("category")
+        .order("name");
+      setItems(data as MenuItem[]);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to process file";
+      setScanError(message);
+    } finally {
+      setScanning(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }
+
   if (loading) {
     return <p className="text-sm text-[var(--ink-faint)]">Loading menu…</p>;
   }
@@ -138,10 +203,55 @@ export function MenuManager({ orgId }: { orgId: string }) {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="font-display text-xl">Menu</h1>
-        <button type="button" onClick={startAdd} className="btn btn-accent">
-          + Add item
-        </button>
+        <div className="flex gap-2">
+          {/* Upload section */}
+          <div className="flex items-center gap-2">
+            <select
+              value={scanMode}
+              onChange={(e) => setScanMode(e.target.value as "append" | "replace")}
+              className="input text-sm py-1.5"
+              disabled={scanning}
+            >
+              <option value="append">Append</option>
+              <option value="replace">Replace all</option>
+            </select>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp"
+              onChange={handleFileUpload}
+              disabled={scanning}
+              className="hidden"
+              id="menu-file-upload"
+            />
+            <label
+              htmlFor="menu-file-upload"
+              className="btn btn-outline cursor-pointer disabled:opacity-50"
+            >
+              {scanning ? "Processing…" : "Scan menu"}
+            </label>
+            <span className="text-xs text-[var(--ink-faint)]">
+              (max 5MB recommended)
+            </span>
+          </div>
+          <button type="button" onClick={startAdd} className="btn btn-accent">
+            + Add item
+          </button>
+        </div>
       </div>
+
+      {/* Scan status/errors */}
+      {(scanStatus || scanError) && (
+        <div
+          className={`p-3 mb-4 rounded-sm text-sm ${
+            scanError
+              ? "bg-red-900/40 text-red-400"
+              : "bg-green-900/40 text-green-400"
+          }`}
+        >
+          {scanError || scanStatus}
+        </div>
+      )}
 
       {showForm && (
         <form
@@ -210,7 +320,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
 
       {items.length === 0 ? (
         <div className="rounded-sm border border-dashed border-[var(--rule)] p-10 text-center text-[var(--ink-faint)]">
-          No menu items yet. Add your first one.
+          No menu items yet. Add your first one or scan a menu PDF/image.
         </div>
       ) : (
         <ul className="rounded-sm border border-[var(--rule)] divide-y divide-[var(--rule)]">
@@ -221,27 +331,28 @@ export function MenuManager({ orgId }: { orgId: string }) {
                   <img
                     src={item.image_url}
                     alt={item.name}
-                    className="w-10 h-10 object-cover rounded-sm border border-[var(--rule)]"
+                    className="w-10 h-10 object-cover rounded-sm"
                   />
                 )}
                 <div>
-                  <p className={`font-medium ${item.available ? "" : "line-through opacity-50"}`}>
-                    {item.name}
-                  </p>
-                  <p className="text-sm text-[var(--ink-faint)]">
-                    AED {Number(item.price).toFixed(2)}
-                    {item.category ? ` · ${item.category}` : ""}
-                  </p>
+                  <p className="font-medium">{item.name}</p>
+                  {item.category && (
+                    <p className="text-xs text-[var(--ink-faint)]">{item.category}</p>
+                  )}
+                  {item.description && (
+                    <p className="text-xs text-[var(--ink-muted)] mt-0.5">{item.description}</p>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-sm">AED {item.price.toFixed(2)}</span>
                 <button
                   type="button"
                   onClick={() => toggleAvailable(item)}
-                  className={`text-xs font-medium px-2.5 py-1 rounded-sm border ${
+                  className={`text-xs px-2 py-1 rounded-sm ${
                     item.available
-                      ? "bg-green-900/40 text-green-300 border-green-800"
-                      : "border-[var(--rule)] text-[var(--ink-faint)]"
+                      ? "bg-green-900/40 text-green-400"
+                      : "bg-[var(--muted)] text-[var(--ink-muted)]"
                   }`}
                 >
                   {item.available ? "Available" : "Unavailable"}
@@ -249,9 +360,16 @@ export function MenuManager({ orgId }: { orgId: string }) {
                 <button
                   type="button"
                   onClick={() => startEdit(item)}
-                  className="text-xs text-[var(--ink-faint)] hover:underline"
+                  className="btn btn-ghost text-xs py-1"
                 >
                   Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(item.id)}
+                  className="btn btn-ghost text-xs py-1 text-red-400"
+                >
+                  Delete
                 </button>
               </div>
             </li>
