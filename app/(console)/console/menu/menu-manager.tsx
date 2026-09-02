@@ -39,6 +39,8 @@ export function MenuManager({ orgId }: { orgId: string }) {
   const [scanStatus, setScanStatus] = useState<string>("");
   const [scanError, setScanError] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [deleteCatTarget, setDeleteCatTarget] = useState<string | null>(null);
+  const [showDeleteCatConfirm, setShowDeleteCatConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -161,6 +163,22 @@ export function MenuManager({ orgId }: { orgId: string }) {
     }
     setItems([]);
     setShowClearConfirm(false);
+  }
+
+  async function deleteCategory() {
+    if (!deleteCatTarget) return;
+    const { error } = await supabase
+      .from("menu_items")
+      .delete()
+      .eq("org_id", orgId)
+      .eq("category", deleteCatTarget);
+    if (error) {
+      console.error("delete category failed:", error);
+      return;
+    }
+    setItems((prev) => prev.filter((i) => i.category !== deleteCatTarget));
+    setDeleteCatTarget(null);
+    setShowDeleteCatConfirm(false);
   }
 
   async function moveCategory(category: string, direction: "up" | "down") {
@@ -334,6 +352,38 @@ export function MenuManager({ orgId }: { orgId: string }) {
           <button type="button" onClick={startAdd} className="btn btn-accent">
             + Add item
           </button>
+          <div className="flex items-center gap-1">
+            <select
+              value={deleteCatTarget ?? ""}
+              onChange={(e) => setDeleteCatTarget(e.target.value || null)}
+              className="input text-sm py-1.5"
+              disabled={items.length === 0}
+            >
+              <option value="">Category…</option>
+              {(() => {
+                const cats: string[] = [];
+                const seen = new Set<string>();
+                for (const item of items) {
+                  const cat = item.category || "Uncategorized";
+                  if (!seen.has(cat)) {
+                    cats.push(cat);
+                    seen.add(cat);
+                  }
+                }
+                return cats.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ));
+              })()}
+            </select>
+            <button
+              type="button"
+              onClick={() => { if (deleteCatTarget) setShowDeleteCatConfirm(true); }}
+              className="btn btn-error btn-outline"
+              disabled={!deleteCatTarget}
+            >
+              Delete category
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => setShowClearConfirm(true)}
@@ -551,6 +601,32 @@ export function MenuManager({ orgId }: { orgId: string }) {
               </div>
             ));
           })()}
+        </div>
+      )}
+
+      {/* Delete category confirmation modal */}
+      {showDeleteCatConfirm && deleteCatTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[var(--card)] p-6 rounded-lg max-w-sm w-full mx-4">
+            <h3 className="text-lg font-semibold mb-2">Delete category &ldquo;{deleteCatTarget}&rdquo;?</h3>
+            <p className="text-[var(--ink-faint)] mb-4">
+              Are you sure you want to delete all items of category &ldquo;{deleteCatTarget}&rdquo;? This action cannot be undone.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowDeleteCatConfirm(false)}
+                className="btn btn-outline"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteCategory}
+                className="btn btn-error"
+              >
+                Delete category
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
