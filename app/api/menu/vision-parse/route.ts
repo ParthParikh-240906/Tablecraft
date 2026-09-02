@@ -111,14 +111,26 @@ Rules:
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("[VISION PARSE] Gemini error:", response.status, errText);
+      console.error("[VISION PARSE] API error:", response.status, errText);
       return NextResponse.json(
         { error: `OmniRoute API error: ${response.status}` },
         { status: 502 }
       );
     }
 
-    const data = await response.json();
+    const responseText = await response.text();
+    console.log("[VISION PARSE] Raw response:", responseText);
+    let data: any;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      console.error("[VISION PARSE] Response is not JSON:", responseText.slice(0, 500));
+      return NextResponse.json(
+        { error: "Invalid JSON response from OmniRoute" },
+        { status: 502 }
+      );
+    }
+
     const content = data.choices?.[0]?.message?.content;
     if (!content) {
       return NextResponse.json(
@@ -132,11 +144,14 @@ Rules:
     try {
       // Strip markdown code blocks if present
       const jsonMatch = content.match(/\{[\s\S]*\}/)?.[0];
+      console.log("[VISION PARSE] Extracted JSON string:", jsonMatch);
       parsed = JSON.parse(jsonMatch ?? content);
-    } catch {
-      console.error("[VISION PARSE] JSON parse failed:", content);
+      console.log("[VISION PARSE] Parsed successfully:", parsed.items?.length, "items");
+    } catch (e) {
+      console.error("[VISION PARSE] JSON parse failed:", e);
+      console.error("[VISION PARSE] Content was:", content);
       return NextResponse.json(
-        { error: "Failed to parse OmniRoute response" },
+        { error: "Failed to parse OmniRoute response", details: String(e) },
         { status: 500 }
       );
     }
@@ -167,13 +182,25 @@ Rules:
       await supabase.from("menu_items").delete().eq("org_id", orgId);
     }
 
-    const rows = validItems.map((item) => ({
+    // Calculate category_sort_order based on first appearance of each category
+    const categoryOrder: Record<string, number> = {};
+    let catIdx = 0;
+    for (const item of validItems) {
+      const cat = item.category || "Other";
+      if (!(cat in categoryOrder)) {
+        categoryOrder[cat] = catIdx++;
+      }
+    }
+
+    const rows = validItems.map((item, index) => ({
       org_id: orgId,
       name: item.name,
       description: item.description || null,
       price: item.price,
       category: item.category || null,
       available: true,
+      sort_order: index + 1,
+      category_sort_order: categoryOrder[item.category || "Other"] ?? 0,
     }));
 
     const { error: insertError } = await supabase

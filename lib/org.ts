@@ -34,8 +34,8 @@ export async function getMenuByOrg(orgId: string) {
     .select("id, name, description, price, category, image_url")
     .eq("org_id", orgId)
     .eq("available", true)
-    .order("category", { ascending: true })
-    .order("name", { ascending: true });
+    .order("category_sort_order")
+    .order("sort_order");
 
   if (error) {
     console.error("getMenuByOrg:", error);

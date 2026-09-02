@@ -60,7 +60,7 @@ export default function CartPage() {
 
   if (!isLoaded) {
     return (
-      <div className="max-w-xl mx-auto px-4 py-20 text-center text-sm text-[var(--ink-faint)]">
+      <div className="max-w-xl mx-auto px-4 py-20 text-center text-sm text-gray-400">
         Loading cart…
       </div>
     );
@@ -69,8 +69,8 @@ export default function CartPage() {
   if (count === 0) {
     return (
       <div className="max-w-xl mx-auto px-4 py-20 text-center">
-        <h1 className="font-display text-3xl font-bold mb-3">Your cart is empty</h1>
-        <p className="text-[var(--ink-soft)] mb-6">
+        <h1 className="font-display text-3xl font-bold mb-3 text-white">Your cart is empty</h1>
+        <p className="text-gray-400 mb-6">
           Browse the menu and add something delicious to your order.
         </p>
         <Link
@@ -85,14 +85,14 @@ export default function CartPage() {
 
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
-      <h1 className="font-display text-3xl font-bold mb-6">Cart</h1>
+      <h1 className="font-display text-3xl font-bold mb-6 text-white">Cart</h1>
 
       <ul className="divide-y divide-[var(--rule)] mb-6">
         {items.map((item) => (
           <li key={item.id} className="py-4 flex items-center justify-between gap-4">
             <div>
-              <h3 className="font-medium text-[var(--ink)]">{item.name}</h3>
-              <p className="text-xs text-[var(--ink-faint)]">
+              <h3 className="font-medium text-white">{item.name}</h3>
+              <p className="text-xs text-gray-400">
                 AED {Number(item.price).toFixed(2)} each
               </p>
             </div>
@@ -132,17 +132,17 @@ export default function CartPage() {
         ))}
       </ul>
 
-      <div className="flex items-center justify-between border-t border-[var(--rule)] pt-4 mb-8">
-        <span className="font-medium text-[var(--ink)]">
+      <div className="flex items-center justify-between border-t border-gray-700 pt-4 mb-8">
+        <span className="font-medium text-white">
           Total ({count} {count === 1 ? "item" : "items"})
         </span>
-        <span className="text-2xl font-bold font-display text-[var(--ink)]">
+        <span className="text-2xl font-bold font-display text-white">
           AED {total.toFixed(2)}
         </span>
       </div>
 
       <form onSubmit={handleCheckout} className="ticket p-6 space-y-4">
-        <h2 className="font-display font-bold text-lg text-[var(--ink)]">Order Details</h2>
+        <h2 className="font-display font-bold text-lg text-black">Order Details</h2>
         
         {error && (
           <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 text-xs rounded-sm">
@@ -151,7 +151,7 @@ export default function CartPage() {
         )}
 
         <div>
-          <label className="label-caps block text-[var(--ink-soft)] mb-1">Your Name</label>
+          <label className="label-caps block text-gray-400 mb-1">Your Name</label>
           <input
             type="text"
             required
@@ -163,7 +163,7 @@ export default function CartPage() {
         </div>
 
         <div>
-          <label className="label-caps block text-[var(--ink-soft)] mb-1">Email (for receipt)</label>
+          <label className="label-caps block text-gray-400 mb-1">Email (for receipt)</label>
           <input
             type="email"
             placeholder="alex@example.com"
