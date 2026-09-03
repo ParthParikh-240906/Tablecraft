@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useTableRealtime, type TableStatus } from "@/lib/realtime";
 import { createClient } from "@/lib/supabase/client";
 
@@ -34,26 +34,35 @@ export function TableGrid({ orgId }: { orgId: string }) {
   // starting 2 hours before their booking time (computed, not stored).
   // Also pulls booking_tables junction to get ALL tables involved in each booking.
   const [upcomingTableIds, setUpcomingTableIds] = useState<Set<string>>(new Set());
+  const refreshRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  const fetchUpcoming = useCallback(() => {
+    const now = Date.now();
+    const twoHoursFromNow = new Date(now + 2 * 60 * 60 * 1000).toISOString();
+    const nowISO = new Date(now).toISOString();
 
     supabase
       .from("bookings")
-      .select("id, table_id, datetime, status")
+      .select("id, table_id, datetime")
       .eq("org_id", orgId)
       .eq("status", "confirmed")
-      .gte("datetime", twoHoursAgo)
+      .gte("datetime", nowISO)
+      .lte("datetime", twoHoursFromNow)
       .then(async ({ data, error }) => {
-        if (!active) return;
         if (error) {
           console.error("Failed to fetch upcoming bookings:", error);
           return;
         }
         const ids = new Set<string>();
-        for (const b of data ?? []) ids.add(b.table_id);
-        // Also collect tables from the booking_tables junction
+        for (const b of data ?? []) {
+          const bookingTime = new Date(b.datetime).getTime();
+          // Only include bookings that are in the future (or happening now)
+          // and within the next 2 hours.
+          if (bookingTime >= now && bookingTime <= now + 2 * 60 * 60 * 1000) {
+            ids.add(b.table_id);
+          }
+        }
+        // Also collect junction tables
         if (ids.size > 0) {
           const { data: jt } = await supabase
             .from("booking_tables")
@@ -63,11 +72,18 @@ export function TableGrid({ orgId }: { orgId: string }) {
         }
         setUpcomingTableIds(ids);
       });
-
-    return () => {
-      active = false;
-    };
   }, [orgId, supabase]);
+
+  useEffect(() => {
+    fetchUpcoming();
+    refreshRef.current = fetchUpcoming;
+  }, [fetchUpcoming]);
+
+  // Poll every 60s so tables auto-transition to "reserved" as booking time approaches
+  useEffect(() => {
+    const interval = setInterval(fetchUpcoming, 60_000);
+    return () => clearInterval(interval);
+  }, [fetchUpcoming]);
 
   async function handleAddTable(e: React.FormEvent) {
     e.preventDefault();

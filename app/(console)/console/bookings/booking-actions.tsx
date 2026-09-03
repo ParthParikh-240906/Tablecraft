@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+interface BookingTable {
+  id: string;
+  label: string;
+}
+
 interface Booking {
   id: string;
   customer_name: string;
@@ -10,7 +15,7 @@ interface Booking {
   datetime: string;
   status: string;
   table_id?: string;
-  tables: { id?: string; label: string } | { id?: string; label: string }[] | null;
+  tables: BookingTable[] | null;
 }
 
 interface TableOption {
@@ -118,61 +123,71 @@ export function BookingActionsList({
     }
 
     setAdding(true);
-    const isoDatetime = bookingDate.toISOString();
 
     // Determine target table IDs (explicit selection or automatic best-fit combo)
     const chosenTableIds: string[] = tableId ? [tableId] : pickBestTables(size);
 
-    const primaryTableId = chosenTableIds[0] ?? null;
+    try {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId,
+          customerName: customerName.trim(),
+          partySize: size,
+          datetime: bookingDate.toISOString(),
+          tableIds: chosenTableIds,
+        }),
+      });
 
-    const { data, error: insertError } = await supabase
-      .from("bookings")
-      .insert({
-        org_id: orgId,
-        customer_name: customerName.trim(),
-        party_size: size,
-        datetime: isoDatetime,
-        table_id: primaryTableId,
-        status: "confirmed",
-      })
-      .select("id, customer_name, party_size, datetime, status, table_id, tables(id, label)")
-      .single();
-
-    if (insertError) {
-      setError(insertError.message);
-      setAdding(false);
-      return;
-    }
-
-    // Mark ALL tables in the combination as reserved and insert junction rows
-    if (chosenTableIds.length > 0) {
-      await supabase
-        .from("tables")
-        .update({ status: "reserved" })
-        .in("id", chosenTableIds);
-      // Insert non-primary tables into booking_tables junction (trigger handles primary)
-      if (chosenTableIds.length > 1 && data?.id) {
-        await supabase
-          .from("booking_tables")
-          .insert(chosenTableIds.slice(1).map((tid) => ({
-            org_id: orgId,
-            booking_id: data.id,
-            table_id: tid,
-            is_primary: false,
-          })));
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setError(data.error ?? "Could not create booking");
+        setAdding(false);
+        return;
       }
-    }
 
-    if (data) {
-      setUpcoming((prev) => [data as unknown as Booking, ...prev]);
-    }
+      const booking = data.booking;
+      const allTables: BookingTable[] = (data.tables ?? [{ id: booking?.table_id, label: "" }])
+        .map((t: any) => ({ id: t.id, label: t.label }))
+        .filter((t: BookingTable) => t.id);
 
-    setCustomerName("");
-    setPartySize("2");
-    setDatetime("");
-    setTableId("");
-    setShowAddForm(false);
-    setAdding(false);
+      if (booking) {
+        setUpcoming((prev) => [
+          { ...booking, tables: allTables } as unknown as Booking,
+          ...prev,
+        ]);
+      }
+
+      setCustomerName("");
+      setPartySize("2");
+      setDatetime("");
+      setTableId("");
+      setShowAddForm(false);
+    } catch {
+      setError("Network error — please try again");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function getAllTableIds(bookingId: string): Promise<string[]> {
+    const { data } = await supabase
+      .from("booking_tables")
+      .select("table_id")
+      .eq("booking_id", bookingId);
+    const junctionIds = data?.map((r) => r.table_id) ?? [];
+    // Fallback for bookings created before junction table existed (no junction rows):
+    // use the stored table_id on the booking itself.
+    if (junctionIds.length === 0) {
+      const { data: booking } = await supabase
+        .from("bookings")
+        .select("table_id")
+        .eq("id", bookingId)
+        .single();
+      if (booking?.table_id) return [booking.table_id];
+    }
+    return junctionIds;
   }
 
   async function updateStatus(booking: Booking, newStatus: string) {
@@ -185,21 +200,29 @@ export function BookingActionsList({
     if (error) {
       console.error("Failed to update booking status:", error);
     } else {
-      if (newStatus === "confirmed" && booking.table_id) {
-        const { error: tableError } = await supabase
-          .from("tables")
-          .update({ status: "reserved" })
-          .eq("id", booking.table_id);
-        if (tableError) {
-          console.error("Failed to mark table reserved:", tableError);
+      if (newStatus === "confirmed") {
+        // Release all junction tables back to "reserved" for multi-table bookings
+        const tableIds = await getAllTableIds(booking.id);
+        if (tableIds.length > 0) {
+          const { error: tableError } = await supabase
+            .from("tables")
+            .update({ status: "reserved" })
+            .in("id", tableIds);
+          if (tableError) {
+            console.error("Failed to mark tables reserved:", tableError);
+          }
         }
-      } else if (newStatus === "cancelled" && booking.table_id) {
-        const { error: tableError } = await supabase
-          .from("tables")
-          .update({ status: "open" })
-          .eq("id", booking.table_id);
-        if (tableError) {
-          console.error("Failed to release table:", tableError);
+      } else if (newStatus === "cancelled") {
+        // Free ALL tables associated with this booking (primary + junction)
+        const tableIds = await getAllTableIds(booking.id);
+        if (tableIds.length > 0) {
+          const { error: tableError } = await supabase
+            .from("tables")
+            .update({ status: "open" })
+            .in("id", tableIds);
+          if (tableError) {
+            console.error("Failed to release tables:", tableError);
+          }
         }
       }
 
@@ -219,6 +242,20 @@ export function BookingActionsList({
     }
 
     setUpdatingId(bookingId);
+    // Free ALL tables associated with this booking (primary + junction) before deleting
+    const tableIds = await getAllTableIds(bookingId);
+    if (tableIds.length > 0) {
+      const { error: tableError } = await supabase
+        .from("tables")
+        .update({ status: "open" })
+        .in("id", tableIds);
+      if (tableError) {
+        console.error("Failed to release tables on delete:", tableError);
+      }
+    }
+    // Delete junction rows first (so cascade on bookings doesn't race)
+    await supabase.from("booking_tables").delete().eq("booking_id", bookingId);
+    // Delete the booking itself
     const { error } = await supabase
       .from("bookings")
       .delete()
@@ -245,14 +282,19 @@ export function BookingActionsList({
     return (
       <ul className="rounded-sm border border-[var(--rule)] divide-y divide-[var(--rule)] bg-[var(--paper-raised)]">
         {items.map((b) => {
-          const table = Array.isArray(b.tables) ? b.tables[0] : b.tables;
-          const when = new Date(b.datetime).toLocaleString('en-US', {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-          });
+          const tableLabels = (b.tables ?? []).map((t) => t.label).filter(Boolean);
+          const tableDisplay = tableLabels.length > 0
+            ? tableLabels.join("+")
+            : "Unassigned";
+          // Use a locale-independent format to avoid SSR/client hydration mismatch.
+          // toLocaleString produces different output between Node.js and browser.
+          const d = new Date(b.datetime);
+          const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+          const weekdays = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+          const h = d.getHours();
+          const ampm = h >= 12 ? "PM" : "AM";
+          const h12 = h % 12 || 12;
+          const when = `${weekdays[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()} at ${h12}:${String(d.getMinutes()).padStart(2, "0")} ${ampm}`;
 
           const isConfirmed = b.status === "confirmed";
           const isCancelled = b.status === "cancelled";
@@ -267,7 +309,7 @@ export function BookingActionsList({
               <div>
                 <p className="font-medium text-[var(--ink)]">{b.customer_name}</p>
                 <p className="text-sm text-[var(--ink-faint)]">
-                  {when} · Table {table?.label ?? "Unassigned"} · {b.party_size}{" "}
+                  {when} · Tables {tableDisplay} · {b.party_size}{" "}
                   {b.party_size === 1 ? "person" : "people"}
                 </p>
               </div>

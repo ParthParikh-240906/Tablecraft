@@ -63,7 +63,9 @@ function findBestCombination(
 export async function POST(request: Request) {
   let body: {
     orgSlug?: string;
+    orgId?: string;
     tableId?: string;
+    tableIds?: string[];
     customerName?: string;
     partySize?: number;
     datetime?: string;
@@ -75,17 +77,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { orgSlug, tableId, customerName, partySize, datetime } = body;
+  const { orgSlug, orgId, tableId, tableIds, customerName, partySize, datetime } = body;
 
   // --- Validate required fields ---
-  if (!orgSlug || typeof orgSlug !== "string") {
-    return NextResponse.json({ error: "orgSlug is required" }, { status: 400 });
+  if ((!orgSlug || typeof orgSlug !== "string") && !orgId) {
+    return NextResponse.json({ error: "orgSlug or orgId is required" }, { status: 400 });
   }
   if (!customerName || typeof customerName !== "string" || customerName.trim().length < 2) {
     return NextResponse.json({ error: "customerName must be at least 2 characters" }, { status: 400 });
   }
   if (typeof partySize !== "number" || !Number.isInteger(partySize) || partySize < 1 || partySize > 20) {
     return NextResponse.json({ error: "partySize must be an integer between 1 and 20" }, { status: 400 });
+  }
+  if (tableIds && (!Array.isArray(tableIds) || tableIds.length === 0 || !tableIds.every((t) => typeof t === "string"))) {
+    return NextResponse.json({ error: "tableIds must be a non-empty array of strings" }, { status: 400 });
   }
   const when = new Date(datetime ?? "");
   if (Number.isNaN(when.getTime())) {
@@ -97,12 +102,18 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  // --- Resolve org by slug ---
-  const { data: org, error: orgError } = await admin
-    .from("organizations")
-    .select("id")
-    .eq("slug", orgSlug)
-    .maybeSingle();
+  // --- Resolve org by slug or id ---
+  let org: { id: string } | null = null;
+  let orgError: any = null;
+  if (orgSlug) {
+    const result = await admin.from("organizations").select("id").eq("slug", orgSlug).maybeSingle();
+    org = result.data;
+    orgError = result.error;
+  } else {
+    const result = await admin.from("organizations").select("id").eq("id", orgId!).maybeSingle();
+    org = result.data;
+    orgError = result.error;
+  }
 
   if (orgError) {
     console.error("bookings: org lookup failed", orgError);
@@ -235,6 +246,63 @@ export async function POST(request: Request) {
         { status: 201 },
       );
     }
+  }
+
+  // --- Explicit tableIds path (operator console manual booking) ---
+  if (tableIds && tableIds.length > 0) {
+    const allOrgTableMap = new Map(orgTables.map((t) => [t.id, t]));
+    const selected = tableIds.map((id) => allOrgTableMap.get(id)).filter(Boolean) as typeof orgTables;
+    if (selected.length !== tableIds.length) {
+      return NextResponse.json({ error: "One or more requested tables were not found for this org." }, { status: 400 });
+    }
+    const primaryTable = selected[0];
+
+    const { data: booking, error: insertError } = await admin
+      .from("bookings")
+      .insert({
+        org_id: org.id,
+        table_id: primaryTable.id,
+        customer_name: customerName.trim(),
+        party_size: partySize,
+        datetime: when.toISOString(),
+        status: "confirmed",
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("bookings: insert failed", insertError);
+      return NextResponse.json({ error: "Could not create booking" }, { status: 500 });
+    }
+
+    // Insert ALL tables into junction (trigger already inserted primary — upsert handles conflict)
+    if (selected.length > 1) {
+      const otherIds = selected.slice(1).map((t) => t.id);
+      await admin
+        .from("booking_tables")
+        .upsert(
+          otherIds.map((tid) => ({
+            org_id: org.id,
+            booking_id: booking.id,
+            table_id: tid,
+            is_primary: false,
+          })),
+          { onConflict: "booking_id,table_id" },
+        );
+    }
+
+    if (isImmediate) {
+      await admin.from("tables").update({ status: "reserved" }).in("id", selected.map((t) => t.id));
+    }
+
+    return NextResponse.json(
+      {
+        booking,
+        table: { id: primaryTable.id, label: primaryTable.label, capacity: primaryTable.capacity },
+        tables: selected.map((t) => ({ id: t.id, label: t.label, capacity: t.capacity })),
+      },
+      { status: 201 },
+    );
   }
 
   // Auto-select: try combination logic first, fall back to single-table best fit
