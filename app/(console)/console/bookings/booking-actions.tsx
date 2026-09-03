@@ -23,6 +23,7 @@ interface TableOption {
   label: string;
   capacity: number;
   status?: string;
+  table_type?: "movable" | "non-movable";
 }
 
 export function BookingActionsList({
@@ -55,55 +56,62 @@ export function BookingActionsList({
   const [tableId, setTableId] = useState(""); // "" means Auto
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingCombo, setPendingCombo] = useState<{
+    message: string;
+    tables: { id: string; label: string; capacity: number }[];
+  } | null>(null);
 
   const supabase = createClient();
 
   /**
-   * Find best combination of open tables for partySize.
-   * Always picks minimum total capacity (least waste).
-   * Single table only chosen when its waste is strictly less than any combo.
-   * Returns array of table IDs (may be length 1 for single-table fit).
+   * Effective capacity for booking logic:
+   * - non-movable: uses actual capacity
+   * - movable: fixed at 4 alone, 6 when paired (two square tables pushed together)
+   */
+  function effectiveCapacity(t: TableOption): number {
+    if (t.table_type === "movable") return 4;
+    return t.capacity;
+  }
+
+  /**
+   * Find best open tables for partySize.
+   *
+   * Rules:
+   * - non-movable: single table only (no combining), use actual capacity
+   * - movable: single=4 seats, pair=6 seats (max 2 combined)
+   * - Compare best non-movable single vs best movable option, least empty seats wins
+   * - Tie-break: prefer non-movable
    */
   function pickBestTables(size: number): string[] {
-    if (openTables.length === 0) return [];
+    const movable = openTables.filter((t) => t.table_type === "movable");
+    const nonMovable = openTables.filter((t) => t.table_type !== "movable");
 
-    const info = openTables.map((t) => ({ id: t.id, capacity: t.capacity, label: t.label }));
-
-    // Tables big enough on their own — pick best single fit
-    const largeEnough = info.filter((t) => t.capacity >= size);
-    let bestSingleId: string | null = null;
-    let bestSingleCapacity = Infinity;
-    for (const t of largeEnough) {
-      if (t.capacity < bestSingleCapacity) {
-        bestSingleCapacity = t.capacity;
-        bestSingleId = t.id;
-      }
-    }
-
-    // Check every subset of small tables (2^N — restaurants have <20 tables)
-    const small = info.filter((t) => t.capacity < size);
-    let bestComboIds: string[] = [];
-    let bestComboCapacity = Infinity;
-    for (let mask = 1; mask < (1 << small.length); mask++) {
-      let total = 0;
-      const ids: string[] = [];
-      for (let i = 0; i < small.length; i++) {
-        if (mask & (1 << i)) {
-          total += small[i].capacity;
-          ids.push(small[i].id);
+    // Best single non-movable table (no combining)
+    let bestNM: { ids: string[]; waste: number } | null = null;
+    for (const t of nonMovable) {
+      if (t.capacity >= size) {
+        const waste = t.capacity - size;
+        if (!bestNM || waste < bestNM.waste) {
+          bestNM = { ids: [t.id], waste };
         }
       }
-      if (total >= size && total < bestComboCapacity) {
-        bestComboCapacity = total;
-        bestComboIds = ids;
+    }
+
+    // Best movable option: n tables = 2n+2 seats (1→4, 2→6, 3→8, ...)
+    // First n that fits is optimal — smallest n = least waste.
+    let bestMv: { ids: string[]; waste: number } | null = null;
+    for (let n = 1; n <= movable.length; n++) {
+      const seats = 2 * n + 2;
+      if (seats >= size) {
+        bestMv = { ids: movable.slice(0, n).map((t) => t.id), waste: seats - size };
+        break;
       }
     }
 
-    // Combo wins unless single table is strictly better (less waste)
-    if (bestSingleId && (!bestComboIds.length || bestSingleCapacity < bestComboCapacity)) {
-      return [bestSingleId];
-    }
-    return bestComboIds;
+    // Compare: non-movable wins ties
+    if (bestNM && (!bestMv || bestNM.waste <= bestMv.waste)) return bestNM.ids;
+    if (bestMv) return bestMv.ids;
+    return [];
   }
 
   async function handleAddBooking(e: React.FormEvent) {
@@ -124,7 +132,7 @@ export function BookingActionsList({
 
     setAdding(true);
 
-    // Determine target table IDs (explicit selection or automatic best-fit combo)
+    // Determine target table IDs (explicit selection or automatic best-fit)
     const chosenTableIds: string[] = tableId ? [tableId] : pickBestTables(size);
 
     try {
@@ -136,13 +144,23 @@ export function BookingActionsList({
           customerName: customerName.trim(),
           partySize: size,
           datetime: bookingDate.toISOString(),
-          tableIds: chosenTableIds,
+          ...(chosenTableIds.length > 0 ? { tableIds: chosenTableIds } : {}),
         }),
       });
 
       const data = await res.json();
       if (!res.ok || data.error) {
         setError(data.error ?? "Could not create booking");
+        setAdding(false);
+        return;
+      }
+
+      // Multi-table fallback: API proposes a combo, needs staff approval
+      if (data.needsConfirmation) {
+        setPendingCombo({
+          message: data.message,
+          tables: data.tables,
+        });
         setAdding(false);
         return;
       }
@@ -164,11 +182,61 @@ export function BookingActionsList({
       setDatetime("");
       setTableId("");
       setShowAddForm(false);
+      setPendingCombo(null);
     } catch {
       setError("Network error — please try again");
     } finally {
       setAdding(false);
     }
+  }
+
+  async function handleConfirmCombo() {
+    if (!pendingCombo) return;
+    setError(null);
+    setAdding(true);
+    try {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId,
+          customerName: customerName.trim(),
+          partySize: parseInt(partySize, 10),
+          datetime,
+          tableIds: pendingCombo.tables.map((t) => t.id),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setError(data.error ?? "Could not create booking");
+        setPendingCombo(null);
+      } else {
+        const booking = data.booking;
+        const allTables: BookingTable[] = (data.tables ?? [{ id: booking?.table_id, label: "" }])
+          .map((t: any) => ({ id: t.id, label: t.label }))
+          .filter((t: BookingTable) => t.id);
+        if (booking) {
+          setUpcoming((prev) => [
+            { ...booking, tables: allTables } as unknown as Booking,
+            ...prev,
+          ]);
+        }
+        setCustomerName("");
+        setPartySize("2");
+        setDatetime("");
+        setTableId("");
+        setShowAddForm(false);
+      }
+    } catch {
+      setError("Network error — please try again");
+    } finally {
+      setAdding(false);
+      setPendingCombo(null);
+    }
+  }
+
+  async function handleRejectCombo() {
+    setPendingCombo(null);
   }
 
   async function getAllTableIds(bookingId: string): Promise<string[]> {
@@ -467,13 +535,41 @@ export function BookingActionsList({
             </p>
           )}
 
+          {pendingCombo && (
+            <div className="rounded-sm border border-amber-700 bg-amber-950/30 p-3">
+              <p className="text-xs text-amber-300 mb-3">{pendingCombo.message}</p>
+              <ul className="text-xs text-[var(--ink)] mb-3 space-y-0.5">
+                {pendingCombo.tables.map((t) => (
+                  <li key={t.id}>• {t.label} — {t.capacity} seats</li>
+                ))}
+              </ul>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleConfirmCombo}
+                  disabled={adding}
+                  className="btn btn-accent text-xs"
+                >
+                  {adding ? "Saving…" : "Accept"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRejectCombo}
+                  className="btn btn-outline text-xs"
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <button type="submit" disabled={adding} className="btn btn-accent text-xs">
               {adding ? "Saving…" : "Save booking"}
             </button>
             <button
               type="button"
-              onClick={() => setShowAddForm(false)}
+              onClick={() => { setShowAddForm(false); setPendingCombo(null); }}
               className="btn btn-outline text-xs"
             >
               Cancel

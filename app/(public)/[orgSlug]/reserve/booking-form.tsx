@@ -3,6 +3,12 @@
 import { useState } from "react";
 import { useTableRealtime } from "@/lib/realtime";
 
+interface ComboTableInfo {
+  id: string;
+  label: string;
+  capacity: number;
+}
+
 export function BookingForm({
   orgId,
   orgSlug,
@@ -22,6 +28,12 @@ export function BookingForm({
   const [confirmedDetails, setConfirmedDetails] = useState<{
     tableLabel?: string;
     capacity?: number;
+  } | null>(null);
+
+  // Multi-table confirmation state (public storefront fallback)
+  const [pendingCombo, setPendingCombo] = useState<{
+    message: string;
+    tables: ComboTableInfo[];
   } | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -51,6 +63,47 @@ export function BookingForm({
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Could not create booking");
+      } else if (data.needsConfirmation) {
+        // API found a non-movable combo but needs guest approval
+        setPendingCombo({
+          message: data.message,
+          tables: data.tables,
+        });
+      } else {
+        setConfirmedDetails({
+          tableLabel: data.table?.label,
+          capacity: data.table?.capacity,
+        });
+      }
+    } catch {
+      setError("Network error — please try again");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleConfirmCombo() {
+    if (!pendingCombo) return;
+    setError(null);
+    setSubmitting(true);
+
+    try {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgSlug,
+          customerName,
+          partySize: size,
+          datetime,
+          tableIds: pendingCombo.tables.map((t) => t.id),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Could not create booking");
+        setPendingCombo(null);
       } else {
         setConfirmedDetails({
           tableLabel: data.table?.label,
@@ -147,6 +200,30 @@ export function BookingForm({
         </p>
       </div>
 
+      {/* Multi-table confirmation prompt */}
+      {pendingCombo && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <p className="text-sm text-amber-800 mb-3">{pendingCombo.message}</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleConfirmCombo}
+              className="flex-1 py-2.5 rounded-full text-white font-medium shadow transition-transform active:scale-[0.99]"
+              style={{ backgroundColor: accent }}
+            >
+              Yes, that works
+            </button>
+            <button
+              type="button"
+              onClick={() => setPendingCombo(null)}
+              className="flex-1 py-2.5 rounded-full text-white font-medium shadow transition-transform active:scale-[0.99] bg-gray-500"
+            >
+              No, thanks
+            </button>
+          </div>
+        </div>
+      )}
+
       {error && (
         <p className="text-sm text-red-600 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
           {error}
@@ -155,7 +232,7 @@ export function BookingForm({
 
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || !!pendingCombo}
         className="w-full py-3 rounded-full text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow transition-transform active:scale-[0.99]"
         style={{ backgroundColor: accent }}
       >

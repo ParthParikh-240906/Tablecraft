@@ -25,6 +25,7 @@ export function TableGrid({ orgId }: { orgId: string }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [newCapacity, setNewCapacity] = useState("4");
+  const [newTableType, setNewTableType] = useState<"movable" | "non-movable">("non-movable");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,6 +101,7 @@ export function TableGrid({ orgId }: { orgId: string }) {
       label: newLabel.trim(),
       capacity: capacityNum,
       status: "open",
+      table_type: newTableType,
     });
 
     if (insertError) {
@@ -110,6 +112,7 @@ export function TableGrid({ orgId }: { orgId: string }) {
 
     setNewLabel("");
     setNewCapacity("4");
+    setNewTableType("non-movable");
     setShowAddForm(false);
     setAdding(false);
   }
@@ -208,8 +211,27 @@ export function TableGrid({ orgId }: { orgId: string }) {
                 value={newCapacity}
                 onChange={(e) => setNewCapacity(e.target.value)}
                 required
+                disabled={newTableType === "movable"}
                 className="input"
               />
+            </div>
+            <div>
+              <label htmlFor="tableType" className="block text-xs uppercase tracking-wider font-semibold mb-1 text-[var(--ink-soft)]">
+                Type
+              </label>
+              <select
+                id="tableType"
+                value={newTableType}
+                onChange={(e) => {
+                  const v = e.target.value as "movable" | "non-movable";
+                  setNewTableType(v);
+                  if (v === "movable") setNewCapacity("4");
+                }}
+                className="input"
+              >
+                <option value="non-movable">Non-Movable (use actual capacity)</option>
+                <option value="movable">Movable</option>
+              </select>
             </div>
           </div>
 
@@ -262,6 +284,13 @@ export function TableGrid({ orgId }: { orgId: string }) {
             </div>
             <p className="text-xs text-[var(--ink-faint)] mt-1">
               Seats {t.capacity} {t.capacity === 1 ? "guest" : "guests"}
+              <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-sm border ${
+                t.table_type === "movable"
+                  ? "bg-violet-950/50 text-violet-300 border-violet-700"
+                  : "bg-slate-950/50 text-slate-400 border-slate-700"
+              }`}>
+                {t.table_type === "movable" ? "Movable" : "Non-Movable"}
+              </span>
             </p>
           </div>
 

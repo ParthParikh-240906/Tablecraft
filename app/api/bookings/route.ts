@@ -10,54 +10,92 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * the single sanctioned entry point for creating bookings. All inputs are
  * validated server-side before any write.
  */
+
+type RouteTable = {
+  id: string;
+  capacity: number;
+  label: string;
+  table_type: "movable" | "non-movable";
+};
+
+function effectiveCapacity(t: RouteTable): number {
+  if (t.table_type === "movable") return 4;
+  return t.capacity;
+}
+
 /**
- * Find the best subset of available tables to seat partySize guests.
- * Always picks the option with minimum total capacity (least waste).
- * Single table is only chosen when its waste is strictly less than any combo.
- * Returns null when no valid combination exists.
+ * Find the best available table(s) for partySize.
+ *
+ * Rules:
+ * - non-movable: single table only (no combining), actual capacity
+ * - movable: single=4 seats, pair=6 seats (max 2 combined)
+ * - Compare best non-movable single vs best movable option
+ * - Tie-break: prefer non-movable
+ *
+ * Returns null when no single-table or movable option fits.
  */
 function findBestCombination(
-  tables: Array<{ id: string; capacity: number; label: string }>,
+  tables: RouteTable[],
   partySize: number,
-): Array<{ id: string; capacity: number; label: string }> | null {
-  // Tables big enough on their own
-  const largeEnough = tables.filter((t) => t.capacity >= partySize);
-  // Tables that must be combined
-  const small = tables.filter((t) => t.capacity < partySize);
+): { ids: string[]; waste: number; type: "non-movable" | "movable" } | null {
+  const movable = tables.filter((t) => t.table_type === "movable");
+  const nonMovable = tables.filter((t) => t.table_type === "non-movable");
 
-  // Best single-table fit (least waste)
-  let bestSingle: typeof largeEnough[number] | null = null;
-  if (largeEnough.length > 0) {
-    bestSingle = largeEnough.reduce((a, b) =>
-      a.capacity < b.capacity ? a : b,
-    );
-  }
-
-  // Enumerate all subsets of small tables (2^N — restaurants have <20 tables)
-  let bestCombo: typeof small | null = null;
-  let bestComboCapacity = Infinity;
-
-  for (let mask = 1; mask < (1 << small.length); mask++) {
-    let total = 0;
-    const subset: typeof small = [];
-    for (let i = 0; i < small.length; i++) {
-      if (mask & (1 << i)) {
-        total += small[i].capacity;
-        subset.push(small[i]);
+  // Best single non-movable table (no combining allowed)
+  let bestNM: { ids: string[]; waste: number } | null = null;
+  for (const t of nonMovable) {
+    if (effectiveCapacity(t) >= partySize) {
+      const waste = effectiveCapacity(t) - partySize;
+      if (!bestNM || waste < bestNM.waste) {
+        bestNM = { ids: [t.id], waste };
       }
     }
-    if (total >= partySize && total < bestComboCapacity) {
-      bestComboCapacity = total;
-      bestCombo = subset;
+  }
+
+  // Best movable option: n tables = 2n+2 seats (1→4, 2→6, 3→8, ...)
+  // First n that fits is optimal — smallest n = least waste.
+  let bestMv: { ids: string[]; waste: number } | null = null;
+  for (let n = 1; n <= movable.length; n++) {
+    const seats = 2 * n + 2;
+    if (seats >= partySize) {
+      bestMv = { ids: movable.slice(0, n).map((t) => t.id), waste: seats - partySize };
+      break;
     }
   }
 
-  // Pick whichever has less total capacity (less waste).
-  // Only prefer single table when it's strictly better.
-  if (bestCombo && (!bestSingle || bestComboCapacity < bestSingle.capacity)) {
-    return bestCombo;
+  // Non-movable wins ties
+  if (bestNM && (!bestMv || bestNM.waste <= bestMv.waste)) {
+    return { ...bestNM, type: "non-movable" };
   }
-  return bestSingle ? [bestSingle] : bestCombo;
+  if (bestMv) return { ...bestMv, type: "movable" };
+  return null;
+}
+
+/**
+ * Find the best combination of non-movable tables whose combined capacity
+ * covers partySize. Tables are sorted by capacity descending (largest first).
+ * Greedy: pick largest available tables until total capacity ≥ partySize.
+ *
+ * Returns the selected tables or null if total non-movable capacity is insufficient.
+ */
+function findNonMovableCombo(
+  tables: RouteTable[],
+  partySize: number,
+): { ids: string[]; waste: number } | null {
+  const nonMovable = tables
+    .filter((t) => t.table_type === "non-movable")
+    .sort((a, b) => b.capacity - a.capacity);
+
+  let total = 0;
+  const ids: string[] = [];
+  for (const t of nonMovable) {
+    total += t.capacity;
+    ids.push(t.id);
+    if (total >= partySize) {
+      return { ids, waste: total - partySize };
+    }
+  }
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -123,11 +161,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Organization not found" }, { status: 404 });
   }
 
-  // Fetch ALL open/reserved tables for this org (not just large-enough ones).
-  // Combination logic below may need small tables to reach the target size.
+  // Fetch ALL open/reserved tables for this org.
   const { data: orgTables, error: tablesError } = await admin
     .from("tables")
-    .select("id, label, status, capacity")
+    .select("id, label, status, capacity, table_type")
     .eq("org_id", org.id)
     .order("capacity", { ascending: true });
 
@@ -143,9 +180,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // 2-hour reservation window calculation:
-  // Any booking with status IN ('confirmed', 'pending') overlapping [when - 2hr, when + 2hr] conflicts.
-  // Check both bookings.table_id (legacy) and booking_tables.table_id (junction).
+  // 2-hour reservation window: check for overlapping confirmed/pending bookings.
   const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
   const windowStart = new Date(when.getTime() - TWO_HOURS_MS).toISOString();
   const windowEnd = new Date(when.getTime() + TWO_HOURS_MS).toISOString();
@@ -163,29 +198,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 
+  // Build set of table IDs occupied by conflicting bookings.
+  // FIX: Always query booking_tables junction when conflicts exist — never skip it.
   const bookedTableIds = new Set<string>();
   for (const b of conflictingBookings ?? []) {
     bookedTableIds.add(b.table_id);
   }
-  // Also check booking_tables junction for multi-table bookings
-  if (bookedTableIds.size === 0) {
+  if ((conflictingBookings?.length ?? 0) > 0) {
     const { data: jtBookings } = await admin
       .from("booking_tables")
       .select("table_id")
-      .eq("org_id", org.id);
-    for (const row of jtBookings ?? []) bookedTableIds.add(row.table_id);
-  } else {
-    const { data: jtBookings } = await admin
-      .from("booking_tables")
-      .select("table_id")
-      .eq("org_id", org.id)
-      .in("booking_id", (conflictingBookings ?? []).map((b) => b.id));
+      .in("booking_id", conflictingBookings.map((b) => b.id));
     for (const row of jtBookings ?? []) bookedTableIds.add(row.table_id);
   }
 
   // Determine which tables are free for this 2-hour window.
-  // Note: if booking is for the immediate current time window (e.g. within 2 hrs from now),
-  // we also verify table.status !== 'occupied'.
+  // Also exclude occupied tables for immediate bookings.
   const isImmediate = Math.abs(when.getTime() - Date.now()) < TWO_HOURS_MS;
 
   const availableTables = orgTables.filter((t) => {
@@ -204,18 +232,20 @@ export async function POST(request: Request) {
     );
   }
 
-  // Convert available tables to the shape expected by findBestCombination
-  const comboTables = availableTables.map((t) => ({
+  // Convert available tables to the shape expected by combination logic.
+  const comboTables: RouteTable[] = availableTables.map((t) => ({
     id: t.id,
     capacity: t.capacity,
     label: t.label,
+    table_type: (t as any).table_type ?? "non-movable",
   }));
 
-  // If a specific tableId was passed and is available, use it directly
+  // ---------------------------------------------------------------------------
+  // Path 1: Explicit single tableId selected by user
+  // ---------------------------------------------------------------------------
   if (tableId) {
     const matched = comboTables.find((t) => t.id === tableId);
     if (matched) {
-      // --- Create the booking with the single explicit table ---
       const { data: booking, error: insertError } = await admin
         .from("bookings")
         .insert({
@@ -248,7 +278,9 @@ export async function POST(request: Request) {
     }
   }
 
-  // --- Explicit tableIds path (operator console manual booking) ---
+  // ---------------------------------------------------------------------------
+  // Path 2: Explicit tableIds (operator console manual booking)
+  // ---------------------------------------------------------------------------
   if (tableIds && tableIds.length > 0) {
     const allOrgTableMap = new Map(orgTables.map((t) => [t.id, t]));
     const selected = tableIds.map((id) => allOrgTableMap.get(id)).filter(Boolean) as typeof orgTables;
@@ -275,7 +307,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Could not create booking" }, { status: 500 });
     }
 
-    // Insert ALL tables into junction (trigger already inserted primary — upsert handles conflict)
+    // Insert remaining tables into junction (trigger already inserted primary — upsert handles conflict)
     if (selected.length > 1) {
       const otherIds = selected.slice(1).map((t) => t.id);
       await admin
@@ -305,66 +337,82 @@ export async function POST(request: Request) {
     );
   }
 
-  // Auto-select: try combination logic first, fall back to single-table best fit
-  const selectedCombination = findBestCombination(comboTables, partySize);
+  // ---------------------------------------------------------------------------
+  // Path 3: Auto-select — single-table or movable combination
+  // ---------------------------------------------------------------------------
+  const selection = findBestCombination(comboTables, partySize);
 
-  if (!selectedCombination || selectedCombination.length === 0) {
+  if (selection) {
+    const tableMap = new Map(comboTables.map((t) => [t.id, t]));
+    const selected = selection.ids.map((id) => tableMap.get(id)!).filter(Boolean);
+    const primaryTable = selected[0];
+
+    const { data: booking, error: insertError } = await admin
+      .from("bookings")
+      .insert({
+        org_id: org.id,
+        table_id: primaryTable.id,
+        customer_name: customerName.trim(),
+        party_size: partySize,
+        datetime: when.toISOString(),
+        status: "confirmed",
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("bookings: insert failed", insertError);
+      return NextResponse.json({ error: "Could not create booking" }, { status: 500 });
+    }
+
+    if (selected.length > 1) {
+      const otherIds = selected.slice(1).map((t) => t.id);
+      await admin
+        .from("booking_tables")
+        .upsert(
+          otherIds.map((tid) => ({
+            org_id: org.id,
+            booking_id: booking.id,
+            table_id: tid,
+            is_primary: false,
+          })),
+          { onConflict: "booking_id,table_id" },
+        );
+    }
+
+    if (isImmediate) {
+      await admin.from("tables").update({ status: "reserved" }).in("id", selected.map((t) => t.id));
+    }
+
     return NextResponse.json(
-      { error: `No tables available for ${partySize} guests.` },
-      { status: 400 },
+      {
+        booking,
+        table: { id: primaryTable.id, label: primaryTable.label, capacity: primaryTable.capacity },
+        tables: selected.map((t) => ({ id: t.id, label: t.label, capacity: t.capacity })),
+      },
+      { status: 201 },
     );
   }
 
-  const primaryTable = selectedCombination[0];
-
-  // --- Create the booking (primary table becomes table_id, inserted via trigger) ---
-  const { data: booking, error: insertError } = await admin
-    .from("bookings")
-    .insert({
-      org_id: org.id,
-      table_id: primaryTable.id,
-      customer_name: customerName.trim(),
-      party_size: partySize,
-      datetime: when.toISOString(),
-      status: "confirmed",
-    })
-    .select()
-    .single();
-
-  if (insertError) {
-    console.error("bookings: insert failed", insertError);
-    return NextResponse.json({ error: "Could not create booking" }, { status: 500 });
-  }
-
-  // Insert remaining tables into booking_tables junction (trigger already inserted primary)
-  if (selectedCombination.length > 1) {
-    const otherIds = selectedCombination.slice(1).map((t) => t.id);
-    await admin
-      .from("booking_tables")
-      .insert(otherIds.map((tid) => ({
-        org_id: org.id,
-        booking_id: booking.id,
-        table_id: tid,
-        is_primary: false,
-      })));
-  }
-
-  // Mark ALL tables in the combination as reserved for immediate bookings
-  if (isImmediate) {
-    const ids = selectedCombination.map((t) => t.id);
-    await admin.from("tables").update({ status: "reserved" }).in("id", ids);
+  // ---------------------------------------------------------------------------
+  // Path 4: No single table fits — check non-movable combo fallback (public storefront)
+  // ---------------------------------------------------------------------------
+  const combo = findNonMovableCombo(comboTables, partySize);
+  if (combo) {
+    const tableMap = new Map(comboTables.map((t) => [t.id, t]));
+    const tables = combo.ids.map((id) => tableMap.get(id)!).filter(Boolean);
+    return NextResponse.json(
+      {
+        needsConfirmation: true,
+        message: `We currently have no single table for ${partySize} available at ${when.toLocaleString()}. Will ${tables.length} table${tables.length > 1 ? "s" : ""} of ${tables.map((t) => `${t.label} (${t.capacity} seats)`).join(" and ")} be fine for the reservation?`,
+        tables: tables.map((t) => ({ id: t.id, label: t.label, capacity: t.capacity })),
+      },
+      { status: 200 },
+    );
   }
 
   return NextResponse.json(
-    {
-      booking,
-      table: { id: primaryTable.id, label: primaryTable.label, capacity: primaryTable.capacity },
-      tables: selectedCombination.map((t) => ({
-        id: t.id,
-        label: t.label,
-        capacity: t.capacity,
-      })),
-    },
-    { status: 201 },
+    { error: `No tables available for ${partySize} guests.` },
+    { status: 400 },
   );
 }

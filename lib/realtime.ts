@@ -11,6 +11,7 @@ export interface TableRow {
   label: string;
   capacity: number;
   status: TableStatus;
+  table_type: "movable" | "non-movable";
 }
 
 /**
@@ -35,7 +36,7 @@ export function useTableRealtime(orgId: string | null) {
     let active = true;
     supabase
       .from("tables")
-      .select("id, org_id, label, capacity, status")
+      .select("id, org_id, label, capacity, status, table_type")
       .eq("org_id", orgId)
       .then(({ data, error }) => {
         if (!active) return;

@@ -18,7 +18,7 @@ export default async function BookingsPage() {
 
   const { data: tables } = await supabase
     .from("tables")
-    .select("id, label, capacity, status")
+    .select("id, label, capacity, status, table_type")
     .eq("org_id", orgId)
     .order("label", { ascending: true });
 
