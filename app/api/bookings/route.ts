@@ -10,6 +10,56 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * the single sanctioned entry point for creating bookings. All inputs are
  * validated server-side before any write.
  */
+/**
+ * Find the best subset of available tables to seat partySize guests.
+ * Always picks the option with minimum total capacity (least waste).
+ * Single table is only chosen when its waste is strictly less than any combo.
+ * Returns null when no valid combination exists.
+ */
+function findBestCombination(
+  tables: Array<{ id: string; capacity: number; label: string }>,
+  partySize: number,
+): Array<{ id: string; capacity: number; label: string }> | null {
+  // Tables big enough on their own
+  const largeEnough = tables.filter((t) => t.capacity >= partySize);
+  // Tables that must be combined
+  const small = tables.filter((t) => t.capacity < partySize);
+
+  // Best single-table fit (least waste)
+  let bestSingle: typeof largeEnough[number] | null = null;
+  if (largeEnough.length > 0) {
+    bestSingle = largeEnough.reduce((a, b) =>
+      a.capacity < b.capacity ? a : b,
+    );
+  }
+
+  // Enumerate all subsets of small tables (2^N — restaurants have <20 tables)
+  let bestCombo: typeof small | null = null;
+  let bestComboCapacity = Infinity;
+
+  for (let mask = 1; mask < (1 << small.length); mask++) {
+    let total = 0;
+    const subset: typeof small = [];
+    for (let i = 0; i < small.length; i++) {
+      if (mask & (1 << i)) {
+        total += small[i].capacity;
+        subset.push(small[i]);
+      }
+    }
+    if (total >= partySize && total < bestComboCapacity) {
+      bestComboCapacity = total;
+      bestCombo = subset;
+    }
+  }
+
+  // Pick whichever has less total capacity (less waste).
+  // Only prefer single table when it's strictly better.
+  if (bestCombo && (!bestSingle || bestComboCapacity < bestSingle.capacity)) {
+    return bestCombo;
+  }
+  return bestSingle ? [bestSingle] : bestCombo;
+}
+
 export async function POST(request: Request) {
   let body: {
     orgSlug?: string;
@@ -62,12 +112,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Organization not found" }, { status: 404 });
   }
 
-  // Fetch all tables for this org that have enough capacity for the party
+  // Fetch ALL open/reserved tables for this org (not just large-enough ones).
+  // Combination logic below may need small tables to reach the target size.
   const { data: orgTables, error: tablesError } = await admin
     .from("tables")
     .select("id, label, status, capacity")
     .eq("org_id", org.id)
-    .gte("capacity", partySize)
     .order("capacity", { ascending: true });
 
   if (tablesError) {
@@ -77,20 +127,21 @@ export async function POST(request: Request) {
 
   if (!orgTables || orgTables.length === 0) {
     return NextResponse.json(
-      { error: `No tables available with capacity for ${partySize} guests.` },
+      { error: `No tables available for ${partySize} guests.` },
       { status: 400 }
     );
   }
 
   // 2-hour reservation window calculation:
-  // Any booking with status IN ('confirmed', 'pending') overlapping [when - 2hr, when + 2hr] conflicts with that table.
+  // Any booking with status IN ('confirmed', 'pending') overlapping [when - 2hr, when + 2hr] conflicts.
+  // Check both bookings.table_id (legacy) and booking_tables.table_id (junction).
   const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
   const windowStart = new Date(when.getTime() - TWO_HOURS_MS).toISOString();
   const windowEnd = new Date(when.getTime() + TWO_HOURS_MS).toISOString();
 
   const { data: conflictingBookings, error: bookingsError } = await admin
     .from("bookings")
-    .select("table_id, datetime")
+    .select("id, table_id, datetime")
     .eq("org_id", org.id)
     .in("status", ["confirmed", "pending"])
     .gt("datetime", windowStart)
@@ -101,7 +152,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 
-  const bookedTableIds = new Set((conflictingBookings || []).map((b) => b.table_id));
+  const bookedTableIds = new Set<string>();
+  for (const b of conflictingBookings ?? []) {
+    bookedTableIds.add(b.table_id);
+  }
+  // Also check booking_tables junction for multi-table bookings
+  if (bookedTableIds.size === 0) {
+    const { data: jtBookings } = await admin
+      .from("booking_tables")
+      .select("table_id")
+      .eq("org_id", org.id);
+    for (const row of jtBookings ?? []) bookedTableIds.add(row.table_id);
+  } else {
+    const { data: jtBookings } = await admin
+      .from("booking_tables")
+      .select("table_id")
+      .eq("org_id", org.id)
+      .in("booking_id", (conflictingBookings ?? []).map((b) => b.id));
+    for (const row of jtBookings ?? []) bookedTableIds.add(row.table_id);
+  }
 
   // Determine which tables are free for this 2-hour window.
   // Note: if booking is for the immediate current time window (e.g. within 2 hrs from now),
@@ -124,22 +193,68 @@ export async function POST(request: Request) {
     );
   }
 
-  // If a specific tableId was passed and is available, use it; otherwise auto-select the best fit
-  // (already ordered by ascending capacity for least empty seats)
-  let selectedTable = availableTables[0];
+  // Convert available tables to the shape expected by findBestCombination
+  const comboTables = availableTables.map((t) => ({
+    id: t.id,
+    capacity: t.capacity,
+    label: t.label,
+  }));
+
+  // If a specific tableId was passed and is available, use it directly
   if (tableId) {
-    const matched = availableTables.find((t) => t.id === tableId);
+    const matched = comboTables.find((t) => t.id === tableId);
     if (matched) {
-      selectedTable = matched;
+      // --- Create the booking with the single explicit table ---
+      const { data: booking, error: insertError } = await admin
+        .from("bookings")
+        .insert({
+          org_id: org.id,
+          table_id: matched.id,
+          customer_name: customerName.trim(),
+          party_size: partySize,
+          datetime: when.toISOString(),
+          status: "confirmed",
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error("bookings: insert failed", insertError);
+        return NextResponse.json({ error: "Could not create booking" }, { status: 500 });
+      }
+
+      if (isImmediate) {
+        await admin.from("tables").update({ status: "reserved" }).eq("id", matched.id);
+      }
+
+      return NextResponse.json(
+        {
+          booking,
+          table: { id: matched.id, label: matched.label, capacity: matched.capacity },
+        },
+        { status: 201 },
+      );
     }
   }
 
-  // --- Create the booking ---
+  // Auto-select: try combination logic first, fall back to single-table best fit
+  const selectedCombination = findBestCombination(comboTables, partySize);
+
+  if (!selectedCombination || selectedCombination.length === 0) {
+    return NextResponse.json(
+      { error: `No tables available for ${partySize} guests.` },
+      { status: 400 },
+    );
+  }
+
+  const primaryTable = selectedCombination[0];
+
+  // --- Create the booking (primary table becomes table_id, inserted via trigger) ---
   const { data: booking, error: insertError } = await admin
     .from("bookings")
     .insert({
       org_id: org.id,
-      table_id: selectedTable.id,
+      table_id: primaryTable.id,
       customer_name: customerName.trim(),
       party_size: partySize,
       datetime: when.toISOString(),
@@ -153,19 +268,35 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not create booking" }, { status: 500 });
   }
 
-  // If the booking is immediate (starts within 2 hours), update the table live status to 'reserved'
-  if (isImmediate) {
+  // Insert remaining tables into booking_tables junction (trigger already inserted primary)
+  if (selectedCombination.length > 1) {
+    const otherIds = selectedCombination.slice(1).map((t) => t.id);
     await admin
-      .from("tables")
-      .update({ status: "reserved" })
-      .eq("id", selectedTable.id);
+      .from("booking_tables")
+      .insert(otherIds.map((tid) => ({
+        org_id: org.id,
+        booking_id: booking.id,
+        table_id: tid,
+        is_primary: false,
+      })));
+  }
+
+  // Mark ALL tables in the combination as reserved for immediate bookings
+  if (isImmediate) {
+    const ids = selectedCombination.map((t) => t.id);
+    await admin.from("tables").update({ status: "reserved" }).in("id", ids);
   }
 
   return NextResponse.json(
     {
       booking,
-      table: { id: selectedTable.id, label: selectedTable.label, capacity: selectedTable.capacity },
+      table: { id: primaryTable.id, label: primaryTable.label, capacity: primaryTable.capacity },
+      tables: selectedCombination.map((t) => ({
+        id: t.id,
+        label: t.label,
+        capacity: t.capacity,
+      })),
     },
-    { status: 201 }
+    { status: 201 },
   );
 }

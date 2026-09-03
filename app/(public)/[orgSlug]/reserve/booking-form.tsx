@@ -74,7 +74,7 @@ export function BookingForm({
           ✓
         </div>
         <h2 className="text-xl font-semibold mb-2">Booking Confirmed!</h2>
-        <p className="text-gray-600">
+        <p className="text-gray-900 font-medium">
           Your table has been reserved. We look forward to seeing you.
         </p>
       </div>
@@ -107,7 +107,7 @@ export function BookingForm({
           required
           minLength={2}
           placeholder="Jane Doe"
-          className="w-full rounded-lg border px-3 py-2.5 text-sm bg-white"
+          className="w-full rounded-lg border px-3 py-2.5 text-sm bg-white text-black"
         />
       </div>
 
@@ -124,7 +124,7 @@ export function BookingForm({
           value={size}
           onChange={(e) => setSize(Number(e.target.value))}
           required
-          className="w-full rounded-lg border px-3 py-2.5 text-sm bg-white"
+          className="w-full rounded-lg border px-3 py-2.5 text-sm bg-white text-black"
         />
       </div>
 
@@ -140,7 +140,7 @@ export function BookingForm({
           onChange={(e) => setDatetime(e.target.value)}
           min={new Date().toISOString().slice(0, 16)}
           required
-          className="w-full rounded-lg border px-3 py-2.5 text-sm bg-white"
+          className="w-full rounded-lg border px-3 py-2.5 text-sm bg-white text-black"
         />
         <p className="text-xs text-gray-400 mt-1">
           Reservations are booked for a 2-hour duration.

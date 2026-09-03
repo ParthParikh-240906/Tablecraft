@@ -54,25 +54,51 @@ export function BookingActionsList({
   const supabase = createClient();
 
   /**
-   * Auto-assign table with least number of empty seats:
-   * 1. Filter open tables with capacity >= partySize
-   * 2. Sort by (capacity - partySize) ASC (minimal empty seats)
-   * 3. Fallback to largest open table if none >= partySize
+   * Find best combination of open tables for partySize.
+   * Always picks minimum total capacity (least waste).
+   * Single table only chosen when its waste is strictly less than any combo.
+   * Returns array of table IDs (may be length 1 for single-table fit).
    */
-  function pickBestTable(size: number): string | null {
-    if (openTables.length === 0) return null;
+  function pickBestTables(size: number): string[] {
+    if (openTables.length === 0) return [];
 
-    const fittingTables = openTables
-      .filter((t) => t.capacity >= size)
-      .sort((a, b) => (a.capacity - size) - (b.capacity - size));
+    const info = openTables.map((t) => ({ id: t.id, capacity: t.capacity, label: t.label }));
 
-    if (fittingTables.length > 0) {
-      return fittingTables[0].id;
+    // Tables big enough on their own — pick best single fit
+    const largeEnough = info.filter((t) => t.capacity >= size);
+    let bestSingleId: string | null = null;
+    let bestSingleCapacity = Infinity;
+    for (const t of largeEnough) {
+      if (t.capacity < bestSingleCapacity) {
+        bestSingleCapacity = t.capacity;
+        bestSingleId = t.id;
+      }
     }
 
-    // If none are large enough, pick the largest open table
-    const sortedDesc = [...openTables].sort((a, b) => b.capacity - a.capacity);
-    return sortedDesc[0].id;
+    // Check every subset of small tables (2^N — restaurants have <20 tables)
+    const small = info.filter((t) => t.capacity < size);
+    let bestComboIds: string[] = [];
+    let bestComboCapacity = Infinity;
+    for (let mask = 1; mask < (1 << small.length); mask++) {
+      let total = 0;
+      const ids: string[] = [];
+      for (let i = 0; i < small.length; i++) {
+        if (mask & (1 << i)) {
+          total += small[i].capacity;
+          ids.push(small[i].id);
+        }
+      }
+      if (total >= size && total < bestComboCapacity) {
+        bestComboCapacity = total;
+        bestComboIds = ids;
+      }
+    }
+
+    // Combo wins unless single table is strictly better (less waste)
+    if (bestSingleId && (!bestComboIds.length || bestSingleCapacity < bestComboCapacity)) {
+      return [bestSingleId];
+    }
+    return bestComboIds;
   }
 
   async function handleAddBooking(e: React.FormEvent) {
@@ -94,11 +120,10 @@ export function BookingActionsList({
     setAdding(true);
     const isoDatetime = bookingDate.toISOString();
 
-    // Determine target table ID (explicit selection or automatic best-fit)
-    let chosenTableId: string | null = tableId || null;
-    if (!chosenTableId) {
-      chosenTableId = pickBestTable(size);
-    }
+    // Determine target table IDs (explicit selection or automatic best-fit combo)
+    const chosenTableIds: string[] = tableId ? [tableId] : pickBestTables(size);
+
+    const primaryTableId = chosenTableIds[0] ?? null;
 
     const { data, error: insertError } = await supabase
       .from("bookings")
@@ -107,7 +132,7 @@ export function BookingActionsList({
         customer_name: customerName.trim(),
         party_size: size,
         datetime: isoDatetime,
-        table_id: chosenTableId,
+        table_id: primaryTableId,
         status: "confirmed",
       })
       .select("id, customer_name, party_size, datetime, status, table_id, tables(id, label)")
@@ -119,12 +144,23 @@ export function BookingActionsList({
       return;
     }
 
-    // If a table was assigned, mark table as reserved in DB immediately
-    if (chosenTableId) {
+    // Mark ALL tables in the combination as reserved and insert junction rows
+    if (chosenTableIds.length > 0) {
       await supabase
         .from("tables")
         .update({ status: "reserved" })
-        .eq("id", chosenTableId);
+        .in("id", chosenTableIds);
+      // Insert non-primary tables into booking_tables junction (trigger handles primary)
+      if (chosenTableIds.length > 1 && data?.id) {
+        await supabase
+          .from("booking_tables")
+          .insert(chosenTableIds.slice(1).map((tid) => ({
+            org_id: orgId,
+            booking_id: data.id,
+            table_id: tid,
+            is_primary: false,
+          })));
+      }
     }
 
     if (data) {
@@ -210,7 +246,7 @@ export function BookingActionsList({
       <ul className="rounded-sm border border-[var(--rule)] divide-y divide-[var(--rule)] bg-[var(--paper-raised)]">
         {items.map((b) => {
           const table = Array.isArray(b.tables) ? b.tables[0] : b.tables;
-          const when = new Date(b.datetime).toLocaleString(undefined, {
+          const when = new Date(b.datetime).toLocaleString('en-US', {
             weekday: "short",
             month: "short",
             day: "numeric",
@@ -465,7 +501,7 @@ export function BookingActionsList({
           if (searchDate.trim()) {
             const term = searchDate.trim().toLowerCase();
             const rawIso = b.datetime.toLowerCase();
-            const formatted = new Date(b.datetime).toLocaleString().toLowerCase();
+            const formatted = new Date(b.datetime).toLocaleString('en-US').toLowerCase();
             dateMatch = rawIso.includes(term) || formatted.includes(term);
           }
 
