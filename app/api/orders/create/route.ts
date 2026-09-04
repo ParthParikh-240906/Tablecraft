@@ -20,7 +20,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Resolve staff org
     const { data: staff } = await supabase
       .from("staff_users")
       .select("org_id")
@@ -32,28 +31,33 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { tableId, items } = body as { tableId: string; items: OrderItemInput[] };
+    const { tableIds, items } = body as { tableIds: string[]; items: OrderItemInput[] };
 
-    if (!tableId || !items || !Array.isArray(items) || items.length === 0) {
+    if (!tableIds || !Array.isArray(tableIds) || tableIds.length === 0) {
       return NextResponse.json(
-        { error: "Missing required fields: tableId and items (non-empty array)" },
+        { error: "Missing required fields: tableIds (non-empty array) and items" },
+        { status: 400 },
+      );
+    }
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return NextResponse.json(
+        { error: "Missing required fields: tableIds and items (non-empty array)" },
         { status: 400 },
       );
     }
 
-    // Validate table belongs to org
-    const { data: table, error: tableError } = await supabase
+    // Fetch all table labels in one query
+    const { data: tables, error: tableError } = await supabase
       .from("tables")
-      .select("label")
-      .eq("id", tableId)
-      .eq("org_id", staff.org_id)
-      .single();
+      .select("id, label")
+      .in("id", tableIds)
+      .eq("org_id", staff.org_id);
 
-    if (tableError || !table) {
-      return NextResponse.json({ error: "Table not found" }, { status: 404 });
+    if (tableError || !tables || tables.length !== tableIds.length) {
+      return NextResponse.json({ error: "One or more tables not found" }, { status: 404 });
     }
 
-    // Validate menu items against DB (prevent price tampering)
+    // Validate menu items
     const itemIds = items.map((i) => i.id);
     const { data: dbItems, error: itemsError } = await supabase
       .from("menu_items")
@@ -76,19 +80,22 @@ export async function POST(request: Request) {
       const qty = Math.max(1, Math.floor(clientItem.quantity));
       const price = Number(dbItem.price);
       calculatedTotal += price * qty;
-      validatedItems.push({
-        id: dbItem.id,
-        name: dbItem.name,
-        price,
-        quantity: qty,
-      });
+      validatedItems.push({ id: dbItem.id, name: dbItem.name, price, quantity: qty });
     }
+
+    // Build customer_name: "Table 1, 2, 3"
+    const tableLabels = tables.map((t) => t.label.replace(/^Table\s*/i, "")).sort((a, b) => {
+      const na = parseInt(a, 10);
+      const nb = parseInt(b, 10);
+      return isNaN(na) ? a.localeCompare(b) : na - nb;
+    });
+    const customerName = `Table ${tableLabels.join(", ")}`;
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .insert({
         org_id: staff.org_id,
-        customer_name: `Table ${table.label}`,
+        customer_name: customerName,
         items: validatedItems,
         total: calculatedTotal,
         status: "pending",
@@ -101,11 +108,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
     }
 
-    // Mark table as occupied when order is created
+    // Mark all selected tables as occupied
     await supabase
       .from("tables")
       .update({ status: "occupied" })
-      .eq("id", tableId)
+      .in("id", tableIds)
       .eq("org_id", staff.org_id);
 
     return NextResponse.json({ orderId: order.id });

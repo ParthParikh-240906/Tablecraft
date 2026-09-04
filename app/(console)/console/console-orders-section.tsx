@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { OrdersDashboard } from "./orders/orders-dashboard";
 import { AddOrderModal } from "./orders/add-order-modal";
+import { EditOrderModal } from "./orders/edit-order-modal";
 import type { OrderRecord } from "./orders/orders-list";
 
 interface ConsoleOrdersSectionProps {
@@ -12,6 +13,7 @@ interface ConsoleOrdersSectionProps {
 
 export function ConsoleOrdersSection({ orgId, initialOrders }: ConsoleOrdersSectionProps) {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<OrderRecord | null>(null);
 
   return (
     <div>
@@ -20,18 +22,30 @@ export function ConsoleOrdersSection({ orgId, initialOrders }: ConsoleOrdersSect
         <button
           type="button"
           onClick={() => setShowAddModal(true)}
-          className="px-3 py-1.5 text-xs font-medium bg-[var(--accent)] text-[var(--paper)] rounded-sm hover:bg-opacity-90 transition-colors"
+          className="px-3 py-1.5 text-xs font-medium bg-[var(--accent)] text-white rounded-sm hover:bg-opacity-90 transition-colors"
         >
           + Add Table Order
         </button>
       </div>
-      <OrdersDashboard initialOrders={initialOrders} orgId={orgId} />
+      <OrdersDashboard initialOrders={initialOrders} orgId={orgId} onEdit={setEditingOrder} />
 
       {showAddModal && (
         <AddOrderModal
           orgId={orgId}
           onOrderCreated={() => setTimeout(() => setShowAddModal(false), 400)}
           onClose={() => setShowAddModal(false)}
+        />
+      )}
+
+      {editingOrder && (
+        <EditOrderModal
+          order={editingOrder}
+          orgId={orgId}
+          onOrderUpdated={() => {
+            setEditingOrder(null);
+            setTimeout(() => setShowAddModal(false), 400);
+          }}
+          onClose={() => setEditingOrder(null)}
         />
       )}
     </div>

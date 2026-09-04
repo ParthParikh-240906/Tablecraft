@@ -271,7 +271,7 @@ export function OrdersList({
         <button
           type="button"
           onClick={() => setShowAddModal(true)}
-          className="px-3 py-1.5 text-xs font-medium bg-[var(--accent)] text-[var(--paper)] rounded-sm hover:bg-opacity-90 transition-colors"
+          className="px-3 py-1.5 text-xs font-medium bg-[var(--accent)] text-white rounded-sm hover:bg-opacity-90 transition-colors"
         >
           + Add Table Order
         </button>

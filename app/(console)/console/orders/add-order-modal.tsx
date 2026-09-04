@@ -27,7 +27,7 @@ export function AddOrderModal({ orgId, onOrderCreated, onClose }: AddOrderModalP
   const [tables, setTables] = useState<{ id: string; label: string }[]>([]);
   const [allMenuItems, setAllMenuItems] = useState<MenuItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTable, setSelectedTable] = useState<string>("");
+  const [selectedTables, setSelectedTables] = useState<string[]>([]);
   const [items, setItems] = useState<OrderedItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +49,6 @@ export function AddOrderModal({ orgId, onOrderCreated, onClose }: AddOrderModalP
       .then(({ data }) => setAllMenuItems(data ?? []));
   }, [orgId, supabase]);
 
-  // Focus search input on mount
   useEffect(() => {
     searchInputRef.current?.focus();
   }, []);
@@ -57,6 +56,14 @@ export function AddOrderModal({ orgId, onOrderCreated, onClose }: AddOrderModalP
   const filteredMenuItems = allMenuItems.filter((item) =>
     item.name.toLowerCase().startsWith(searchQuery.toLowerCase()),
   );
+
+  function toggleTable(tableId: string) {
+    setSelectedTables((prev) =>
+      prev.includes(tableId)
+        ? prev.filter((id) => id !== tableId)
+        : [...prev, tableId],
+    );
+  }
 
   function addItem(menuItem: MenuItem) {
     setItems((prev) => {
@@ -84,8 +91,8 @@ export function AddOrderModal({ orgId, onOrderCreated, onClose }: AddOrderModalP
   }
 
   async function handleSubmit() {
-    if (!selectedTable) {
-      setError("Please select a table");
+    if (selectedTables.length === 0) {
+      setError("Please select at least one table");
       return;
     }
     if (items.length === 0) {
@@ -101,7 +108,7 @@ export function AddOrderModal({ orgId, onOrderCreated, onClose }: AddOrderModalP
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tableId: selectedTable,
+          tableIds: selectedTables,
           items: items.map((i) => ({ id: i.menuItemId, quantity: i.quantity })),
         }),
       });
@@ -113,7 +120,7 @@ export function AddOrderModal({ orgId, onOrderCreated, onClose }: AddOrderModalP
       }
 
       setItems([]);
-      setSelectedTable("");
+      setSelectedTables([]);
       onOrderCreated();
       onClose();
     } catch {
@@ -127,31 +134,29 @@ export function AddOrderModal({ orgId, onOrderCreated, onClose }: AddOrderModalP
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      {/* Modal */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-lg ticket p-6 bg-[var(--paper-raised)] border border-[var(--rule-strong)] rounded-sm shadow-2xl">
         <h2 className="font-display text-xl text-[var(--ink)] mb-5">Add Table Order</h2>
 
-        {/* Table selector */}
+        {/* Table selector — checkboxes */}
         <div className="mb-4">
-          <label className="label-caps text-[var(--ink-faint)] mb-1.5 block">Table</label>
-          <select
-            value={selectedTable}
-            onChange={(e) => setSelectedTable(e.target.value)}
-            className="w-full bg-[var(--paper)] border border-[var(--rule)] rounded-sm px-3 py-2 text-sm text-[var(--ink)] focus:outline-none focus:border-[var(--accent)]"
-          >
-            <option value="">Select a table…</option>
+          <label className="label-caps text-[var(--ink-faint)] mb-1.5 block">Tables</label>
+          <div className="flex flex-wrap gap-2">
             {tables.map((t) => (
-              <option key={t.id} value={t.id}>
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => toggleTable(t.id)}
+                className={`px-3 py-1.5 text-xs rounded-sm border transition-colors ${
+                  selectedTables.includes(t.id)
+                    ? "bg-[var(--accent)] text-[var(--paper)] border-[var(--accent)]"
+                    : "border-[var(--rule)] text-[var(--ink-soft)] hover:border-[var(--rule-strong)] hover:text-[var(--ink)]"
+                }`}
+              >
                 {t.label}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
         {/* Menu item search */}
@@ -196,35 +201,19 @@ export function AddOrderModal({ orgId, onOrderCreated, onClose }: AddOrderModalP
             {items.map((item, idx) => (
               <div key={idx} className="flex items-center justify-between px-3 py-2 border-b border-[var(--rule)] last:border-b-0 text-sm">
                 <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => updateQuantity(idx, -1)}
-                    className="w-6 h-6 rounded-sm border border-[var(--rule)] text-[var(--ink-soft)] hover:text-[var(--ink)] text-xs flex items-center justify-center"
-                  >
-                    −
-                  </button>
+                  <button type="button" onClick={() => updateQuantity(idx, -1)}
+                    className="w-6 h-6 rounded-sm border border-[var(--rule)] text-[var(--ink-soft)] hover:text-[var(--ink)] text-xs flex items-center justify-center">−</button>
                   <span className="text-[var(--ink)] font-medium w-24 truncate">{item.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => updateQuantity(idx, 1)}
-                    className="w-6 h-6 rounded-sm border border-[var(--rule)] text-[var(--ink-soft)] hover:text-[var(--ink)] text-xs flex items-center justify-center"
-                  >
-                    +
-                  </button>
+                  <button type="button" onClick={() => updateQuantity(idx, 1)}
+                    className="w-6 h-6 rounded-sm border border-[var(--rule)] text-[var(--ink-soft)] hover:text-[var(--ink)] text-xs flex items-center justify-center">+</button>
                   <span className="text-[var(--accent)] font-mono text-xs">x{item.quantity}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-[var(--ink-soft)] font-mono text-xs">
                     AED {(item.price * item.quantity).toFixed(2)}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => removeItem(idx)}
-                    className="text-[var(--ink-faint)] hover:text-red-400 text-xs transition-colors"
-                    title="Remove item"
-                  >
-                    ✕
-                  </button>
+                  <button type="button" onClick={() => removeItem(idx)}
+                    className="text-[var(--ink-faint)] hover:text-red-400 text-xs transition-colors" title="Remove item">✕</button>
                 </div>
               </div>
             ))}
@@ -236,25 +225,16 @@ export function AddOrderModal({ orgId, onOrderCreated, onClose }: AddOrderModalP
         )}
 
         {/* Error */}
-        {error && (
-          <p className="text-xs text-red-400 mb-3">{error}</p>
-        )}
+        {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3 py-1.5 text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] border border-[var(--rule)] rounded-sm transition-colors"
-          >
+          <button type="button" onClick={onClose}
+            className="px-3 py-1.5 text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] border border-[var(--rule)] rounded-sm transition-colors">
             Cancel
           </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={submitting || !selectedTable || items.length === 0}
-            className="px-3 py-1.5 text-xs font-medium bg-[var(--accent)] text-[var(--paper)] rounded-sm hover:bg-opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
+          <button type="button" onClick={handleSubmit} disabled={submitting || selectedTables.length === 0 || items.length === 0}
+            className="px-3 py-1.5 text-xs font-medium bg-[var(--accent)] text-[var(--paper)] rounded-sm hover:bg-opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
             {submitting ? "Creating…" : "Create Order"}
           </button>
         </div>

@@ -55,12 +55,11 @@ export default async function DashboardPage() {
         .gte("created_at", todayStart.toISOString())
         .lt("created_at", tomorrowStart.toISOString()),
 
-      // Active orders for dashboard: only non-done statuses (completed/paid/cancelled excluded)
+      // Active orders for dashboard: exclude paid and cancelled only
       supabase
         .from("orders")
         .select("id, customer_name, total, status, created_at, stripe_session_id, items")
         .eq("org_id", orgId)
-        .not("status", "eq", "completed")
         .not("status", "eq", "paid")
         .not("status", "eq", "cancelled")
         .order("created_at", { ascending: false }),
@@ -75,6 +74,17 @@ export default async function DashboardPage() {
   for (const b of bookingsTodayData ?? []) {
     if ((b as any).status !== "cancelled") {
       bookedTableIds.add((b as any).table_id);
+    }
+  }
+  // Also include tables from booking_tables junction (combo bookings)
+  const { data: bookingTablesJunction } = await supabase
+    .from("booking_tables")
+    .select("table_id, bookings(status)")
+    .eq("org_id", orgId);
+  for (const row of bookingTablesJunction ?? []) {
+    const booking = (row as any).bookings as { status?: string } | null | undefined;
+    if (booking?.status !== "cancelled") {
+      bookedTableIds.add((row as any).table_id);
     }
   }
   const availableTableObjs = allTables.filter(
