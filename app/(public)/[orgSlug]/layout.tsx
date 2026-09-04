@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org";
 import { CartProvider } from "@/lib/cart";
+import { BookingChatbot } from "@/components/BookingChatbot";
 
 export default async function PublicLayout({
   children,
@@ -98,6 +99,7 @@ export default async function PublicLayout({
   <span className="mx-2">·</span>
   <span>© {new Date().getFullYear()} {org.name}</span>
 </footer>
+      <BookingChatbot orgSlug={org.slug} orgName={org.name} accent={highlightColor} />
     </div>
     </CartProvider>
   );
