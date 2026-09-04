@@ -1,11 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
-import Link from "next/link";
 import { BookingActionsList } from "./bookings/booking-actions";
+import { ConsoleOrdersSection } from "./console-orders-section";
+import type { OrderRecord } from "./orders/orders-list";
 
 /**
  * Dashboard landing page for the operator console.
- * Reuses the booking search/list component from /console/bookings for the
- * "Today's Bookings" section — no new booking UI built from scratch.
  */
 
 export default async function DashboardPage() {
@@ -32,7 +31,7 @@ export default async function DashboardPage() {
   const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
 
   // --- Stats queries ---
-  const [{ data: tablesData }, { data: bookingsTodayData }, { data: ordersTodayData }, { data: ordersWeekData }, { data: bookingsUpcoming }] =
+  const [{ data: tablesData }, { data: bookingsTodayData }, { data: ordersTodayData }, { data: ordersData }] =
     await Promise.all([
       // Total tables (all statuses)
       supabase.from("tables").select("id, label, status, capacity, table_type").eq("org_id", orgId),
@@ -56,23 +55,15 @@ export default async function DashboardPage() {
         .gte("created_at", todayStart.toISOString())
         .lt("created_at", tomorrowStart.toISOString()),
 
-      // Weekly revenue: paid orders for current ISO week (Mon–Sun)
+      // Active orders for dashboard: only non-done statuses (completed/paid/cancelled excluded)
       supabase
         .from("orders")
-        .select("total, created_at")
+        .select("id, customer_name, total, status, created_at, stripe_session_id, items")
         .eq("org_id", orgId)
-        .eq("status", "paid")
-        .gte("created_at", getWeekStart(now).toISOString())
-        .lt("created_at", getWeekEnd(now).toISOString()),
-
-      // Upcoming confirmed bookings (within 2h) for available-table derivation
-      supabase
-        .from("bookings")
-        .select("id, table_id, datetime")
-        .eq("org_id", orgId)
-        .eq("status", "confirmed")
-        .gte("datetime", now.toISOString())
-        .lte("datetime", twoHoursFromNow),
+        .not("status", "eq", "completed")
+        .not("status", "eq", "paid")
+        .not("status", "eq", "cancelled")
+        .order("created_at", { ascending: false }),
     ]);
 
   const allTables = (tablesData ?? []) as { id: string; label: string; status: string; capacity?: number; table_type?: string }[];
@@ -81,16 +72,10 @@ export default async function DashboardPage() {
   // Available tables: status=open AND not in an upcoming booking (2h window)
   const upcomingBookingIds = new Set<string>();
   const bookedTableIds = new Set<string>();
-  for (const b of bookingsUpcoming ?? []) {
-    upcomingBookingIds.add(b.id);
-    bookedTableIds.add(b.table_id);
-  }
-  if (upcomingBookingIds.size > 0) {
-    const { data: jtData } = await supabase
-      .from("booking_tables")
-      .select("table_id")
-      .in("booking_id", [...upcomingBookingIds]);
-    for (const row of jtData ?? []) bookedTableIds.add(row.table_id);
+  for (const b of bookingsTodayData ?? []) {
+    if ((b as any).status !== "cancelled") {
+      bookedTableIds.add((b as any).table_id);
+    }
   }
   const availableTableObjs = allTables.filter(
     (t) => t.status === "open" && !bookedTableIds.has(t.id),
@@ -102,35 +87,6 @@ export default async function DashboardPage() {
 
   const todayRevenue = (ordersTodayData ?? [])
     .reduce((sum, o) => sum + Number(o.total ?? 0), 0);
-
-  // --- Weekly revenue chart data ---
-  const weekRows = (ordersWeekData ?? []) as { total: number; created_at: string }[];
-  const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-  const dayTotals = new Array(7).fill(0);
-  for (const row of weekRows) {
-    const d = new Date(row.created_at);
-    // Sunday=0 → shift to Mon=0..Sun=6
-    const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
-    dayTotals[dayIdx] += Number(row.total ?? 0);
-  }
-  const maxWeekTotal = Math.max(...dayTotals, 1);
-
-  // Trend vs last week
-  const lastWeekRows = (await supabase
-    .from("orders")
-    .select("total")
-    .eq("org_id", orgId)
-    .eq("status", "paid")
-    .gte("created_at", getWeekStart(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)).toISOString())
-    .lt("created_at", getWeekStart(now).toISOString())
-  ).data ?? [];
-  const lastWeekTotal = lastWeekRows.reduce((s, r) => s + Number(r.total ?? 0), 0);
-  const trendPct = lastWeekTotal === 0
-    ? todayRevenue > 0 ? 100
-    : 0
-    : ((todayRevenue - lastWeekTotal) / lastWeekTotal) * 100;
-  const trendArrow = trendPct > 0 ? "↑" : trendPct < 0 ? "↓" : "→";
-  const trendColor = trendPct > 0 ? "text-emerald-400" : trendPct < 0 ? "text-red-400" : "text-[var(--ink-faint)]";
 
   // --- Today's bookings for the list (reuse BookingActionsList) ---
   const { data: bookingTablesData } = await supabase
@@ -194,7 +150,7 @@ export default async function DashboardPage() {
         <StatCard
           label="Today&apos;s Revenue"
           value={`AED ${todayRevenue.toFixed(2)}`}
-          sub={`trend ${trendArrow} ${Math.abs(trendPct).toFixed(0)}%`}
+          sub="paid orders"
         />
         <StatCard
           label="Available Now"
@@ -221,38 +177,11 @@ export default async function DashboardPage() {
           />
         </div>
 
-        {/* ── Weekly Revenue Chart ── */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="label-caps text-[var(--ink-faint)]">This Week&apos;s Revenue</h2>
-            <span className={`text-xs font-medium ${trendColor}`}>
-              {trendArrow} {Math.abs(trendPct).toFixed(0)}% vs last week
-            </span>
-          </div>
-          <div className="ticket p-4">
-            <div className="flex items-end gap-2 h-40">
-              {days.map((day, i) => {
-                const height = Math.round((dayTotals[i] / maxWeekTotal) * 100);
-                return (
-                  <div key={day} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-[10px] text-[var(--ink-faint)] font-mono">
-                      {dayTotals[i] > 0 ? `AED ${dayTotals[i].toFixed(0)}` : ""}
-                    </span>
-                    <div
-                      className="w-full bg-[var(--accent)] rounded-sm transition-all"
-                      style={{ height: `${Math.max(height, 2)}%` }}
-                    />
-                    <span className="text-[10px] text-[var(--ink-faint)]">{day}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="border-t border-[var(--rule)] mt-3 pt-2 flex justify-between text-xs text-[var(--ink-faint)]">
-              <span>Mon – Sun</span>
-              <span>Total: AED {dayTotals.reduce((a, b) => a + b, 0).toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
+        {/* ── Orders Dashboard ── */}
+        <ConsoleOrdersSection
+          orgId={orgId}
+          initialOrders={(ordersData ?? []) as OrderRecord[]}
+        />
       </div>
     </div>
   );
@@ -276,20 +205,4 @@ function StatCard({
       <p className="text-xs text-[var(--ink-soft)] mt-0.5">{sub}</p>
     </div>
   );
-}
-
-function getWeekStart(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = day === 0 ? 6 : day - 1; // days since Monday
-  d.setDate(d.getDate() - diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function getWeekEnd(date: Date): Date {
-  const start = getWeekStart(date);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 7);
-  return end;
 }

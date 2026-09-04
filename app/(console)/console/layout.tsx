@@ -75,6 +75,9 @@ export default async function ConsoleLayout({
               <Link href="/console/orders" className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
                 Orders
               </Link>
+              <Link href="/console/kitchen" className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
+                Kitchen
+              </Link>
               <Link href="/console/menu" className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
                 Menu
               </Link>
