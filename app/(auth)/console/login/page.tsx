@@ -9,7 +9,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orgSlug = searchParams.get("org");
-  const next = searchParams.get("next") ?? "/console/tables";
+  const next = searchParams.get("next") ?? "/console";
 
   const [email, setEmail] = useState(orgSlug === "rasam" ? "owner@rasam.test" : orgSlug === "demo-diner" ? "owner@demodiner.test" : "");
   const [password, setPassword] = useState("");

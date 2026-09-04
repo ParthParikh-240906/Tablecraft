@@ -41,7 +41,7 @@ export async function middleware(request: NextRequest) {
   // If user is already logged in and visits the login page, redirect to console tables
   if (user && isLoginPage) {
     const consoleUrl = request.nextUrl.clone();
-    consoleUrl.pathname = "/console/tables";
+    consoleUrl.pathname = "/console";
     consoleUrl.search = "";
     return NextResponse.redirect(consoleUrl);
   }

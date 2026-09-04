@@ -63,6 +63,9 @@ export default async function ConsoleLayout({
           </div>
           <div className="flex flex-wrap items-center gap-4 text-sm">
             <nav className="flex items-center gap-3">
+              <Link href="/console" className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
+                Dashboard
+              </Link>
               <Link href="/console/tables" className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
                 Tables
               </Link>

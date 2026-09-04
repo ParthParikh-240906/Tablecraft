@@ -80,9 +80,9 @@ export function OrdersList({
       {/* Header controls */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl">Kitchen & Online Orders</h1>
+          <h1 className="font-display text-2xl">Orders</h1>
           <p className="text-sm text-[var(--ink-soft)]">
-            Live orders received from storefront online checkout and in-restaurant table QR codes.
+            Live orders received from storefront online checkout and in-restaurant tables.
           </p>
         </div>
 
