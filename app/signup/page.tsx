@@ -20,11 +20,12 @@ export default function SignupPage() {
   const [contactAddress, setContactAddress] = useState("");
   const [aboutText, setAboutText] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [restaurantImageFile, setRestaurantImageFile] = useState<File | null>(null);
+  const [restaurantImages, setRestaurantImages] = useState<File[]>([]);
   
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [optionalOpen, setOptionalOpen] = useState(false);
 
   // Auto-suggest a slug from the org name.
   function handleNameChange(value: string) {
@@ -84,7 +85,7 @@ export default function SignupPage() {
       if (contactAddress) formData.append('contactAddress', contactAddress);
       if (aboutText) formData.append('aboutText', aboutText);
       if (logoFile) formData.append('logoFile', logoFile);
-      if (restaurantImageFile) formData.append('restaurantImageFile', restaurantImageFile);
+      if (restaurantImages.length > 0) restaurantImages.forEach((f) => formData.append('restaurantImageFiles', f));
 
       const res = await fetch("/api/signup", {
         method: "POST",
@@ -153,7 +154,7 @@ export default function SignupPage() {
 
           <div>
             <label htmlFor="tagline" className="block text-sm font-medium mb-1.5">
-              Tagline (optional)
+              Tagline
             </label>
             <input
               id="tagline"
@@ -161,6 +162,7 @@ export default function SignupPage() {
               value={tagline}
               onChange={(e) => setTagline(e.target.value)}
               maxLength={120}
+              required
               placeholder="Fresh food, warm welcome."
               className="input placeholder:text-[var(--ink-faint)]"
             />
@@ -228,10 +230,18 @@ export default function SignupPage() {
           </div>
 
           {/* Optional fields section */}
-          <div className="border-t border-[var(--rule)] pt-4 space-y-4">
-            <p className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wide">
+          <div className="border-t border-[var(--rule)] pt-4">
+            <button
+              type="button"
+              onClick={() => setOptionalOpen((v) => !v)}
+              className="flex items-center gap-2 w-full text-left text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wide hover:text-[var(--ink)] transition-colors py-1"
+            >
               Optional Details
-            </p>
+              <span className="ml-auto">{optionalOpen ? "⌃" : "⌵"}</span>
+            </button>
+
+            {optionalOpen && (
+            <div className="space-y-4 pt-4">
 
             {/* Branches */}
             <div>
@@ -343,21 +353,24 @@ export default function SignupPage() {
                 />
               </div>
                <div>
-                <label htmlFor="restaurantImageFile" className="block text-sm font-medium mb-1.5">
-                  Restaurant photo (optional)
+                <label htmlFor="restaurantImages" className="block text-sm font-medium mb-1.5">
+                  Restaurant photos (optional)
                 </label>
                 <input
-                  id="restaurantImageFile"
+                  id="restaurantImages"
                   type="file"
                   accept="image/*"
-                  onChange={(e) => setRestaurantImageFile(e.target.files?.[0] || null)}
+                  multiple
+                  onChange={(e) => setRestaurantImages(Array.from(e.target.files ?? []))}
                   className="input"
                 />
                 <p className="text-xs text-[var(--ink-faint)] mt-1">
-                  A photo of your restaurant interior or food. Displayed on the landing page.
+                  Upload one or more photos. They will be displayed as an auto-advancing carousel on your landing page.
                 </p>
               </div>
             </div>
+            </div>
+            )}
           </div>
 
           {error && (

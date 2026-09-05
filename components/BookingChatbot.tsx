@@ -45,6 +45,7 @@ export function BookingChatbot({
   const [editingField, setEditingField] = useState<keyof SlotState | null>(null);
   const [editValue, setEditValue] = useState("");
   const [comboDetails, setComboDetails] = useState<ComboDetails | null>(null);
+  const [isThinking, setIsThinking] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -100,6 +101,7 @@ export function BookingChatbot({
     setMessages((prev) => [...prev, { role: "user", text }]);
     setError(null);
     setStatus("collecting");
+    setIsThinking(true);
 
     try {
       const res = await fetch("/api/chat/bookings", {
@@ -134,6 +136,8 @@ export function BookingChatbot({
           text: "Having trouble right now — you can also book directly using the form below.",
         },
       ]);
+    } finally {
+      setIsThinking(false);
     }
   }
 
@@ -269,7 +273,6 @@ export function BookingChatbot({
   // ---------------------------------------------------------------------------
   // Render: filled slots indicator
   // ---------------------------------------------------------------------------
-  const filledCount = [slots.name, slots.party_size, slots.date, slots.time].filter(Boolean).length;
   const fields: Array<{ key: keyof SlotState; label: string }> = [
     { key: "name", label: "Name" },
     { key: "party_size", label: "Party" },
@@ -289,7 +292,7 @@ export function BookingChatbot({
       {/* Header */}
       <div
         className="flex items-center justify-between px-4 py-3 border-b"
-        style={{ borderColor: "var(--rule)", backgroundColor: `${accent}15` }}
+        style={{ borderColor: "var(--rule)", backgroundColor: accent }}
       >
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-lg">🤖</span>
@@ -297,7 +300,7 @@ export function BookingChatbot({
             <p className="text-sm font-semibold truncate" style={{ color: "var(--ink)" }}>
               Book a table
             </p>
-            <p className="text-xs" style={{ color: "var(--ink-faint)" }}>
+            <p className="text-xs" style={{ color: "black" }}>
               {orgName}
             </p>
           </div>
@@ -326,29 +329,6 @@ export function BookingChatbot({
         </div>
       </div>
 
-      {/* Slots progress bar */}
-      {status !== "done" && status !== "error" && (
-        <div className="px-4 py-2 border-b flex items-center gap-1.5" style={{ borderColor: "var(--rule)" }}>
-          {fields.map(({ key, label }) => {
-            const filled = !!slots[key];
-            return (
-              <div key={key} className="flex items-center gap-1 flex-1 min-w-0" title={`${label}${filled ? " ✓" : ""}`}>
-                <span
-                  className="h-1.5 w-1.5 rounded-full shrink-0"
-                  style={{ backgroundColor: filled ? accent : "var(--rule-strong)" }}
-                />
-                <span
-                  className="text-[10px] truncate uppercase tracking-wide font-medium"
-                  style={{ color: filled ? "var(--ink)" : "var(--ink-faint)" }}
-                >
-                  {label}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ minHeight: "200px", maxHeight: "320px" }}>
         {messages.length === 0 && status === "idle" && (
@@ -374,6 +354,13 @@ export function BookingChatbot({
 
         <div ref={bottomRef} />
       </div>
+
+      {/* Thinking indicator */}
+      {isThinking && (
+        <div className="px-4 py-1.5 text-xs" style={{ color: "var(--ink-faint)" }}>
+          Thinking ...
+        </div>
+      )}
 
       {/* Error fallback */}
       {status === "error" && error && (

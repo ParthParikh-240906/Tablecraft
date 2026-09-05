@@ -11,7 +11,9 @@ interface OrdersDashboardProps {
 }
 
 export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboardProps) {
-  const [orders, setOrders] = useState<OrderRecord[]>(initialOrders);
+  const [orders, setOrders] = useState<OrderRecord[]>(
+    initialOrders.filter((o) => o.status !== "paid" && o.status !== "cancelled"),
+  );
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const supabase = createClient();

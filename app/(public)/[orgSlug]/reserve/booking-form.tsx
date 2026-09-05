@@ -22,7 +22,8 @@ export function BookingForm({
 
   const [customerName, setCustomerName] = useState("");
   const [size, setSize] = useState(2);
-  const [datetime, setDatetime] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmedDetails, setConfirmedDetails] = useState<{
@@ -41,7 +42,20 @@ export function BookingForm({
     setError(null);
     setSubmitting(true);
 
-    const bookingDate = new Date(datetime);
+    const parts = date.split("-");
+    if (parts.length !== 3 || parts[0].length !== 2 || parts[1].length !== 2 || parts[2].length !== 4) {
+      setError("Please enter the date in DD-MM-YYYY format.");
+      setSubmitting(false);
+      return;
+    }
+    const [day, month, year] = parts;
+    const isoDate = `${year}-${month}-${day}T${time}:00`;
+    const bookingDate = new Date(isoDate);
+    if (isNaN(bookingDate.getTime())) {
+      setError("Invalid date/time. Please check your input.");
+      setSubmitting(false);
+      return;
+    }
     if (bookingDate.getTime() < Date.now() - 60000) {
       setError("Booking date & time cannot be in the past.");
       setSubmitting(false);
@@ -95,7 +109,6 @@ export function BookingForm({
           orgSlug,
           customerName,
           partySize: size,
-          datetime,
           tableIds: pendingCombo.tables.map((t) => t.id),
         }),
       });
@@ -126,7 +139,7 @@ export function BookingForm({
         >
           ✓
         </div>
-        <h2 className="text-xl font-semibold mb-2">Booking Confirmed!</h2>
+        <h2 className="text-xl font-semibold mb-2" style={{ color: "black" }}>Booking Confirmed!</h2>
         <p className="text-gray-900 font-medium">
           Your table has been reserved. We look forward to seeing you.
         </p>
@@ -181,17 +194,34 @@ export function BookingForm({
         />
       </div>
 
-      {/* Datetime */}
+      {/* Date */}
       <div>
-        <label htmlFor="datetime" className="block text-sm font-medium mb-1.5">
-          Date & time
+        <label htmlFor="date" className="block text-sm font-medium mb-1.5">
+          Date
         </label>
         <input
-          id="datetime"
-          type="datetime-local"
-          value={datetime}
-          onChange={(e) => setDatetime(e.target.value)}
-          min={new Date().toISOString().slice(0, 16)}
+          id="date"
+          type="text"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          placeholder="DD-MM-YYYY"
+          required
+          pattern="\d{2}-\d{2}-\d{4}"
+          className="w-full rounded-lg border px-3 py-2.5 text-sm bg-white text-black font-mono"
+        />
+        <p className="text-xs text-gray-400 mt-1">Format: DD-MM-YYYY (e.g. 15-07-2025)</p>
+      </div>
+
+      {/* Time */}
+      <div>
+        <label htmlFor="time" className="block text-sm font-medium mb-1.5">
+          Time
+        </label>
+        <input
+          id="time"
+          type="time"
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
           required
           className="w-full rounded-lg border px-3 py-2.5 text-sm bg-white text-black"
         />

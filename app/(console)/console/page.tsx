@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { BookingActionsList } from "./bookings/booking-actions";
 import { ConsoleOrdersSection } from "./console-orders-section";
+import { TableGrid } from "./tables/table-grid";
 import type { OrderRecord } from "./orders/orders-list";
 
 /**
@@ -192,6 +193,11 @@ export default async function DashboardPage() {
           orgId={orgId}
           initialOrders={(ordersData ?? []) as OrderRecord[]}
         />
+      </div>
+
+      {/* ── Tables ── */}
+      <div className="mt-8">
+        <TableGrid orgId={orgId} />
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org";
 import type { Metadata } from "next";
+import { RestaurantPhotoCarousel } from "@/components/RestaurantPhotoCarousel";
 
 // Helper function to capitalize first letter of each word
 function capitalizeWords(str: string): string {
@@ -123,16 +124,24 @@ export default async function OrgLandingPage({
                 </p>
               </div>
 
-              {/* Restaurant image - Only shows if restaurant_image_url exists */}
-              {org.restaurant_image_url && (
-                <div className="relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={org.restaurant_image_url}
-                    alt={`${org.name} restaurant`}
-                    className="rounded-2xl shadow-2xl w-full h-80 object-cover"
-                  />
-                </div>
+              {/* Restaurant photos carousel */}
+              {org.restaurant_photos && org.restaurant_photos.length > 0 ? (
+                <RestaurantPhotoCarousel
+                  photos={org.restaurant_photos as string[]}
+                  name={org.name}
+                  accent={highlightColor}
+                />
+              ) : (
+                org.restaurant_image_url && (
+                  <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={org.restaurant_image_url}
+                      alt={`${org.name} restaurant`}
+                      className="rounded-2xl shadow-2xl w-full h-80 object-cover"
+                    />
+                  </div>
+                )
               )}
             </div>
           </div>

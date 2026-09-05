@@ -40,9 +40,9 @@ export async function POST(request: Request) {
   const contactAddress = formData.get('contactAddress') as string;
   const aboutText = formData.get('aboutText') as string;
   const logoFile = formData.get('logoFile') as File;
-  const restaurantImageFile = formData.get('restaurantImageFile') as File;
+  const restaurantImageFiles = formData.getAll('restaurantImageFiles') as File[];
 
-  console.log("[SIGNUP] Incoming request:", { orgName, slug, email, hasTagline: !!tagline, hasLogo: !!logoFile, hasRestaurantImage: !!restaurantImageFile });
+  console.log("[SIGNUP] Incoming request:", { orgName, slug, email, hasTagline: !!tagline, hasLogo: !!logoFile, hasRestaurantImages: restaurantImageFiles.length > 0 });
 
   // --- Validate inputs ---
   if (!orgName || typeof orgName !== "string" || orgName.trim().length < 2) {
@@ -110,9 +110,9 @@ export async function POST(request: Request) {
 
    // --- File uploads (if provided) ---
    let logoUrl: string | null = null;
-   let restaurantImageUrl: string | null = null;
+   let restaurantImageUrls: string[] = [];
 
-   if (logoFile || restaurantImageFile) {
+   if (logoFile || restaurantImageFiles.length > 0) {
      console.log("[SIGNUP] Processing file uploads...");
      const admin = createAdminClient();
      
@@ -138,24 +138,24 @@ export async function POST(request: Request) {
          }
        }
 
-       // Upload restaurant image
-       if (restaurantImageFile) {
-         const fileExt = restaurantImageFile.name.split('.').pop();
-         const fileName = `restaurant-${Date.now()}.${fileExt}`;
+       // Upload restaurant images
+       for (const file of restaurantImageFiles) {
+         const fileExt = file.name.split('.').pop();
+         const fileName = `restaurant-${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
          const filePath = `${slug}/${fileName}`;
-         
+
          const { data: restaurantImageData, error: restaurantImageError } = await admin.storage
            .from('org-restaurant-images')
-           .upload(filePath, restaurantImageFile);
-           
+           .upload(filePath, file);
+
          if (restaurantImageError) {
            console.error("[SIGNUP] Restaurant image upload failed:", restaurantImageError);
          } else {
            const { data: { publicUrl } } = admin.storage
              .from('org-restaurant-images')
              .getPublicUrl(filePath);
-           restaurantImageUrl = publicUrl;
-           console.log("[SIGNUP] Restaurant image uploaded:", restaurantImageUrl);
+           restaurantImageUrls.push(publicUrl);
+           console.log("[SIGNUP] Restaurant image uploaded:", publicUrl);
          }
        }
      } catch (e) {
@@ -181,7 +181,7 @@ export async function POST(request: Request) {
   if (contactAddress) orgData.contact_address = contactAddress;
   if (aboutText) orgData.about_text = aboutText;
   if (logoUrl) orgData.logo_url = logoUrl;
-  if (restaurantImageUrl) orgData.restaurant_image_url = restaurantImageUrl;
+  if (restaurantImageUrls.length > 0) orgData.restaurant_photos = restaurantImageUrls;
 
   const { data: org, error: orgError } = await admin
     .from("organizations")
