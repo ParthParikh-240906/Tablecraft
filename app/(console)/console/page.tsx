@@ -77,15 +77,25 @@ export default async function DashboardPage() {
       bookedTableIds.add((b as any).table_id);
     }
   }
-  // Also include tables from booking_tables junction (combo bookings)
-  const { data: bookingTablesJunction } = await supabase
-    .from("booking_tables")
-    .select("table_id, bookings(status)")
-    .eq("org_id", orgId);
-  for (const row of bookingTablesJunction ?? []) {
-    const booking = (row as any).bookings as { status?: string } | null | undefined;
-    if (booking?.status !== "cancelled") {
-      bookedTableIds.add((row as any).table_id);
+  // Also include tables from booking_tables junction (combo bookings) — today only
+  const { data: todayBookingIds } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("org_id", orgId)
+    .gte("datetime", todayStart.toISOString())
+    .lt("datetime", tomorrowStart.toISOString());
+  const todayIds = (todayBookingIds ?? []).map((b: any) => b.id);
+  if (todayIds.length > 0) {
+    const { data: bookingTablesJunction } = await supabase
+      .from("booking_tables")
+      .select("table_id, bookings(status)")
+      .eq("org_id", orgId)
+      .in("booking_id", todayIds);
+    for (const row of bookingTablesJunction ?? []) {
+      const booking = (row as any).bookings as { status?: string } | null | undefined;
+      if (booking?.status !== "cancelled") {
+        bookedTableIds.add((row as any).table_id);
+      }
     }
   }
   const availableTableObjs = allTables.filter(
