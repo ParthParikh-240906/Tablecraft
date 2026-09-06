@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   // Delete old background if present
   const { data: org } = await admin
     .from("organizations")
-    .select("background_image_url")
+    .select("background_image_url, slug")
     .eq("id", org_id)
     .single();
 
@@ -58,8 +58,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
+  // Revalidate the correct public route using the org slug
+  if (org?.slug) {
+    revalidatePath("/" + org.slug);
+  }
   revalidatePath("/");
-  revalidatePath("/" + org_id);
   return NextResponse.json({ ok: true, url: newUrl });
 }
 
@@ -75,7 +78,7 @@ export async function DELETE(req: Request) {
   // Delete existing background file
   const { data: org } = await admin
     .from("organizations")
-    .select("background_image_url")
+    .select("background_image_url, slug")
     .eq("id", org_id)
     .single();
 
@@ -97,6 +100,9 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  if (org?.slug) {
+    revalidatePath("/" + org.slug);
+  }
   revalidatePath("/");
   return NextResponse.json({ ok: true });
 }

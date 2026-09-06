@@ -4,6 +4,8 @@ import { getOrgBySlug, getParagraphsByOrg } from "@/lib/org";
 import type { Metadata } from "next";
 import { RestaurantPhotoCarousel } from "@/components/RestaurantPhotoCarousel";
 
+export const dynamic = "force-dynamic";
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function capitalizeWords(str: string): string {
@@ -150,18 +152,22 @@ export default async function OrgLandingPage({
       <link rel="stylesheet" href={fontLinks} />
       <style dangerouslySetInnerHTML={{ __html: styleBlock }} />
 
-      <div className="min-h-screen" style={{ backgroundColor: mainColor, color: textColor }}>
+      <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: mainColor, color: textColor }}>
+        {/* Background image — full-coverage overlay, matching preview */}
         {org.background_image_url && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={org.background_image_url}
-            alt="Background"
-            className="absolute inset-0 w-full h-full object-cover opacity-30"
-            crossOrigin="anonymous"
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url(${org.background_image_url}?t=${Date.now()})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              opacity: 0.35,
+              pointerEvents: "none",
+            }}
           />
         )}
         {/* Hero Section */}
-        <section className="py-20 px-4 text-center relative">
+        <section className="py-20 px-4 text-center relative z-10">
           <div className="max-w-3xl mx-auto animate-[fade-up_600ms_ease-out_both]">
             {org.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -210,7 +216,7 @@ export default async function OrgLandingPage({
 
         {/* About Section */}
         {org.about_text && (
-          <section className="py-16 px-4 backdrop-blur-sm" style={{ backgroundColor: `${mainColor}dd` }}>
+          <section className="py-16 px-4 relative z-10">
             <div className="max-w-6xl mx-auto">
               <div className="grid md:grid-cols-2 gap-12 items-center">
                 <div>
@@ -254,8 +260,7 @@ export default async function OrgLandingPage({
               return (
                 <section
                   key={para.id}
-                  className="py-12 px-4 backdrop-blur-sm"
-                  style={{ backgroundColor: `${mainColor}cc` }}
+                  className="py-12 px-4 relative z-10"
                 >
                   <div className="max-w-6xl mx-auto">
                     <div className={`grid md:grid-cols-2 gap-12 items-start ${isTextLeft ? "" : "md:flex-row-reverse"}`}>
@@ -308,7 +313,7 @@ export default async function OrgLandingPage({
         )}
 
         {/* Location & Contact Section */}
-        <section className="py-16 px-4 backdrop-blur-sm" style={{ backgroundColor: `${mainColor}ee` }}>
+        <section className="py-16 px-4 relative z-10">
           <div className="max-w-4xl mx-auto">
             <h2 className="tc-loc-head mb-8">
               {org.contact_heading || "Location & Contact"}
@@ -318,7 +323,6 @@ export default async function OrgLandingPage({
               {/* Locations - shows org.location (newline-separated) then branches */}
               {((org.location && org.location.trim()) || (org.branches && org.branches.length > 0)) && (
                 <div className="rounded-xl p-6 shadow-md border-2" style={{
-                  backgroundColor: `${mainColor}ff`,
                   borderColor: `${highlightColor}44`
                 }}>
                   <h3 className="font-semibold text-lg mb-4">Locations</h3>
@@ -346,7 +350,6 @@ export default async function OrgLandingPage({
               {/* Contact Info */}
               {(org.contact_phone || org.contact_email || org.contact_address) && (
                 <div className="rounded-xl p-6 shadow-md border-2" style={{
-                  backgroundColor: `${mainColor}ff`,
                   borderColor: `${highlightColor}44`
                 }}>
                   <h3 className="font-semibold text-lg mb-4">Contact Us</h3>

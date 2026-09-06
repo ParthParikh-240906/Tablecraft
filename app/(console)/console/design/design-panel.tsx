@@ -190,6 +190,7 @@ function PreviewSection({
   photoUrls,
   backgroundImageUrl,
   logoUrl,
+  bgKey,
 }: {
   settings: DesignSettings;
   orgName: string;
@@ -198,6 +199,7 @@ function PreviewSection({
   photoUrls: string[];
   backgroundImageUrl?: string | null;
   logoUrl?: string | null;
+  bgKey: number;
 }) {
   const main = settings.background_color;
   const textColor = settings.text_color;
@@ -220,7 +222,7 @@ function PreviewSection({
         <div
           className="absolute inset-0 rounded-lg"
           style={{
-            backgroundImage: `url(${backgroundImageUrl})`,
+            backgroundImage: `url(${backgroundImageUrl}?v=${bgKey})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             opacity: 0.35,
@@ -366,6 +368,7 @@ export function DesignPanel({
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState(orgName || "");
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(null);
+  const [bgKey, setBgKey] = useState(0);
   const [textData, setTextData] = useState({
     tagline: "",
     about_title: "About Us",
@@ -480,6 +483,7 @@ export function DesignPanel({
     if (res.ok) {
       const data = await res.json();
       setBackgroundImageUrl(data.url);
+      setBgKey((k) => k + 1);
     }
   };
 
@@ -490,6 +494,7 @@ export function DesignPanel({
       body: JSON.stringify({ org_id: orgId }),
     });
     setBackgroundImageUrl(null);
+    setBgKey((k) => k + 1);
   };
 
   const uploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1060,7 +1065,7 @@ export function DesignPanel({
         <h2 className="font-display text-lg font-semibold text-[var(--ink)]">
           Live Preview
         </h2>
-        <PreviewSection settings={settings} orgName={restaurantName} text={textData} paragraphs={paragraphs} photoUrls={photoUrls} backgroundImageUrl={backgroundImageUrl} logoUrl={logoUrl} />
+        <PreviewSection settings={settings} orgName={restaurantName} text={textData} paragraphs={paragraphs} photoUrls={photoUrls} backgroundImageUrl={backgroundImageUrl} logoUrl={logoUrl} bgKey={bgKey} />
         <p className="text-xs text-[var(--ink-soft)] text-center">
           Preview reflects text/design changes in real time. Click &quot;Save All Changes&quot; to persist.
         </p>
@@ -1076,6 +1081,7 @@ export function DesignPanel({
           <label className="btn btn-outline text-xs cursor-pointer inline-block">
             {backgroundImageUrl ? "Replace Background" : "Upload Background"}
             <input
+              key={bgKey}
               type="file"
               accept="image/*"
               className="hidden"
@@ -1091,7 +1097,7 @@ export function DesignPanel({
               >
                 Remove background image
               </button>
-              <img src={backgroundImageUrl} alt="Background" className="h-16 w-full object-cover rounded border border-[var(--rule)]" />
+              <img src={`${backgroundImageUrl}?v=${bgKey}`} alt="Background" className="h-16 w-full object-cover rounded border border-[var(--rule)]" />
             </>
           )}
         </section>
