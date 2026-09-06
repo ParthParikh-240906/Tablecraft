@@ -62,5 +62,6 @@ export async function POST(req: Request) {
   }
 
   revalidatePath("/");
+  revalidatePath("/" + org_id);
   return NextResponse.json({ ok: true, url: newUrl });
 }

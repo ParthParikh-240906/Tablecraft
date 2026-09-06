@@ -89,6 +89,7 @@ export default async function OrgLandingPage({
     restaurant_photos?: string[];
   };
 
+
   const navBg = design.nav_background_color ?? mainColor;
   const navText = design.nav_text_color ?? textColor;
 
@@ -141,9 +142,8 @@ export default async function OrgLandingPage({
                      text-align: ${ds.contact_body_design?.textAlign ?? "left"}; }
   `;
 
-  // ── Paragraphs ───────────────────────────────────────────────────────────
-
   return (
+
     <>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -151,33 +151,15 @@ export default async function OrgLandingPage({
       <style dangerouslySetInnerHTML={{ __html: styleBlock }} />
 
       <div className="min-h-screen" style={{ backgroundColor: mainColor, color: textColor }}>
-        {/* Fixed background with parallax effect */}
-        <div
-          className="fixed inset-0 -z-10"
-          style={{
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundAttachment: "fixed",
-          }}
-        >
-          {/*
-            Background image overlay — supports both legacy single-image
-            and the new multi-photo array.
-          */}
-          {org.background_image_url && (
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage: `url(${org.background_image_url})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            />
-          )}
-          {/* Overlay for readability */}
-          <div className="absolute inset-0" style={{ backgroundColor: `${mainColor}80` }} />
-        </div>
-
+        {org.background_image_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={org.background_image_url}
+            alt="Background"
+            className="absolute inset-0 w-full h-full object-cover opacity-30"
+            crossOrigin="anonymous"
+          />
+        )}
         {/* Hero Section */}
         <section className="py-20 px-4 text-center relative">
           <div className="max-w-3xl mx-auto animate-[fade-up_600ms_ease-out_both]">
@@ -239,9 +221,9 @@ export default async function OrgLandingPage({
                 </div>
 
                 {/* Restaurant photos carousel */}
-                {(ds.restaurant_photos ?? org.restaurant_photos ?? []).length > 0 ? (
+                {((ds.restaurant_photos?.length ?? 0) > 0 ? ds.restaurant_photos : (org.restaurant_photos?.length ?? 0) > 0 ? org.restaurant_photos : []).length > 0 ? (
                   <RestaurantPhotoCarousel
-                    photos={(ds.restaurant_photos ?? org.restaurant_photos ?? []) as string[]}
+                    photos={((ds.restaurant_photos?.length ?? 0) > 0 ? ds.restaurant_photos : (org.restaurant_photos?.length ?? 0) > 0 ? org.restaurant_photos : []) as string[]}
                     name={org.name}
                     accent={highlightColor}
                   />
@@ -333,20 +315,30 @@ export default async function OrgLandingPage({
             </h2>
 
             <div className="grid md:grid-cols-2 gap-8">
-              {/* Branches */}
-              {org.branches && org.branches.length > 0 && (
+              {/* Locations - shows org.location (newline-separated) then branches */}
+              {((org.location && org.location.trim()) || (org.branches && org.branches.length > 0)) && (
                 <div className="rounded-xl p-6 shadow-md border-2" style={{
                   backgroundColor: `${mainColor}ff`,
                   borderColor: `${highlightColor}44`
                 }}>
                   <h3 className="font-semibold text-lg mb-4">Locations</h3>
                   <ul className="tc-loc-body space-y-2">
-                    {org.branches.map((branch: string, index: number) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <span className="mt-1" style={{ color: highlightColor }}>•</span>
-                        <span>{branch}</span>
-                      </li>
-                    ))}
+                    {(() => {
+                      const locs: string[] = [];
+                      // Priority: location column (from design panel) takes precedence
+                      if (org.location && org.location.trim()) {
+                        locs.push(...org.location.split("\n").filter(Boolean));
+                      } else if (org.branches && org.branches.length > 0) {
+                        locs.push(...(org.branches as string[]));
+                      }
+                      // Deduplicate while preserving order
+                      return [...new Set(locs)].map((loc, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="mt-1" style={{ color: highlightColor }}>•</span>
+                          <span>{loc}</span>
+                        </li>
+                      ));
+                    })()}
                   </ul>
                 </div>
               )}

@@ -13,6 +13,9 @@ alter table public.organizations
 alter table public.organizations
   add column if not exists contact_heading text;
 
+alter table public.organizations
+  add column if not exists location text;
+
 -- -----------------------------------------------------------------------------
 -- paragraphs table
 -- -----------------------------------------------------------------------------
@@ -33,7 +36,8 @@ create table if not exists public.paragraphs (
 -- Storage bucket
 -- -----------------------------------------------------------------------------
 insert into storage.buckets (id, name, public)
-values ('org-paragraph-images', 'org-paragraph-images', true)
+values ('org-paragraph-images', 'org-paragraph-images', true),
+       ('org-backgrounds',      'org-backgrounds',      true)
 on conflict (id) do nothing;
 
 -- -----------------------------------------------------------------------------
@@ -91,5 +95,37 @@ create policy if not exists "staff_delete_paragraph_images"
   to authenticated
   using (
     bucket_id = 'org-paragraph-images' and
+    (storage.foldername(name))[1]::text = public.f_current_org_id()::text
+  );
+
+-- -----------------------------------------------------------------------------
+-- Storage policies: org-backgrounds
+-- -----------------------------------------------------------------------------
+create policy if not exists "public_read_background_images"
+  on storage.objects for select
+  to anon, authenticated
+  using (bucket_id = 'org-backgrounds');
+
+create policy if not exists "staff_upload_background_images"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'org-backgrounds' and
+    (storage.foldername(name))[1]::text = public.f_current_org_id()::text
+  );
+
+create policy if not exists "staff_update_background_images"
+  on storage.objects for update
+  to authenticated
+  using (
+    bucket_id = 'org-backgrounds' and
+    (storage.foldername(name))[1]::text = public.f_current_org_id()::text
+  );
+
+create policy if not exists "staff_delete_background_images"
+  on storage.objects for delete
+  to authenticated
+  using (
+    bucket_id = 'org-backgrounds' and
     (storage.foldername(name))[1]::text = public.f_current_org_id()::text
   );

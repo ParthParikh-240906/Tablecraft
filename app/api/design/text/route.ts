@@ -18,9 +18,13 @@ export async function POST(req: Request) {
       about_text: text.about_text ?? null,
       about_title: text.about_title ?? null,
       contact_heading: text.contact_heading ?? null,
+      location: text.location ?? null,
       contact_phone: text.contact_phone ?? null,
       contact_email: text.contact_email ?? null,
       contact_address: text.contact_address ?? null,
+      ...(text.location && text.location.trim() ? {
+        branches: text.location.split("\n").filter(Boolean),
+      } : {}),
     })
     .eq("id", org_id);
 
@@ -30,5 +34,6 @@ export async function POST(req: Request) {
   }
 
   revalidatePath("/");
+  revalidatePath("/" + org_id);
   return NextResponse.json({ ok: true });
 }

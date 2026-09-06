@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { revalidatePath } from "next/cache";
 
 export async function POST(req: Request) {
   const admin = createAdminClient();
@@ -20,5 +21,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  revalidatePath("/");
+  revalidatePath("/" + org_id);
   return NextResponse.json({ ok: true });
 }

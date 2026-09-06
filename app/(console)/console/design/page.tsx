@@ -30,7 +30,7 @@ export default async function ConsoleDesignPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <h1 className="font-display text-2xl font-bold mb-8 text-[var(--ink)]">
-        Storefront Designer
+        Design
       </h1>
       <DesignPanel
         orgId={staff.org_id}

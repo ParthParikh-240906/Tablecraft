@@ -57,7 +57,6 @@ interface DesignSettings {
   about_content_design: TextDesign;
   contact_heading_design: TextDesign;
   contact_body_design: TextDesign;
-  restaurant_photos: string[];
 }
 
 const DEFAULT_SETTINGS: DesignSettings = {
@@ -70,7 +69,6 @@ const DEFAULT_SETTINGS: DesignSettings = {
   about_content_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 16 },
   contact_heading_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 28, textAlign: "center" },
   contact_body_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 15 },
-  restaurant_photos: [],
 };
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -188,10 +186,18 @@ function PreviewSection({
   settings,
   orgName,
   text,
+  paragraphs,
+  photoUrls,
+  backgroundImageUrl,
+  logoUrl,
 }: {
   settings: DesignSettings;
   orgName: string;
-  text: { tagline: string; about_title: string; about_text: string; contact_heading: string; contact_phone: string; contact_email: string; contact_address: string };
+  text: { tagline: string; about_title: string; about_text: string; contact_heading: string; location: string; contact_phone: string; contact_email: string; contact_address: string };
+  paragraphs: ParagraphRow[];
+  photoUrls: string[];
+  backgroundImageUrl?: string | null;
+  logoUrl?: string | null;
 }) {
   const main = settings.background_color;
   const textColor = settings.text_color;
@@ -207,15 +213,36 @@ function PreviewSection({
   return (
     <div
       style={{ backgroundColor: main, color: textColor }}
-      className="rounded-lg overflow-hidden border border-[var(--rule)]"
+      className="rounded-lg overflow-hidden border border-[var(--rule)] relative"
     >
+      {/* Background image overlay */}
+      {backgroundImageUrl && (
+        <div
+          className="absolute inset-0 rounded-lg"
+          style={{
+            backgroundImage: `url(${backgroundImageUrl})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            opacity: 0.35,
+            pointerEvents: "none",
+          }}
+        />
+      )}
       {/* Hero */}
       <div className="py-10 px-6 text-center">
-        <div
-          className="h-14 w-14 rounded-full bg-orange-500 mx-auto mb-4 flex items-center justify-center text-black font-bold text-xl"
-        >
-          {(orgName || "T")[0].toUpperCase()}
-        </div>
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt="Logo"
+            className="h-14 w-14 rounded-full mx-auto mb-4 object-cover shadow"
+          />
+        ) : (
+          <div
+            className="h-14 w-14 rounded-full bg-orange-500 mx-auto mb-4 flex items-center justify-center text-black font-bold text-xl"
+          >
+            {(orgName || "T")[0].toUpperCase()}
+          </div>
+        )}
         <h1 style={style(settings.name_design)}>{orgName || "Restaurant Name"}</h1>
         {text.tagline && (
           <p style={style(settings.tagline_design)} className="italic mt-2">
@@ -234,25 +261,83 @@ function PreviewSection({
 
       {/* About */}
       <section className="py-8 px-6" style={{ backgroundColor: main + "dd" }}>
-        <div className="max-w-lg mx-auto">
-          <h2 style={style(settings.about_title_design)}>{text.about_title || "About Us"}</h2>
-          <p style={style(settings.about_content_design)}>
-            {text.about_text || "We serve fresh, handmade pasta with locally sourced ingredients. Family recipe passed down through three generations."}
-          </p>
-        </div>
+        {photoUrls.length > 0 ? (
+          <div className="grid md:grid-cols-2 gap-8 max-w-2xl mx-auto items-start">
+            <div className="text-left">
+              <h2 style={style(settings.about_title_design)} className="text-left">{text.about_title || "About Us"}</h2>
+              <p style={style(settings.about_content_design)} className="text-left mt-2">
+                {text.about_text || "We serve fresh, handmade pasta with locally sourced ingredients. Family recipe passed down through three generations."}
+              </p>
+            </div>
+            {/* Placeholder for restaurant photos */}
+            <div className="rounded-xl bg-[var(--rule)] border-2 border-dashed flex items-center justify-center min-h-40">
+              <span className="text-xs text-[var(--ink-soft)] uppercase tracking-wider">Restaurant photos</span>
+            </div>
+          </div>
+        ) : (
+          <div className="max-w-lg mx-auto text-center">
+            <h2 style={style(settings.about_title_design)}>{text.about_title || "About Us"}</h2>
+            <p style={style(settings.about_content_design)} className="mt-2">
+              {text.about_text || "We serve fresh, handmade pasta with locally sourced ingredients. Family recipe passed down through three generations."}
+            </p>
+          </div>
+        )}
       </section>
 
-      {/* Location */}
+      {/* Paragraphs */}
+      {paragraphs.length > 0 && (
+        <div className="space-y-4 py-6 px-6" style={{ backgroundColor: main + "bb" }}>
+          {paragraphs.map((para) => {
+            const td = para.title_design ?? { fontFamily: "'Inter', sans-serif", fontSize: 24, color: textColor, textAlign: "left" as const };
+            const cd = para.content_design ?? { fontFamily: "'Inter', sans-serif", fontSize: 16, color: textColor, textAlign: "left" as const };
+            return (
+              <div key={para.id} className="grid md:grid-cols-2 gap-6">
+                <div>
+                  {para.title && (
+                    <h3 style={{ fontFamily: td.fontFamily, fontSize: td.fontSize, color: td.color, textAlign: td.textAlign as any }} className="mb-2">
+                      {para.title}
+                    </h3>
+                  )}
+                  {para.content && (
+                    <p style={{ fontFamily: cd.fontFamily, fontSize: cd.fontSize, color: cd.color, textAlign: cd.textAlign as any }} className="leading-relaxed whitespace-pre-line text-sm">
+                      {para.content}
+                    </p>
+                  )}
+                </div>
+                {/* Placeholder for paragraph image */}
+                <div className="rounded-xl bg-[var(--rule)] border-2 border-dashed flex items-center justify-center min-h-32">
+                  <span className="text-xs text-[var(--ink-soft)] uppercase tracking-wider">Paragraph photo</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Location & Contact */}
       <section className="py-8 px-6" style={{ backgroundColor: main + "ee" }}>
-        <div className="max-w-lg mx-auto text-center">
+        <div className="max-w-lg mx-auto">
           <h2 style={style(settings.contact_heading_design)}>{text.contact_heading || "Location & Contact"}</h2>
-          <div style={style(settings.contact_body_design)} className="mt-4 space-y-1 text-sm">
-            {text.contact_phone && <p>📞 {text.contact_phone}</p>}
-            {text.contact_email && <p>✉️ {text.contact_email}</p>}
-            {text.contact_address && <p>📍 {text.contact_address}</p>}
-            {(!text.contact_phone && !text.contact_email && !text.contact_address) && (
-              <p>Location and contact information coming soon.</p>
-            )}
+          <div className="grid md:grid-cols-2 gap-6 mt-4 text-sm" style={style(settings.contact_body_design)}>
+            {/* Left: Location */}
+            <div>
+              {text.location && text.location.split("\n").filter(Boolean).map((loc, i) => (
+                <p key={i} className="flex items-start gap-2 mb-1">
+                  <span style={{ color: accent }}>•</span>
+                  <span>{loc}</span>
+                </p>
+              ))}
+              {(!text.location || !text.location.trim()) && <p className="text-[var(--ink-soft)]">No locations added.</p>}
+            </div>
+            {/* Right: Contact */}
+            <div>
+              {text.contact_phone && <p>📞 {text.contact_phone}</p>}
+              {text.contact_email && <p>✉️ {text.contact_email}</p>}
+              {text.contact_address && <p>📍 {text.contact_address}</p>}
+              {(!text.contact_phone && !text.contact_email && !text.contact_address) && (
+                <p className="text-[var(--ink-soft)]">No contact info added.</p>
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -280,11 +365,13 @@ export function DesignPanel({
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState(orgName || "");
+  const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(null);
   const [textData, setTextData] = useState({
     tagline: "",
     about_title: "About Us",
     about_text: "",
     contact_heading: "Location & Contact",
+    location: "",
     contact_phone: "",
     contact_email: "",
     contact_address: "",
@@ -296,11 +383,12 @@ export function DesignPanel({
       setLoading(true);
       const { data } = await supabase
         .from("organizations")
-        .select("logo_url, design_settings, restaurant_photos, tagline, about_title, about_text, contact_heading, contact_phone, contact_email, contact_address")
+        .select("logo_url, design_settings, restaurant_photos, background_image_url, branches, tagline, about_title, about_text, contact_heading, location, contact_phone, contact_email, contact_address")
         .eq("id", orgId)
         .single();
       if (data) {
         setLogoUrl(data.logo_url ?? null);
+        setBackgroundImageUrl(data.background_image_url ?? null);
         setPhotoUrls((data.restaurant_photos as string[]) ?? []);
         if (data.design_settings) {
           setSettings({ ...DEFAULT_SETTINGS, ...data.design_settings });
@@ -310,6 +398,7 @@ export function DesignPanel({
           about_title: data.about_title ?? "About Us",
           about_text: data.about_text ?? "",
           contact_heading: data.contact_heading ?? "Location & Contact",
+          location: data.location ?? (data.branches && (data.branches as string[]).length > 0 ? (data.branches as string[]).join("\n") : ""),
           contact_phone: data.contact_phone ?? "",
           contact_email: data.contact_email ?? "",
           contact_address: data.contact_address ?? "",
@@ -342,6 +431,7 @@ export function DesignPanel({
 
   const save = async () => {
     await saveText();
+    await persistPhotoOrder();
     setSaving(true);
     setSaveMsg("");
     try {
@@ -378,6 +468,28 @@ export function DesignPanel({
       const data = await res.json();
       setLogoUrl(data.url);
     }
+  };
+
+  const uploadBackground = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append("file", file);
+    form.append("org_id", orgId);
+    const res = await fetch("/api/design/background-image", { method: "POST", body: form });
+    if (res.ok) {
+      const data = await res.json();
+      setBackgroundImageUrl(data.url);
+    }
+  };
+
+  const removeBackground = async () => {
+    await fetch("/api/design/background-image", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ org_id: orgId }),
+    });
+    setBackgroundImageUrl(null);
   };
 
   const uploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -634,6 +746,18 @@ export function DesignPanel({
                 value={textData.contact_heading}
                 onChange={(e) => setTextData((d) => ({ ...d, contact_heading: e.target.value }))}
                 className="w-full bg-[var(--paper-inverted)] border border-[var(--rule)] rounded px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+                Location
+              </label>
+              <textarea
+                value={textData.location}
+                onChange={(e) => setTextData((d) => ({ ...d, location: e.target.value }))}
+                rows={3}
+                placeholder="One location per line, e.g.&#10;123 Food Street, Melbourne&#10;456 Coffee Lane, Sydney"
+                className="w-full bg-[var(--paper-inverted)] border border-[var(--rule)] rounded px-3 py-2 text-sm resize-y"
               />
             </div>
             <div>
@@ -936,10 +1060,41 @@ export function DesignPanel({
         <h2 className="font-display text-lg font-semibold text-[var(--ink)]">
           Live Preview
         </h2>
-        <PreviewSection settings={settings} orgName={restaurantName} text={textData} />
+        <PreviewSection settings={settings} orgName={restaurantName} text={textData} paragraphs={paragraphs} photoUrls={photoUrls} backgroundImageUrl={backgroundImageUrl} logoUrl={logoUrl} />
         <p className="text-xs text-[var(--ink-soft)] text-center">
           Preview reflects text/design changes in real time. Click &quot;Save All Changes&quot; to persist.
         </p>
+
+        {/* Background Image */}
+        <section className="ticket p-5 space-y-3">
+          <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
+            Background Image
+          </h3>
+          <p className="text-xs text-[var(--ink-soft)]">
+            Upload an image to replace the background color. Overrides the solid color on the public page.
+          </p>
+          <label className="btn btn-outline text-xs cursor-pointer inline-block">
+            {backgroundImageUrl ? "Replace Background" : "Upload Background"}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={uploadBackground}
+            />
+          </label>
+          {backgroundImageUrl && (
+            <>
+              <button
+                type="button"
+                onClick={removeBackground}
+                className="text-xs text-red-500 hover:text-red-600 underline"
+              >
+                Remove background image
+              </button>
+              <img src={backgroundImageUrl} alt="Background" className="h-16 w-full object-cover rounded border border-[var(--rule)]" />
+            </>
+          )}
+        </section>
       </div>
     </div>
   );
