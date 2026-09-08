@@ -1,6 +1,23 @@
 import { createClient } from "@/lib/supabase/server";
 
 /**
+ * List all public organizations (no auth required).
+ */
+export async function getOrgs() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("id, name, slug, logo_url, theme_color, tagline")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("getOrgs:", error);
+    return [];
+  }
+  return data;
+}
+
+/**
  * Resolve an organization by its URL slug.
  * Used by the public site pages (landing, menu) so they stay consistent.
  * Returns null if the org doesn't exist (caller renders notFound()).

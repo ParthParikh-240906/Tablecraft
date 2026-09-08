@@ -70,30 +70,36 @@ export default async function DashboardPage() {
   const totalTables = allTables.length;
 
   // Available tables: status=open AND not in an upcoming booking (2h window)
-  const upcomingBookingIds = new Set<string>();
+  const twoHoursFromNowMs = now.getTime() + 2 * 60 * 60 * 1000;
   const bookedTableIds = new Set<string>();
   for (const b of bookingsTodayData ?? []) {
-    if ((b as any).status !== "cancelled") {
+    if ((b as any).status === "cancelled") continue;
+    const bookingTime = new Date((b as any).datetime).getTime();
+    if (bookingTime >= now.getTime() && bookingTime <= twoHoursFromNowMs) {
       bookedTableIds.add((b as any).table_id);
     }
   }
-  // Also include tables from booking_tables junction (combo bookings) — today only
+  // Also include tables from booking_tables junction (combo bookings) — within 2h window
   const { data: todayBookingIds } = await supabase
     .from("bookings")
-    .select("id")
+    .select("id, datetime")
     .eq("org_id", orgId)
     .gte("datetime", todayStart.toISOString())
     .lt("datetime", tomorrowStart.toISOString());
-  const todayIds = (todayBookingIds ?? []).map((b: any) => b.id);
-  if (todayIds.length > 0) {
-    const { data: bookingTablesJunction } = await supabase
-      .from("booking_tables")
-      .select("table_id, bookings(status)")
-      .eq("org_id", orgId)
-      .in("booking_id", todayIds);
-    for (const row of bookingTablesJunction ?? []) {
-      const booking = (row as any).bookings as { status?: string } | null | undefined;
-      if (booking?.status !== "cancelled") {
+  const todayIdsWithTime: { id: string; datetime: string }[] = todayBookingIds ?? [];
+  if (todayIdsWithTime.length > 0) {
+    const upcomingIds = todayIdsWithTime.filter(
+      (b) => {
+        const t = new Date(b.datetime).getTime();
+        return t >= now.getTime() && t <= twoHoursFromNowMs;
+      },
+    ).map((b) => b.id);
+    if (upcomingIds.length > 0) {
+      const { data: bookingTablesJunction } = await supabase
+        .from("booking_tables")
+        .select("table_id")
+        .in("booking_id", upcomingIds);
+      for (const row of bookingTablesJunction ?? []) {
         bookedTableIds.add((row as any).table_id);
       }
     }

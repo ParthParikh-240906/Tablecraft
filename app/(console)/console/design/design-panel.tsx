@@ -369,6 +369,11 @@ export function DesignPanel({
   const [restaurantName, setRestaurantName] = useState(orgName || "");
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(null);
   const [bgKey, setBgKey] = useState(0);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const [referenceImageBase64, setReferenceImageBase64] = useState<string | null>(null);
+  const [referenceImagePreview, setReferenceImagePreview] = useState<string | null>(null);
   const [textData, setTextData] = useState({
     tagline: "",
     about_title: "About Us",
@@ -495,6 +500,68 @@ export function DesignPanel({
     });
     setBackgroundImageUrl(null);
     setBgKey((k) => k + 1);
+  };
+
+  const handleReferenceImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      setReferenceImageBase64(base64);
+      setReferenceImagePreview(base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleGenerate = async () => {
+    if (!prompt.trim()) return;
+    setIsGenerating(true);
+    try {
+      const res = await fetch("/api/design/ai-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          imageBase64: referenceImageBase64,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setGeneratedImageUrl(data.url);
+      } else {
+        alert(data.error ?? "Generation failed");
+      }
+    } catch {
+      alert("Generation failed");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleClearGenerated = () => {
+    setGeneratedImageUrl(null);
+    setPrompt("");
+    setReferenceImageBase64(null);
+    setReferenceImagePreview(null);
+  };
+
+  const handleDownloadGenerated = async () => {
+    if (!generatedImageUrl) return;
+    try {
+      const res = await fetch(generatedImageUrl);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `tablecraft-generated-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(generatedImageUrl, "_blank");
+    }
   };
 
   const uploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1099,6 +1166,89 @@ export function DesignPanel({
               </button>
               <img src={`${backgroundImageUrl}?v=${bgKey}`} alt="Background" className="h-16 w-full object-cover rounded border border-[var(--rule)]" />
             </>
+          )}
+        </section>
+
+        {/* AI Background Generator */}
+        <section className="ticket p-5 space-y-3">
+          <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
+            AI Background Generator
+          </h3>
+          <p className="text-xs text-[var(--ink-soft)]">
+            Upload a reference image and describe the background you want. The AI will generate a new image.
+          </p>
+
+          {/* Reference image upload */}
+          <div>
+            <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+              Reference Image (optional)
+            </label>
+            {referenceImagePreview ? (
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={referenceImagePreview} alt="Reference" className="h-24 w-full object-cover rounded border border-[var(--rule)]" />
+                <button
+                  type="button"
+                  onClick={() => { setReferenceImagePreview(null); setReferenceImageBase64(null); }}
+                  className="absolute top-1 right-1 bg-black/60 text-white text-xs px-1.5 rounded hover:bg-black/80"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <label className="btn btn-outline text-xs cursor-pointer inline-block">
+                Upload Reference
+                <input type="file" accept="image/*" className="hidden" onChange={handleReferenceImageChange} />
+              </label>
+            )}
+          </div>
+
+          {/* Prompt */}
+          <div>
+            <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+              Prompt
+            </label>
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Describe the background you want, e.g. 'A cozy Italian restaurant interior with warm lighting and wooden tables'"
+              rows={3}
+              className="w-full bg-[var(--paper-inverted)] border border-[var(--rule)] rounded px-3 py-2 text-sm resize-none"
+            />
+          </div>
+
+          {/* Generate button */}
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={isGenerating || !prompt.trim()}
+            className="btn btn-primary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isGenerating ? "Generating…" : "Generate"}
+          </button>
+
+          {/* Generated result */}
+          {generatedImageUrl && (
+            <div className="space-y-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={generatedImageUrl} alt="Generated" className="h-48 w-full object-cover rounded border border-[var(--rule)]" />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadGenerated}
+                  className="btn btn-outline text-xs"
+                >
+                  Download
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearGenerated}
+                  className="text-xs text-red-500 hover:text-red-600 underline"
+                >
+                  Clear & Start Over
+                </button>
+              </div>
+            </div>
           )}
         </section>
       </div>
