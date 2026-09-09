@@ -95,6 +95,7 @@ const PRICING = [
     description: "Mock website and console with all AI features active. Perfect for planning and testing.",
     cta: "Start free",
     ctaLink: "/signup",
+    planKey: null,
     features: [
       "Mock public website",
       "Full console access",
@@ -113,6 +114,7 @@ const PRICING = [
     description: "Live website and console built just for your client. 10 image generation requests per week. 1 senior designer meeting per month.",
     cta: "Go Pro",
     ctaLink: "/signup?plan=pro",
+    planKey: "pro" as const,
     features: [
       "Live public website",
       "Full console access",
@@ -131,6 +133,7 @@ const PRICING = [
     description: "Everything in Pro, plus 30 image generation requests per week and 5 senior designer meetings per month for ongoing fixes and changes.",
     cta: "Go Max",
     ctaLink: "/signup?plan=max",
+    planKey: "max" as const,
     features: [
       "Live public website",
       "Full console access",
@@ -561,20 +564,55 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
           ))}
         </ul>
 
-        <Link
-          href={plan.ctaLink}
-          className={[
-            "btn w-full text-center transition-all duration-200",
-            plan.highlighted ? "btn-accent" : "btn-outline",
-          ].join(" ")}
-          style={
-            hovered && !plan.highlighted
-              ? { opacity: 0.9, transform: "translateY(-1px)" }
-              : {}
-          }
-        >
-          {plan.cta}
-        </Link>
+        {plan.planKey ? (
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch("/api/subscription/checkout", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ plan: plan.planKey }),
+                });
+                const data = await res.json();
+                if (data.url) {
+                  window.location.href = data.url;
+                } else {
+                  console.error("Checkout failed:", data);
+                  alert("Failed to start checkout. Please try again.");
+                }
+              } catch (err) {
+                console.error("Checkout error:", err);
+                alert("Network error. Please try again.");
+              }
+            }}
+            className={[
+              "btn w-full text-center transition-all duration-200",
+              plan.highlighted ? "btn-accent" : "btn-accent",
+            ].join(" ")}
+            style={
+              hovered && !plan.highlighted
+                ? { opacity: 0.9, transform: "translateY(-1px)" }
+                : {}
+            }
+          >
+            {plan.cta}
+          </button>
+        ) : (
+          <Link
+            href={plan.ctaLink}
+            className={[
+              "btn w-full text-center transition-all duration-200",
+              plan.highlighted ? "btn-accent" : "btn-outline",
+            ].join(" ")}
+            style={
+              hovered && !plan.highlighted
+                ? { opacity: 0.9, transform: "translateY(-1px)" }
+                : {}
+            }
+          >
+            {plan.cta}
+          </Link>
+        )}
       </div>
     </Reveal>
   );

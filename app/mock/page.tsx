@@ -198,6 +198,25 @@ function useReveal(threshold = 0.1) {
   return { ref, visible };
 }
 
+function Reveal({ children, className = "", delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
+  const { ref, visible } = useReveal();
+  return (
+    <div
+      ref={ref}
+      className={[
+        "transition-all duration-700 ease-out",
+        visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
+  );
+}
+
 // ─── Navigation ───────────────────────────────────────────────────────────────
 function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -218,8 +237,8 @@ function Navbar() {
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
         {/* Brand Logo */}
         <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-lg shadow-orange-500/20 group-hover:scale-105 transition-transform duration-300">
-            <svg viewBox="0 0 200 200" className="w-full h-full text-orange-400" fill="currentColor">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#ea580c] to-[#c2410c] flex items-center justify-center shadow-lg shadow-orange-950/40 group-hover:scale-105 transition-transform duration-300">
+            <svg viewBox="0 0 200 200" className="w-full h-full text-white" fill="currentColor">
               <g transform="translate(100, 100)">
                 <g transform="rotate(45)">
                   <path d="M-5 15 L-5 70 C-5 74 -1 78 0 78 C1 78 5 74 5 70 L5 15 Z"/>
@@ -236,7 +255,7 @@ function Navbar() {
           <div className="flex flex-col">
             <span className="font-display font-bold text-xl tracking-tight text-white flex items-center gap-1.5">
               Tablecraft
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#ea580c] animate-pulse"></span>
             </span>
             <span className="text-[10px] text-zinc-400 font-medium tracking-wider uppercase -mt-0.5">Restaurant OS</span>
           </div>
@@ -244,7 +263,7 @@ function Navbar() {
 
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-1 bg-white/[0.03] backdrop-blur-md border border-white/[0.08] px-4 py-1.5 rounded-full">
-          <a href="#showcase" className="px-4 py-1.5 text-xs font-medium text-zinc-300 hover:text-white rounded-full hover:bg-white/[0.06] transition-all">
+          <a href="#features" className="px-4 py-1.5 text-xs font-medium text-zinc-300 hover:text-white rounded-full hover:bg-white/[0.06] transition-all">
             Experience
           </a>
           <a href="#features" className="px-4 py-1.5 text-xs font-medium text-zinc-300 hover:text-white rounded-full hover:bg-white/[0.06] transition-all">
@@ -274,7 +293,7 @@ function Navbar() {
           </Link>
           <a
             href="#pricing"
-            className="relative group px-5 py-2.5 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 shadow-md shadow-orange-500/25 hover:shadow-orange-500/40 transition-all duration-300 transform active:scale-95"
+            className="relative group px-5 py-2.5 rounded-lg text-xs font-semibold text-white bg-[#ea580c] hover:bg-[#c2410c] shadow-md shadow-orange-950/30 transition-all duration-300 transform active:scale-95"
           >
             <span className="flex items-center gap-1.5">
               Get Started
@@ -299,15 +318,15 @@ function Navbar() {
 
       {mobileOpen && (
         <div className="md:hidden border-t border-white/[0.08] bg-[#0c0c10] px-6 py-5 space-y-3">
-          <a href="#showcase" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-orange-400 py-1">Experience</a>
-          <a href="#features" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-orange-400 py-1">Features</a>
-          <a href="#how-it-works" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-orange-400 py-1">How it works</a>
-          <a href="#restaurants" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-orange-400 py-1">Directory</a>
-          <a href="#pricing" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-orange-400 py-1">Pricing</a>
-          <a href="#contact" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-orange-400 py-1">Contact</a>
+          <a href="#features" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-[#ea580c] py-1">Experience</a>
+          <a href="#features" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-[#ea580c] py-1">Features</a>
+          <a href="#how-it-works" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-[#ea580c] py-1">How it works</a>
+          <a href="#restaurants" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-[#ea580c] py-1">Directory</a>
+          <a href="#pricing" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-[#ea580c] py-1">Pricing</a>
+          <a href="#contact" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-[#ea580c] py-1">Contact</a>
           <div className="pt-4 border-t border-white/[0.06] flex flex-col gap-2.5">
             <Link href="/console/login" className="w-full text-center py-2.5 text-xs font-semibold text-zinc-200 bg-white/[0.05] rounded-lg border border-white/10">Sign in to console</Link>
-            <a href="#pricing" className="w-full text-center py-2.5 text-xs font-semibold text-white bg-orange-500 rounded-lg shadow-lg shadow-orange-500/30">Create your restaurant</a>
+            <a href="#pricing" className="w-full text-center py-2.5 text-xs font-semibold text-white bg-[#ea580c] rounded-lg shadow-lg shadow-orange-950/40">Create your restaurant</a>
           </div>
         </div>
       )}
@@ -315,234 +334,60 @@ function Navbar() {
   );
 }
 
-// ─── 3D Angled Carousel Hero ─────────────────────────────────────────────────
+// ─── Hero (3D perspective dining floor) ───────────────────────────────────────
 function Hero() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [progress, setProgress] = useState(0);
-  const totalSlides = AI_FEATURES.length;
-  const duration = 4000;
-  const isHoveredRef = useRef(false);
-
-  useEffect(() => {
-    const startTime = Date.now();
-    const interval = setInterval(() => {
-      if (isHoveredRef.current) return;
-      const elapsed = Date.now() - startTime;
-      const p = Math.min(100, (elapsed % duration) / duration * 100);
-      setProgress(p);
-
-      if (elapsed % duration < 50) {
-        setCurrentIndex((prev) => (prev + 1) % totalSlides);
-      }
-    }, 50);
-
-    return () => clearInterval(interval);
-  }, [totalSlides]);
-
-  const updateSlide = (idx: number) => {
-    setCurrentIndex((idx + totalSlides) % totalSlides);
-    setProgress(0);
-  };
-
   return (
-    <section className="relative pt-36 pb-24 md:pt-44 md:pb-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-visible">
-      {/* Background radial glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-radial from-orange-500/10 via-orange-500/3 to-transparent blur-3xl pointer-events-none -z-10" />
-
-      {/* Hero Header */}
-      <div className="text-center max-w-4xl mx-auto mb-14 md:mb-20 relative z-10">
-        <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-orange-500/20 backdrop-blur-md mb-8 shadow-inner shadow-orange-500/5">
-          <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
-          <span className="text-xs font-medium text-zinc-300">Next-Gen Restaurant Infrastructure</span>
-          <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30">
-            v2.4 Live
-          </span>
-        </div>
-
-        <h1 className="font-display text-2xl sm:text-4xl md:text-5xl lg:text-5xl font-extrabold tracking-tight text-white leading-[1.05] mb-6">
-          Your restaurant,<br />
-          <span className="bg-gradient-to-r from-orange-400 via-amber-300 to-orange-500 bg-clip-text text-transparent">
-            online in minutes.
-          </span>
-        </h1>
-
-        <p className="text-base sm:text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed mb-10 font-light">
-          AI-powered website, booking assistant, menu scanner, and real-time staff dashboard. Purpose-built for dining venues that demand speed.
-        </p>
-
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto">
-          <Link
-            href="/signup"
-            className="w-full sm:w-auto px-8 py-4 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 shadow-xl shadow-orange-500/25 hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2"
-          >
-            <span>Create Your Restaurant</span>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
-            </svg>
-          </Link>
-          <a
-            href="#showcase"
-            className="w-full sm:w-auto px-7 py-4 rounded-xl text-sm font-semibold text-zinc-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 transition-all duration-200 flex items-center justify-center gap-2"
-          >
-            <svg className="w-4 h-4 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </svg>
-            <span>Explore Experience</span>
-          </a>
-        </div>
-
-        <div className="mt-8 flex items-center justify-center gap-6 text-xs text-zinc-400">
-          <div className="flex items-center gap-1.5">
-            <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path>
-            </svg>
-            <span>No credit card required</span>
-          </div>
-          <span className="w-1 h-1 rounded-full bg-zinc-700"></span>
-          <div className="flex items-center gap-1.5">
-            <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path>
-            </svg>
-            <span>Setup in &lt; 3 minutes</span>
-          </div>
-        </div>
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
+      {/* 3D floor background */}
+      <div className="hero-bg">
+        <div className="hero-bg__glow" />
+        <div className="hero-bg__scrim" />
+        <div className="hero-bg__floor" />
+        <div className="hero-bg__table hero-bg__table--1" />
+        <div className="hero-bg__table hero-bg__table--2" />
+        <div className="hero-bg__table hero-bg__table--3" />
+        <div className="hero-bg__table hero-bg__table--4" />
+        <div className="hero-bg__table hero-bg__table--5" />
+        <div className="hero-bg__table hero-bg__table--6" />
       </div>
 
-      {/* 3D Angled Carousel */}
-      <div
-        id="showcase"
-        className="relative max-w-6xl mx-auto mt-6 pt-4"
-        onMouseEnter={() => { isHoveredRef.current = true; }}
-        onMouseLeave={() => { isHoveredRef.current = false; }}
-      >
-        {/* Progress Bar Timer */}
-        <div className="max-w-md mx-auto mb-6 flex items-center justify-between gap-3 px-4">
-          <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-orange-500 to-amber-400 transition-all duration-75 ease-linear"
-              style={{ width: `${progress}%` }}
-            />
+      <div className="relative z-10 px-4 text-center max-w-3xl">
+        <Reveal>
+          <p className="label-caps text-[color:var(--accent)] mb-4" style={{ fontSize: "1.375rem" }}>Tablecraft</p>
+        </Reveal>
+        <Reveal delay={100}>
+          <h1 className="font-display text-5xl md:text-7xl lg:text-8xl leading-[1.02] tracking-tight mb-6 text-[var(--ink)]">
+            Your restaurant,
+            <br />
+            <span className="text-[var(--accent)]">online</span> in minutes.
+          </h1>
+        </Reveal>
+        <Reveal delay={200}>
+          <hr className="rule max-w-[120px] mx-auto mb-6" />
+        </Reveal>
+        <Reveal delay={300}>
+          <p className="text-[var(--ink-soft)] text-lg md:text-xl mb-10 max-w-xl mx-auto leading-relaxed">
+            AI-powered website, console, and staff dashboard — built for restaurants that want to move fast.
+          </p>
+        </Reveal>
+        <Reveal delay={400}>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Link href="/signup" className="btn btn-accent text-base px-8 py-3">
+              Create your restaurant
+            </Link>
+            <a href="#restaurants" className="btn btn-outline text-base px-8 py-3">
+              Browse restaurants
+            </a>
           </div>
-          <div className="flex items-center gap-2 text-xs font-mono text-zinc-400">
-            <span className="text-orange-400 font-bold">0{currentIndex + 1}</span>
-            <span>/</span>
-            <span>0{totalSlides}</span>
-          </div>
-        </div>
+        </Reveal>
+      </div>
 
-        {/* 3D Stage */}
-        <div className="relative w-full h-[380px] sm:h-[480px] md:h-[580px] flex items-center justify-center select-none" style={{ perspective: "1400px" }}>
-          {AI_FEATURES.map((feature, i) => {
-            const diff = (i - currentIndex + totalSlides) % totalSlides;
-            let transform = "translateX(0%) translateY(35px) scale(0.72) rotate(0deg)";
-            let opacity = 0.2;
-            let filter = "blur(2px)";
-            let zIndex = 10;
-            let pointerEvents: "auto" | "none" = "none";
-
-            if (diff === 0) {
-              // Active Center
-              transform = "translateX(0%) translateY(0px) scale(1) rotate(0deg)";
-              opacity = 1;
-              filter = "blur(0px)";
-              zIndex = 30;
-              pointerEvents = "auto";
-            } else if (diff === 1 || diff === -3) {
-              // Right Card
-              transform = "translateX(calc(48% + 20px)) translateY(15px) scale(0.86) rotate(3.5deg)";
-              opacity = 0.65;
-              filter = "blur(0.5px)";
-              zIndex = 20;
-              pointerEvents = "auto";
-            } else if (diff === totalSlides - 1 || diff === -1) {
-              // Left Card
-              transform = "translateX(calc(-48% - 20px)) translateY(15px) scale(0.86) rotate(-3.5deg)";
-              opacity = 0.65;
-              filter = "blur(0.5px)";
-              zIndex = 20;
-              pointerEvents = "auto";
-            }
-
-            return (
-              <div
-                key={feature.id}
-                onClick={() => diff !== 0 && updateSlide(i)}
-                className="absolute w-[85%] sm:w-[70%] md:w-[62%] h-[320px] sm:h-[420px] md:h-[500px] rounded-2xl overflow-hidden shadow-2xl cursor-pointer border border-white/15 bg-zinc-900 transition-all duration-700 ease-out"
-                style={{
-                  transform,
-                  opacity,
-                  filter,
-                  zIndex,
-                  pointerEvents,
-                }}
-              >
-                <div className="relative w-full h-full">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={feature.image}
-                    alt={feature.title}
-                    className="w-full h-full object-cover object-top"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-
-                  <div className="absolute bottom-0 inset-x-0 p-6 sm:p-8 flex items-end justify-between">
-                    <div>
-                      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-md text-xs font-semibold mb-2 border ${feature.badgeColor}`}>
-                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                        {feature.tag}
-                      </div>
-                      <h3 className="font-display text-xl sm:text-2xl md:text-3xl font-bold text-white mb-1">
-                        {feature.title}
-                      </h3>
-                      <p className="text-xs sm:text-sm text-zinc-300 line-clamp-2 max-w-lg">
-                        {feature.description}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Carousel Navigation Buttons */}
-        <div className="flex items-center justify-between mt-4 px-4 sm:px-8">
-          <button
-            onClick={() => updateSlide(currentIndex - 1)}
-            aria-label="Previous Slide"
-            className="p-3 rounded-full bg-white/[0.05] hover:bg-orange-500/20 text-zinc-300 hover:text-white border border-white/10 hover:border-orange-500/40 transition-all"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            {AI_FEATURES.map((feat, idx) => (
-              <button
-                key={feat.id}
-                onClick={() => updateSlide(idx)}
-                className={`px-3 sm:px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                  idx === currentIndex
-                    ? "bg-orange-500 text-white shadow-lg shadow-orange-500/30"
-                    : "bg-white/[0.05] text-zinc-400 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                {feat.tag.split(" ")[0]}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => updateSlide(currentIndex + 1)}
-            aria-label="Next Slide"
-            className="p-3 rounded-full bg-white/[0.05] hover:bg-orange-500/20 text-zinc-300 hover:text-white border border-white/10 hover:border-orange-500/40 transition-all"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
+      {/* Scroll indicator */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-bounce">
+        <span className="label-caps text-[var(--ink-faint)]">Scroll</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-faint)" strokeWidth="2" strokeLinecap="round">
+          <path d="M12 5v14M5 12l7 7 7-7" />
+        </svg>
       </div>
     </section>
   );
@@ -1056,7 +901,7 @@ export default function MockLandingPage() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-zinc-400 font-medium">
-            <a href="#showcase" className="hover:text-white transition-colors">Experience</a>
+            <a href="#features" className="hover:text-white transition-colors">Experience</a>
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#how-it-works" className="hover:text-white transition-colors">How it works</a>
             <a href="#restaurants" className="hover:text-white transition-colors">Directory</a>

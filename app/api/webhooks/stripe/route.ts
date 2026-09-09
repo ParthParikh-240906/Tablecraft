@@ -57,5 +57,53 @@ export async function POST(request: Request) {
     }
   }
 
+  // ─── Subscription lifecycle events ────────────────────────────────────────
+  else if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
+    const sub = event.data.object as Stripe.Subscription & { current_period_end?: number };
+    const orgSlug = sub.metadata?.orgSlug;
+
+    if (orgSlug) {
+      const status = sub.status === "active" ? "active" : sub.status === "past_due" ? "past_due" : "canceled";
+      const plan = (sub.metadata?.plan as "pro" | "max") || "pro";
+      const periodEnd = sub.current_period_end
+        ? new Date(sub.current_period_end * 1000).toISOString()
+        : null;
+
+      await supabase
+        .from("organizations")
+        .upsert(
+          {
+            stripe_subscription_id: sub.id,
+            stripe_customer_id: sub.customer as string,
+            subscription_status: status,
+            subscription_plan: plan,
+            subscription_current_period_end: periodEnd,
+          },
+          { onConflict: "slug" },
+        )
+        .eq("slug", orgSlug);
+
+      console.log(`Subscription ${sub.id} for org ${orgSlug}: ${status} (${plan})`);
+    }
+  }
+
+  else if (event.type === "customer.subscription.deleted") {
+    const sub = event.data.object as Stripe.Subscription;
+    const orgSlug = sub.metadata?.orgSlug;
+
+    if (orgSlug) {
+      await supabase
+        .from("organizations")
+        .update({
+          subscription_status: "canceled",
+          stripe_subscription_id: null,
+          subscription_current_period_end: null,
+        })
+        .eq("slug", orgSlug);
+
+      console.log(`Subscription ${sub.id} for org ${orgSlug} canceled`);
+    }
+  }
+
   return NextResponse.json({ received: true });
 }

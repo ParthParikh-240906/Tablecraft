@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 export default function SignupPage() {
@@ -26,6 +26,16 @@ export default function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [optionalOpen, setOptionalOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<"pro" | "max" | null>(null);
+  const [redirecting, setRedirecting] = useState(false);
+
+  // Read ?plan= query param on mount
+  useEffect(() => {
+    const plan = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("plan");
+    if (plan === "pro" || plan === "max") {
+      setSelectedPlan(plan);
+    }
+  }, []);
 
   // Auto-suggest a slug from the org name.
   function handleNameChange(value: string) {
@@ -100,7 +110,25 @@ export default function SignupPage() {
         return;
       }
 
-      // Success: send them to their new public site.
+      // Success: if a paid plan was selected, redirect to Stripe checkout
+      if (selectedPlan) {
+        setRedirecting(true);
+        try {
+          const res = await fetch("/api/subscription/checkout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ plan: selectedPlan, email, orgSlug: data.org.slug }),
+          });
+          const checkoutData = await res.json();
+          if (checkoutData.url) {
+            window.location.href = checkoutData.url;
+            return;
+          }
+        } catch {
+          // Fall through to normal redirect on error
+        }
+      }
+
       router.push(`/${data.org.slug}`);
       router.refresh();
     } catch {
@@ -127,6 +155,11 @@ export default function SignupPage() {
             Tablecraft
           </p>
           <h1 className="font-display text-3xl text-[var(--ink)]">Create your restaurant</h1>
+          {selectedPlan && (
+            <p className="text-sm text-[var(--ink-soft)] mt-2">
+              You're signing up for the <span className="font-semibold text-[var(--accent)]">{selectedPlan === "pro" ? "Pro" : "Max"}</span> plan — payment required to activate.
+            </p>
+          )}
           <p className="text-sm text-[var(--ink-soft)] mt-2">
             Get a public menu, reservations, and online ordering.
           </p>
@@ -381,10 +414,10 @@ export default function SignupPage() {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || redirecting}
             className="btn btn-accent w-full"
           >
-            {submitting ? "Creating…" : "Create restaurant"}
+            {redirecting ? "Redirecting to checkout…" : submitting ? "Creating…" : "Create restaurant"}
           </button>
 
           <p className="text-xs text-center text-[var(--ink-faint)]">
