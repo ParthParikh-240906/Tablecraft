@@ -130,6 +130,15 @@ body {
   background: var(--paper-raised);
   border-color: var(--rule-strong);
 }
+.btn-outline-accent {
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: transparent;
+}
+.btn-outline-accent:hover {
+  background: var(--paper-raised);
+  border-color: var(--accent);
+}
 
 /* Form input fields with guaranteed high-contrast readability */
 .input {

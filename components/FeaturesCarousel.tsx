@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 
 export interface CarouselFeature {
-  icon: string;
+  icon?: string;
   title: string;
   subtitle: string;
   description: string;
@@ -113,7 +113,7 @@ export function FeaturesCarousel({ features }: FeaturesCarouselProps) {
               </div>
               <div>
                 <p className="text-xs text-[var(--accent)] font-semibold tracking-widest uppercase mb-1">
-                  {f.icon} {f.subtitle}
+                  {f.subtitle}
                 </p>
                 <h3 className="font-display text-xl text-[var(--ink)] mb-2">
                   {f.title}

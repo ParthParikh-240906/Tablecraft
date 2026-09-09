@@ -55,7 +55,6 @@ function Reveal({ children, className = "", delay = 0 }: { children: React.React
 // ─── Static Data ──────────────────────────────────────────────────────────────
 const AI_FEATURES = [
   {
-    icon: "💬",
     title: "AI Chatbot",
     subtitle: "Booking assistant",
     description: "Guests chat naturally — \"I need a table for 4 this Friday at 7\" — and the AI collects details, checks availability, and confirms instantly.",
@@ -63,7 +62,6 @@ const AI_FEATURES = [
     image: "/features/chatbot.png",
   },
   {
-    icon: "🎨",
     title: "AI Image Editor",
     subtitle: "Design assistant",
     description: "Generate hero images, logos, and menu artwork with prompts. Upload a photo and ask the AI to edit, crop, or enhance it in seconds.",
@@ -71,7 +69,6 @@ const AI_FEATURES = [
     image: "/features/image-editor.png",
   },
   {
-    icon: "📸",
     title: "AI Menu Scanner",
     subtitle: "Photo → digital menu",
     description: "Snap a photo of your printed menu. OCR extracts every dish, price, and category — then structures it into your live menu in one click.",
@@ -79,7 +76,6 @@ const AI_FEATURES = [
     image: "/features/menu-scanner.png",
   },
   {
-    icon: "📊",
     title: "Staff Dashboard",
     subtitle: "Real-time operations",
     description: "One screen for tables, orders, reservations, and kitchen tickets. Toggle capacity, update the daily specials, and track everything live.",
@@ -93,57 +89,55 @@ const PRICING = [
     name: "Free",
     price: "0",
     period: "No credit card required",
-    description: "Mock website and console with all AI features active. Perfect for planning and testing.",
+    description: "Demo website + demo console. Perfect for planning and testing your restaurant.",
     cta: "Start free",
     ctaLink: "/signup",
     planKey: null,
     features: [
       "Mock public website",
-      "Full console access",
-      "All AI features active",
+      "Mock console access",
       "AI chatbot for bookings",
-      "AI image generation",
-      "Menu scanner",
-      "Staff dashboard",
+      "10 AI menu scanner requests / month",
+      "5 AI image generations / month",
+      "AI website content generator",
     ],
     highlighted: false,
   },
   {
     name: "Pro",
-    price: "3,000",
-    period: "AED + 200 AED/month recurring",
-    description: "Live website and console built just for your client. 10 image generation requests per week. 1 senior designer meeting per month.",
+    price: "1,500",
+    period: "AED + 350 AED/month recurring",
+    description: "Real hosted website + console. Everything you need to get your restaurant online.",
     cta: "Go Pro",
     ctaLink: "/signup?plan=pro",
     planKey: "pro" as const,
     features: [
-      "Live public website",
-      "Full console access",
-      "All AI features active",
-      "10 AI image requests/week",
-      "1 senior designer meeting/month",
-      "Custom domain support",
-      "Priority support",
+      "Real hosted website",
+      "Real console access",
+      "AI chatbot for bookings",
+      "AI website content generator",
+      "15 AI menu scanner requests / month",
+      "10 AI image generations / month",
+      "No meetings with senior frontend developer",
     ],
     highlighted: true,
   },
   {
     name: "Max",
-    price: "3,000",
-    period: "AED + 300 AED/month recurring",
-    description: "Everything in Pro, plus 30 image generation requests per week and 5 senior designer meetings per month for ongoing fixes and changes.",
+    price: "3,500",
+    period: "AED + 500 AED/month recurring",
+    description: "Higher limits plus dedicated senior frontend support for ongoing changes.",
     cta: "Go Max",
     ctaLink: "/signup?plan=max",
     planKey: "max" as const,
     features: [
-      "Live public website",
-      "Full console access",
-      "All AI features active",
-      "30 AI image requests/week",
-      "5 senior designer meetings/month",
-      "Custom domain support",
-      "Priority support",
-      "White-label options",
+      "Real hosted website",
+      "Real console access",
+      "AI chatbot for bookings",
+      "AI website content generator",
+      "40 AI menu scanner requests / month",
+      "25 AI image generations / month",
+      "3 × 30 min meetings with senior frontend developer / month",
     ],
     highlighted: false,
   },
@@ -306,12 +300,6 @@ function FeatureCard({ feature, index }: { feature: typeof AI_FEATURES[0]; index
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <div
-          className="w-12 h-12 rounded-sm flex items-center justify-center text-2xl mb-4 transition-transform duration-300 group-hover:scale-110"
-          style={{ backgroundColor: `${feature.color}18`, border: `1px solid ${feature.color}30` }}
-        >
-          {feature.icon}
-        </div>
         <p className="label-caps text-xs mb-1" style={{ color: feature.color }}>{feature.subtitle}</p>
         <h3 className="font-display text-xl mb-3 text-[var(--ink)]">{feature.title}</h3>
         <p className="text-sm text-[var(--ink-soft)] leading-relaxed">{feature.description}</p>
@@ -356,7 +344,7 @@ function FeaturesSection() {
   return (
     <section id="features" className="max-w-6xl mx-auto px-4 py-24">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-3">AI-Powered</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "1.03125rem" }}>AI-Powered</p>
       </Reveal>
       <Reveal delay={80}>
         <h2 className="font-display text-3xl md:text-5xl text-center mb-4 text-[var(--ink)]">
@@ -381,7 +369,7 @@ function StepCard({ n, title, body, delay }: { n: number; title: string; body: s
       <div className="flex gap-5 items-start">
         <span
           className="flex-shrink-0 w-10 h-10 rounded-sm flex items-center justify-center text-base font-bold font-display"
-          style={{ background: "var(--ink)", color: "var(--paper-raised)" }}
+          style={{ background: "var(--accent)", color: "#ffffff" }}
         >
           {n}
         </span>
@@ -404,7 +392,7 @@ function HowItWorksSection() {
   return (
     <section id="how-it-works" className="max-w-2xl mx-auto px-4 py-24">
       <Reveal>
-        <p className="label-caps text-center text-[var(--ink-soft)] mb-3">How it works</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "1.03125rem" }}>How it works</p>
       </Reveal>
       <Reveal delay={80}>
         <h2 className="font-display text-3xl md:text-4xl text-center mb-12 text-[var(--ink)]">
@@ -486,7 +474,7 @@ function RestaurantsSection() {
   return (
     <section id="restaurants" className="max-w-6xl mx-auto px-4 py-24">
       <Reveal>
-        <p className="label-caps text-center text-[var(--ink-soft)] mb-3">Directory</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "1.03125rem" }}>Directory</p>
       </Reveal>
       <Reveal delay={80}>
         <h2 className="font-display text-3xl md:text-4xl text-center mb-4 text-[var(--ink)]">
@@ -607,7 +595,7 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
             href={plan.ctaLink}
             className={[
               "btn w-full text-center transition-all duration-200",
-              plan.highlighted ? "btn-accent" : "btn-outline",
+              plan.highlighted ? "btn-accent" : plan.planKey === null ? "btn-outline-accent" : "btn-outline",
             ].join(" ")}
             style={
               hovered && !plan.highlighted
@@ -627,7 +615,7 @@ function PricingSection() {
   return (
     <section id="pricing" className="max-w-5xl mx-auto px-4 py-24">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-3">Pricing</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "1.03125rem" }}>Pricing</p>
       </Reveal>
       <Reveal delay={80}>
         <h2 className="font-display text-3xl md:text-4xl text-center mb-4 text-[var(--ink)]">
@@ -685,7 +673,7 @@ function ContactSection() {
   return (
     <section id="contact" className="max-w-2xl mx-auto px-4 py-24">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-3">Get in touch</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "1.03125rem" }}>Get in touch</p>
       </Reveal>
       <Reveal delay={80}>
         <h2 className="font-display text-3xl md:text-4xl text-center mb-4 text-[var(--ink)]">
@@ -779,33 +767,6 @@ function ContactSection() {
   );
 }
 
-// ─── Console CTA Banner ───────────────────────────────────────────────────────
-function ConsoleCTA() {
-  const { ref, visible } = useReveal();
-  return (
-    <section className="py-20 px-4">
-      <div
-        ref={ref}
-        className={`max-w-4xl mx-auto ticket p-10 sm:p-12 text-center transition-all duration-700 ${
-          visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
-        }`}
-        style={{ background: "var(--paper-raised)" }}
-      >
-        <p className="label-caps text-[var(--accent)] mb-3">For existing users</p>
-        <h2 className="font-display text-3xl md:text-4xl mb-4 text-[var(--ink)]">
-          Already have a restaurant?
-        </h2>
-        <p className="text-[var(--ink-soft)] max-w-md mx-auto mb-8">
-          Sign in to your console to manage menus, view orders, update designs, and more.
-        </p>
-        <Link href="/console/login" className="btn btn-accent text-base px-8 py-3">
-          Sign in to console
-        </Link>
-      </div>
-    </section>
-  );
-}
-
 // ─── Footer ───────────────────────────────────────────────────────────────────
 function Footer() {
   return (
@@ -821,7 +782,7 @@ function Footer() {
         Sign in to your console
       </Link>
       <p className="label-caps text-[color:var(--ink-faint)]">
-        Tablecraft · Built for restaurants
+        <span className="text-[var(--accent)]">Tablecraft</span> · Built for restaurants
       </p>
     </footer>
   );
@@ -837,7 +798,6 @@ export default function MarketingHomePage() {
       <HowItWorksSection />
       <RestaurantsSection />
       <PricingSection />
-      <ConsoleCTA />
       <ContactSection />
       <Footer />
     </div>
