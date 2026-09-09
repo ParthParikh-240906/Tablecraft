@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { FeaturesCarousel } from "@/components/FeaturesCarousel";
 
 interface Org {
   id: string;
@@ -368,11 +369,7 @@ function FeaturesSection() {
         </p>
       </Reveal>
 
-      <div className="grid sm:grid-cols-2 gap-px bg-[var(--rule)] border border-[var(--rule)] rounded-sm overflow-hidden">
-        {AI_FEATURES.map((f, i) => (
-          <FeatureCard key={f.title} feature={f} index={i} />
-        ))}
-      </div>
+      <FeaturesCarousel features={AI_FEATURES} />
     </section>
   );
 }
