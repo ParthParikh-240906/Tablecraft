@@ -110,11 +110,11 @@ export default function SignupPage() {
         return;
       }
 
-      // Success: if a paid plan was selected, redirect to Stripe checkout
+      // Success: if a paid plan was selected, redirect to one-time setup fee checkout
       if (selectedPlan) {
         setRedirecting(true);
         try {
-          const res = await fetch("/api/subscription/checkout", {
+          const res = await fetch("/api/checkout/one-time", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ plan: selectedPlan, email, orgSlug: data.org.slug }),

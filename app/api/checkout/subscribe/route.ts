@@ -5,29 +5,24 @@ import { getMonthlyPriceId, type PlanKey } from "@/lib/pricing";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * POST /api/subscription/checkout
+ * GET /api/checkout/subscribe?plan=pro&email=...&orgSlug=...&orgId=...
  *
- * Creates a Stripe Checkout Session for a subscription plan.
- * Used by existing orgs that want to upgrade, or as a fallback path.
+ * Bridge endpoint: called after the one-time setup fee succeeds.
+ * Creates a Stripe Checkout Session for the monthly subscription.
  */
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   try {
-    const body = await request.json();
-    const { plan, email, orgSlug, orgId } = body as {
-      plan: PlanKey;
-      email?: string;
-      orgSlug?: string;
-      orgId?: string;
-    };
+    const { searchParams } = new URL(request.url);
+    const plan = searchParams.get("plan") as PlanKey | null;
+    const email = searchParams.get("email") || undefined;
+    const orgSlug = searchParams.get("orgSlug") || undefined;
+    const orgId = searchParams.get("orgId") || undefined;
 
     if (plan !== "pro" && plan !== "max") {
-      return NextResponse.json(
-        { error: "Invalid plan. Use 'pro' or 'max'." },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
 
-    const monthlyPriceId = await getMonthlyPriceId(stripe, plan);
+    const cfg = (await import("@/lib/pricing")).getPlanConfig(plan);
     const supabase = createAdminClient();
 
     // Resolve base URL
@@ -37,7 +32,8 @@ export async function POST(request: Request) {
       `${request.headers.get("x-forwarded-proto")}://${request.headers.get("x-forwarded-host")}` ||
       "";
 
-    // Find existing Stripe customer ID (by orgId first, then orgSlug)
+    // Find or create Stripe Customer
+    let stripeCustomer: Stripe.Customer;
     let customerId: string | undefined;
 
     if (orgId) {
@@ -50,34 +46,41 @@ export async function POST(request: Request) {
     } else if (orgSlug) {
       const { data: org } = await supabase
         .from("organizations")
-        .select("id, stripe_customer_id")
+        .select("stripe_customer_id")
         .eq("slug", orgSlug)
         .single();
       customerId = org?.stripe_customer_id;
     }
 
-    // Create or retrieve Stripe Customer
-    let stripeCustomer: Stripe.Customer | null = null;
-
     if (customerId) {
       try {
         const retrieved = await stripe.customers.retrieve(customerId);
         if ("deleted" in retrieved || !retrieved.id) {
-          stripeCustomer = null;
-        } else {
-          stripeCustomer = retrieved as Stripe.Customer;
+          throw new Error("deleted");
         }
+        stripeCustomer = retrieved as Stripe.Customer;
       } catch {
-        stripeCustomer = null;
+        stripeCustomer = await stripe.customers.create({
+          email: email || undefined,
+          metadata: { orgSlug: orgSlug || "", orgId: orgId || "", plan },
+        });
+        // Update org with new customer ID
+        if (orgId) {
+          await supabase
+            .from("organizations")
+            .update({ stripe_customer_id: stripeCustomer.id })
+            .eq("id", orgId);
+        }
       }
-    }
-
-    if (!stripeCustomer) {
+    } else {
       stripeCustomer = await stripe.customers.create({
         email: email || undefined,
         metadata: { orgSlug: orgSlug || "", orgId: orgId || "", plan },
       });
     }
+
+    // Get the monthly recurring price ID
+    const monthlyPriceId = await getMonthlyPriceId(stripe, plan);
 
     // Create subscription Checkout Session
     const session = await stripe.checkout.sessions.create({
@@ -101,19 +104,6 @@ export async function POST(request: Request) {
         type: "subscription",
       },
     });
-
-    // Store customer ID on the org
-    if (orgId) {
-      await supabase
-        .from("organizations")
-        .update({ stripe_customer_id: stripeCustomer!.id })
-        .eq("id", orgId);
-    } else if (orgSlug) {
-      await supabase
-        .from("organizations")
-        .update({ stripe_customer_id: stripeCustomer!.id })
-        .eq("slug", orgSlug);
-    }
 
     return NextResponse.json({ url: session.url, sessionId: session.id });
   } catch (err: any) {

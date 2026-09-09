@@ -66,7 +66,7 @@ const AI_FEATURES = [
     title: "AI Image Editor",
     subtitle: "Design assistant",
     description: "Generate hero images, logos, and menu artwork with prompts. Upload a photo and ask the AI to edit, crop, or enhance it in seconds.",
-    color: "#a855f7",
+    color: "#f97316",
     image: "/features/image-editor.png",
   },
   {
@@ -74,7 +74,7 @@ const AI_FEATURES = [
     title: "AI Menu Scanner",
     subtitle: "Photo → digital menu",
     description: "Snap a photo of your printed menu. OCR extracts every dish, price, and category — then structures it into your live menu in one click.",
-    color: "#22c55e",
+    color: "#f97316",
     image: "/features/menu-scanner.png",
   },
   {
@@ -82,7 +82,7 @@ const AI_FEATURES = [
     title: "Staff Dashboard",
     subtitle: "Real-time operations",
     description: "One screen for tables, orders, reservations, and kitchen tickets. Toggle capacity, update the daily specials, and track everything live.",
-    color: "#0ea5e9",
+    color: "#f97316",
     image: "/features/dashboard.png",
   },
 ];
@@ -528,6 +528,31 @@ function RestaurantsSection() {
 // ─── Pricing ──────────────────────────────────────────────────────────────────
 function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }) {
   const [hovered, setHovered] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function handleCheckout() {
+    if (!plan.planKey || loading) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/checkout/one-time", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: plan.planKey }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error("Checkout failed:", data);
+        alert(data.error ?? "Failed to start checkout. Please try again.");
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
+      alert("Network error. Please try again.");
+      setLoading(false);
+    }
+  }
 
   return (
     <Reveal delay={index * 120}>
@@ -566,25 +591,8 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
 
         {plan.planKey ? (
           <button
-            onClick={async () => {
-              try {
-                const res = await fetch("/api/subscription/checkout", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ plan: plan.planKey }),
-                });
-                const data = await res.json();
-                if (data.url) {
-                  window.location.href = data.url;
-                } else {
-                  console.error("Checkout failed:", data);
-                  alert("Failed to start checkout. Please try again.");
-                }
-              } catch (err) {
-                console.error("Checkout error:", err);
-                alert("Network error. Please try again.");
-              }
-            }}
+            onClick={handleCheckout}
+            disabled={loading}
             className={[
               "btn w-full text-center transition-all duration-200",
               plan.highlighted ? "btn-accent" : "btn-accent",
@@ -595,7 +603,7 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
                 : {}
             }
           >
-            {plan.cta}
+            {loading ? "Loading…" : plan.cta}
           </button>
         ) : (
           <Link

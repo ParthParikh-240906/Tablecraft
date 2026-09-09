@@ -3,6 +3,33 @@ import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Stripe from "stripe";
 
+/**
+ * Resolves the organization slug from subscription metadata.
+ * Prefers orgId (UUID, unchanging) over orgSlug (can be changed).
+ */
+async function resolveOrgSlug(
+  supabase: ReturnType<typeof createAdminClient>,
+  metadata: Record<string, string> | null | undefined,
+): Promise<string | null> {
+  const orgId = metadata?.orgId;
+  const orgSlug = metadata?.orgSlug;
+
+  // Try orgId first (most reliable)
+  if (orgId) {
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("slug")
+      .eq("id", orgId)
+      .single();
+    if (org?.slug) return org.slug;
+  }
+
+  // Fallback to orgSlug directly
+  if (orgSlug) return orgSlug;
+
+  return null;
+}
+
 export async function POST(request: Request) {
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
@@ -26,6 +53,7 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient();
 
+  // ─── One-time order payments ──────────────────────────────────────────────
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     const orderId = session.client_reference_id || session.metadata?.orderId;
@@ -45,7 +73,14 @@ export async function POST(request: Request) {
       }
       console.log(`Order ${orderId} marked as paid successfully`);
     }
-  } else if (event.type === "checkout.session.async_payment_failed" || event.type === "checkout.session.expired") {
+
+    // Also handle one-time setup-fee checkouts
+    if (session.metadata?.type === "setup-fee" && session.metadata?.orgId) {
+      console.log(`Setup fee paid for org ${session.metadata.orgId} (plan: ${session.metadata.plan})`);
+    }
+  }
+
+  else if (event.type === "checkout.session.async_payment_failed" || event.type === "checkout.session.expired") {
     const session = event.data.object as Stripe.Checkout.Session;
     const orderId = session.client_reference_id || session.metadata?.orderId;
 
@@ -60,7 +95,7 @@ export async function POST(request: Request) {
   // ─── Subscription lifecycle events ────────────────────────────────────────
   else if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
     const sub = event.data.object as Stripe.Subscription & { current_period_end?: number };
-    const orgSlug = sub.metadata?.orgSlug;
+    const orgSlug = await resolveOrgSlug(supabase, sub.metadata);
 
     if (orgSlug) {
       const status = sub.status === "active" ? "active" : sub.status === "past_due" ? "past_due" : "canceled";
@@ -89,7 +124,7 @@ export async function POST(request: Request) {
 
   else if (event.type === "customer.subscription.deleted") {
     const sub = event.data.object as Stripe.Subscription;
-    const orgSlug = sub.metadata?.orgSlug;
+    const orgSlug = await resolveOrgSlug(supabase, sub.metadata);
 
     if (orgSlug) {
       await supabase
