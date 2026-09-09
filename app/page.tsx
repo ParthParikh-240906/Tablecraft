@@ -59,6 +59,7 @@ const AI_FEATURES = [
     subtitle: "Booking assistant",
     description: "Guests chat naturally — \"I need a table for 4 this Friday at 7\" — and the AI collects details, checks availability, and confirms instantly.",
     color: "#f97316",
+    image: "/features/chatbot.png",
   },
   {
     icon: "🎨",
@@ -66,6 +67,7 @@ const AI_FEATURES = [
     subtitle: "Design assistant",
     description: "Generate hero images, logos, and menu artwork with prompts. Upload a photo and ask the AI to edit, crop, or enhance it in seconds.",
     color: "#a855f7",
+    image: "/features/image-editor.png",
   },
   {
     icon: "📸",
@@ -73,6 +75,7 @@ const AI_FEATURES = [
     subtitle: "Photo → digital menu",
     description: "Snap a photo of your printed menu. OCR extracts every dish, price, and category — then structures it into your live menu in one click.",
     color: "#22c55e",
+    image: "/features/menu-scanner.png",
   },
   {
     icon: "📊",
@@ -80,6 +83,7 @@ const AI_FEATURES = [
     subtitle: "Real-time operations",
     description: "One screen for tables, orders, reservations, and kitchen tickets. Toggle capacity, update the daily specials, and track everything live.",
     color: "#0ea5e9",
+    image: "/features/dashboard.png",
   },
 ];
 
@@ -290,6 +294,7 @@ function Hero() {
 // ─── AI Features ──────────────────────────────────────────────────────────────
 function FeatureCard({ feature, index }: { feature: typeof AI_FEATURES[0]; index: number }) {
   const [hovered, setHovered] = useState(false);
+  const [open, setOpen] = useState(false);
   return (
     <Reveal delay={index * 100}>
       <div
@@ -313,6 +318,31 @@ function FeatureCard({ feature, index }: { feature: typeof AI_FEATURES[0]; index
             backgroundColor: feature.color,
           }}
         />
+        <button
+          className="mt-4 flex items-center gap-2 text-sm font-medium transition-colors duration-200"
+          style={{ color: feature.color }}
+          onClick={() => setOpen(!open)}
+        >
+          {open ? "Show less" : "Show more"}
+          <svg
+            className={`w-4 h-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        <div
+          className="overflow-auto transition-all duration-300 rounded-sm"
+          style={{ maxHeight: open ? "400px" : "0px", opacity: open ? 1 : 0 }}
+        >
+          <img
+            src={feature.image}
+            alt={feature.title}
+            className="w-full rounded-sm mt-3 border border-[var(--rule)]"
+          />
+        </div>
       </div>
     </Reveal>
   );
