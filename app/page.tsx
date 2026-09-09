@@ -258,9 +258,6 @@ function Hero() {
             <span className="text-[var(--accent)]">online</span> in minutes.
           </h1>
         </Reveal>
-        <Reveal delay={200}>
-          <hr className="rule max-w-[120px] mx-auto mb-6" />
-        </Reveal>
         <Reveal delay={300}>
           <p className="text-[var(--ink-soft)] text-lg md:text-xl mb-10 max-w-xl mx-auto leading-relaxed">
             AI-powered website, console, and staff dashboard — built for restaurants that want to move fast.
