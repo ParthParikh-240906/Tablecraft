@@ -11,13 +11,13 @@ import Stripe from "stripe";
  */
 
 export const PLAN_SETUP_FEE_AED: Record<"pro" | "max", number> = {
-  pro: 3000,
-  max: 3000,
+  pro: 1500,
+  max: 3500,
 };
 
 export const PLAN_MONTHLY_AED: Record<"pro" | "max", number> = {
-  pro: 200,
-  max: 300,
+  pro: 350,
+  max: 500,
 };
 
 /** Human-readable plan labels. */
@@ -53,10 +53,21 @@ type PriceIds = {
 
 let _priceIds: PriceIds | null = null;
 
+/** Look up an existing price on a product that matches the expected amount/type. */
+async function findPriceById(
+  stripe: Stripe,
+  productId: string,
+  unitAmount: number,
+  isRecurring: boolean,
+): Promise<string | null> {
+  const page = await stripe.prices.list({ product: productId, limit: 100 });
+  return page.data.find((p) => p.unit_amount === unitAmount && p.active === true && (!isRecurring || p.type === "recurring"))?.id ?? null;
+}
+
 /**
  * Ensures all 4 Stripe Prices exist (2 one-time setup fees + 2 recurring monthly).
  * Auto-creates on first run using your Stripe account.
- * Safe to call multiple times — uses idempotency keys.
+ * Safe to call multiple times — finds or creates, never collides with cached idempotency keys.
  */
 export async function ensurePriceIds(stripe: Stripe): Promise<PriceIds> {
   if (_priceIds) return _priceIds;
@@ -69,57 +80,45 @@ export async function ensurePriceIds(stripe: Stripe): Promise<PriceIds> {
   for (const plan of ["pro", "max"] as PaidPlanKey[]) {
     const cfg = getPlanConfig(plan);
 
-    // ── One-time setup fee price ──
-    const setupProduct = existingProducts.data.find(
-      (p) => p.name === `Tablecraft ${cfg.label} — Setup Fee`,
-    );
-
-    if (setupProduct?.default_price && typeof setupProduct.default_price !== "string") {
-      created[`${plan}Setup`] = setupProduct.default_price.id;
+    // ── One-time setup fee ──
+    let product = existingProducts.data.find((p) => p.name === `Tablecraft ${cfg.label} — Setup Fee`);
+    if (!product) {
+      product = await stripe.products.create({
+        name: `Tablecraft ${cfg.label} — Setup Fee`,
+        description: `One-time setup fee for ${cfg.label} plan`,
+      });
+    }
+    const existingPrice = await findPriceById(stripe, product.id, cfg.setupFeeAed * 100, false);
+    if (existingPrice) {
+      created[`${plan}Setup`] = existingPrice;
     } else {
-      const product = await stripe.products.create(
-        {
-          name: `Tablecraft ${cfg.label} — Setup Fee`,
-          description: `One-time setup fee for ${cfg.label} plan`,
-        },
-        { idempotencyKey: `tablecraft-setup-${plan}` },
-      );
-      const price = await stripe.prices.create(
-        {
-          product: product.id,
-          unit_amount: cfg.setupFeeAed * 100, // AED in fils
-          currency: "aed",
-        },
-        { idempotencyKey: `tablecraft-setup-price-${plan}` },
-      );
+      const price = await stripe.prices.create({
+        product: product.id,
+        unit_amount: cfg.setupFeeAed * 100,
+        currency: "aed",
+      });
       created[`${plan}Setup`] = price.id;
       console.log(`[pricing] Created ${plan} setup price: ${price.id}`);
     }
 
-    // ── Monthly recurring price ──
-    const monthlyProduct = existingProducts.data.find(
-      (p) => p.name === `Tablecraft ${cfg.label} — Monthly`,
-    );
-
-    if (monthlyProduct?.default_price && typeof monthlyProduct.default_price !== "string") {
-      created[`${plan}Monthly`] = monthlyProduct.default_price.id;
+    // ── Monthly recurring ──
+    product = existingProducts.data.find((p) => p.name === `Tablecraft ${cfg.label} — Monthly`);
+    if (!product) {
+      product = await stripe.products.create({
+        name: `Tablecraft ${cfg.label} — Monthly`,
+        description: `Monthly subscription for ${cfg.label} plan`,
+      });
+    }
+    const existingMonthlyPrice = await findPriceById(stripe, product.id, cfg.monthlyAed * 100, true);
+    if (existingMonthlyPrice) {
+      created[`${plan}Monthly`] = existingMonthlyPrice;
     } else {
-      const product = await stripe.products.create(
-        {
-          name: `Tablecraft ${cfg.label} — Monthly`,
-          description: `Monthly subscription for ${cfg.label} plan`,
-        },
-        { idempotencyKey: `tablecraft-monthly-${plan}` },
-      );
-      const price = await stripe.prices.create(
-        {
-          product: product.id,
-          unit_amount: cfg.monthlyAed * 100, // AED in fils
-          currency: "aed",
-          recurring: { interval: "month" },
-        },
-        { idempotencyKey: `tablecraft-monthly-price-${plan}` },
-      );
+      const price = await stripe.prices.create({
+        product: product.id,
+        unit_amount: cfg.monthlyAed * 100,
+        currency: "aed",
+        recurring: { interval: "month" },
+      });
       created[`${plan}Monthly`] = price.id;
       console.log(`[pricing] Created ${plan} monthly price: ${price.id}`);
     }
