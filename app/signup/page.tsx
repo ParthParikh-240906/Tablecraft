@@ -25,9 +25,10 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [optionalOpen, setOptionalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<"pro" | "max" | null>(null);
   const [redirecting, setRedirecting] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiDescription, setAiDescription] = useState("");
 
   // Read ?plan= query param on mount
   useEffect(() => {
@@ -36,6 +37,25 @@ export default function SignupPage() {
       setSelectedPlan(plan);
     }
   }, []);
+
+  async function handleAiGenerate() {
+    if (!aiDescription.trim() || aiGenerating) return;
+    setAiGenerating(true);
+    try {
+      const res = await fetch("/api/content/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: aiDescription.trim(), orgName: orgName || undefined }),
+      });
+      const data = await res.json();
+      if (data.tagline) setTagline(data.tagline);
+      if (data.about) setAboutText(data.about);
+    } catch {
+      // silent fail — user can still type manually
+    } finally {
+      setAiGenerating(false);
+    }
+  }
 
   // Auto-suggest a slug from the org name.
   function handleNameChange(value: string) {
@@ -93,7 +113,7 @@ export default function SignupPage() {
       if (contactPhone) formData.append('contactPhone', contactPhone);
       if (contactEmail) formData.append('contactEmail', contactEmail);
       if (contactAddress) formData.append('contactAddress', contactAddress);
-      if (aboutText) formData.append('aboutText', aboutText);
+      formData.append('aboutText', aboutText);
       if (logoFile) formData.append('logoFile', logoFile);
       if (restaurantImages.length > 0) restaurantImages.forEach((f) => formData.append('restaurantImageFiles', f));
 
@@ -262,18 +282,30 @@ export default function SignupPage() {
             </p>
           </div>
 
-          {/* Optional fields section */}
-          <div className="border-t border-[var(--rule)] pt-4">
-            <button
-              type="button"
-              onClick={() => setOptionalOpen((v) => !v)}
-              className="flex items-center gap-2 w-full text-left text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wide hover:text-[var(--ink)] transition-colors py-1"
-            >
-              Optional Details
-              <span className="ml-auto">{optionalOpen ? "⌃" : "⌵"}</span>
-            </button>
+          {/* About your restaurant — required */}
+          <div>
+            <label htmlFor="aboutText" className="block text-sm font-medium mb-1.5">
+              About your restaurant
+            </label>
+            <textarea
+              id="aboutText"
+              value={aboutText}
+              onChange={(e) => setAboutText(e.target.value)}
+              rows={4}
+              required
+              placeholder="Tell us about your restaurant's story, cuisine, and atmosphere..."
+              className="input placeholder:text-[var(--ink-faint)]"
+            />
+            <p className="text-xs text-[var(--ink-faint)] mt-1">
+              This will be displayed on your landing page's About section.
+            </p>
+          </div>
 
-            {optionalOpen && (
+          {/* Optional details dropdown */}
+          <details className="border-t border-[var(--rule)] pt-4">
+            <summary className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wide hover:text-[var(--ink)] transition-colors py-1 select-none">
+              Optional Details
+            </summary>
             <div className="space-y-4 pt-4">
 
             {/* Branches */}
@@ -353,24 +385,6 @@ export default function SignupPage() {
               </div>
             </div>
 
-            {/* About text */}
-            <div>
-              <label htmlFor="aboutText" className="block text-sm font-medium mb-1.5">
-                About your restaurant (optional)
-              </label>
-              <textarea
-                id="aboutText"
-                value={aboutText}
-                onChange={(e) => setAboutText(e.target.value)}
-                rows={4}
-                placeholder="Tell us about your restaurant's story, cuisine, and atmosphere..."
-                className="input placeholder:text-[var(--ink-faint)]"
-              />
-              <p className="text-xs text-[var(--ink-faint)] mt-1">
-                This will be displayed on your landing page's About section.
-              </p>
-            </div>
-
             {/* File uploads */}
             <div className="grid grid-cols-1 gap-3">
               <div>
@@ -385,7 +399,7 @@ export default function SignupPage() {
                   className="input"
                 />
               </div>
-               <div>
+              <div>
                 <label htmlFor="restaurantImages" className="block text-sm font-medium mb-1.5">
                   Restaurant photos (optional)
                 </label>
@@ -403,8 +417,42 @@ export default function SignupPage() {
               </div>
             </div>
             </div>
-            )}
-          </div>
+          </details>
+
+          {/* AI Content Generator dropdown */}
+          <details className="border-t border-[var(--rule)] pt-4">
+            <summary className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wide hover:text-[var(--ink)] transition-colors py-1 select-none">
+              AI Website Content Generator
+            </summary>
+            <div className="space-y-3 pt-3">
+              <div>
+                <label htmlFor="aiDesc" className="block text-xs text-[var(--ink-soft)] mb-1">
+                  Describe your restaurant in a few words
+                </label>
+                <textarea
+                  id="aiDesc"
+                  value={aiDescription}
+                  onChange={(e) => setAiDescription(e.target.value)}
+                  rows={2}
+                  placeholder="e.g. Family-run Italian place in Dubai with wood-fired pizzas and hidden garden"
+                  className="input placeholder:text-[var(--ink-faint)] text-sm"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleAiGenerate}
+                disabled={aiGenerating || !aiDescription.trim()}
+                className="btn btn-outline text-xs px-4 py-1.5"
+              >
+                {aiGenerating ? "Generating…" : "Generate content"}
+              </button>
+              <p className="text-xs text-[var(--ink-faint)]">
+                Fills in your tagline and about text using AI.
+              </p>
+            </div>
+          </details>
+
+          <div className="border-t border-[var(--rule)] my-4" />
 
           {error && (
             <p className="text-sm text-red-400 rounded-sm bg-red-900/40 px-3 py-2">
