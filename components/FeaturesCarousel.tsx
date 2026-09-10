@@ -108,8 +108,15 @@ export function FeaturesCarousel({ features }: FeaturesCarouselProps) {
           >
             <div className="bg-[var(--paper-raised)] border border-[var(--rule)] rounded-sm p-6 flex flex-col gap-1 w-[92%] max-w-lg">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <div className="relative h-[220px] overflow-y-auto overflow-x-hidden rounded-sm">
-                <img src={f.image} alt={f.title} className="w-full object-contain object-top" />
+              <div
+                className="relative h-[220px] overflow-y-auto overflow-x-hidden rounded-sm scroll-smooth"
+                ref={(el) => {
+                  if (el && f.title === "AI Content Generator") {
+                    el.scrollTop = el.scrollHeight;
+                  }
+                }}
+              >
+                <img src={f.image} alt={f.title} className="w-full object-contain object-bottom" />
               </div>
               <div>
                 <p className="text-xs text-[var(--accent)] font-semibold tracking-widest uppercase mb-1">

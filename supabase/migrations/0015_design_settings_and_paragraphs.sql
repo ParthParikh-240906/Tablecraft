@@ -45,23 +45,27 @@ on conflict (id) do nothing;
 -- -----------------------------------------------------------------------------
 alter table public.paragraphs enable row level security;
 
-create policy if not exists "staff_read_paragraphs"
+drop policy if exists "staff_read_paragraphs" on public.paragraphs;
+create policy "staff_read_paragraphs"
   on public.paragraphs for select
   to authenticated
   using (org_id::text = public.f_current_org_id()::text);
 
-create policy if not exists "staff_insert_paragraphs"
+drop policy if exists "staff_insert_paragraphs" on public.paragraphs;
+create policy "staff_insert_paragraphs"
   on public.paragraphs for insert
   to authenticated
   with check (org_id::text = public.f_current_org_id()::text);
 
-create policy if not exists "staff_update_paragraphs"
+drop policy if exists "staff_update_paragraphs" on public.paragraphs;
+create policy "staff_update_paragraphs"
   on public.paragraphs for update
   to authenticated
   using (org_id::text = public.f_current_org_id()::text)
   with check (org_id::text = public.f_current_org_id()::text);
 
-create policy if not exists "staff_delete_paragraphs"
+drop policy if exists "staff_delete_paragraphs" on public.paragraphs;
+create policy "staff_delete_paragraphs"
   on public.paragraphs for delete
   to authenticated
   using (org_id::text = public.f_current_org_id()::text);
@@ -69,12 +73,14 @@ create policy if not exists "staff_delete_paragraphs"
 -- -----------------------------------------------------------------------------
 -- Storage policies: org-paragraph-images
 -- -----------------------------------------------------------------------------
-create policy if not exists "public_read_paragraph_images"
+drop policy if exists "public_read_paragraph_images" on storage.objects;
+create policy "public_read_paragraph_images"
   on storage.objects for select
   to anon, authenticated
   using (bucket_id = 'org-paragraph-images');
 
-create policy if not exists "staff_upload_paragraph_images"
+drop policy if exists "staff_upload_paragraph_images" on storage.objects;
+create policy "staff_upload_paragraph_images"
   on storage.objects for insert
   to authenticated
   with check (
@@ -82,7 +88,8 @@ create policy if not exists "staff_upload_paragraph_images"
     (storage.foldername(name))[1]::text = public.f_current_org_id()::text
   );
 
-create policy if not exists "staff_update_paragraph_images"
+drop policy if exists "staff_update_paragraph_images" on storage.objects;
+create policy "staff_update_paragraph_images"
   on storage.objects for update
   to authenticated
   using (
@@ -90,7 +97,8 @@ create policy if not exists "staff_update_paragraph_images"
     (storage.foldername(name))[1]::text = public.f_current_org_id()::text
   );
 
-create policy if not exists "staff_delete_paragraph_images"
+drop policy if exists "staff_delete_paragraph_images" on storage.objects;
+create policy "staff_delete_paragraph_images"
   on storage.objects for delete
   to authenticated
   using (
@@ -101,12 +109,14 @@ create policy if not exists "staff_delete_paragraph_images"
 -- -----------------------------------------------------------------------------
 -- Storage policies: org-backgrounds
 -- -----------------------------------------------------------------------------
-create policy if not exists "public_read_background_images"
+drop policy if exists "public_read_background_images" on storage.objects;
+create policy "public_read_background_images"
   on storage.objects for select
   to anon, authenticated
   using (bucket_id = 'org-backgrounds');
 
-create policy if not exists "staff_upload_background_images"
+drop policy if exists "staff_upload_background_images" on storage.objects;
+create policy "staff_upload_background_images"
   on storage.objects for insert
   to authenticated
   with check (
@@ -114,7 +124,8 @@ create policy if not exists "staff_upload_background_images"
     (storage.foldername(name))[1]::text = public.f_current_org_id()::text
   );
 
-create policy if not exists "staff_update_background_images"
+drop policy if exists "staff_update_background_images" on storage.objects;
+create policy "staff_update_background_images"
   on storage.objects for update
   to authenticated
   using (
@@ -122,7 +133,8 @@ create policy if not exists "staff_update_background_images"
     (storage.foldername(name))[1]::text = public.f_current_org_id()::text
   );
 
-create policy if not exists "staff_delete_background_images"
+drop policy if exists "staff_delete_background_images" on storage.objects;
+create policy "staff_delete_background_images"
   on storage.objects for delete
   to authenticated
   using (

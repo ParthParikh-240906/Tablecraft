@@ -306,10 +306,14 @@ function PreviewSection({
                     </p>
                   )}
                 </div>
-                {/* Placeholder for paragraph image */}
-                <div className="rounded-xl bg-[var(--rule)] border-2 border-dashed flex items-center justify-center min-h-32">
-                  <span className="text-xs text-[var(--ink-soft)] uppercase tracking-wider">Paragraph photo</span>
-                </div>
+                {para.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={para.image_url} alt={para.title ?? ""} className="rounded-xl shadow-2xl w-full h-32 object-cover" />
+                ) : (
+                  <div className="rounded-xl bg-[var(--rule)] border-2 border-dashed flex items-center justify-center min-h-32">
+                    <span className="text-xs text-[var(--ink-soft)] uppercase tracking-wider">Paragraph photo</span>
+                  </div>
+                )}
               </div>
             );
           })}

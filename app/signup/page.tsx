@@ -442,7 +442,7 @@ export default function SignupPage() {
                 type="button"
                 onClick={handleAiGenerate}
                 disabled={aiGenerating || !aiDescription.trim()}
-                className="btn btn-outline text-xs px-4 py-1.5"
+                className="btn btn-outline-accent text-xs px-4 py-1.5"
               >
                 {aiGenerating ? "Generating…" : "Generate content"}
               </button>

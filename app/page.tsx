@@ -69,6 +69,13 @@ const AI_FEATURES = [
     image: "/features/image-editor.png",
   },
   {
+    title: "AI Content Generator",
+    subtitle: "Website copy in seconds",
+    description: "Describe your restaurant in a few words and the AI generates your tagline, about text, and menu descriptions — ready to publish instantly.",
+    color: "#f97316",
+    image: "/features/content-generator.png",
+  },
+  {
     title: "AI Menu Scanner",
     subtitle: "Photo → digital menu",
     description: "Snap a photo of your printed menu. OCR extracts every dish, price, and category — then structures it into your live menu in one click.",
