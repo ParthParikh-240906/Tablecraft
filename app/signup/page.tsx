@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -11,7 +12,10 @@ export default function SignupPage() {
   const [slug, setSlug] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [consolePassword, setConsolePassword] = useState("");
   const [tagline, setTagline] = useState("");
+  const [signedIn, setSignedIn] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   
   // Optional fields
   const [branches, setBranches] = useState<string[]>([""]);
@@ -36,6 +40,18 @@ export default function SignupPage() {
     if (plan === "pro" || plan === "max") {
       setSelectedPlan(plan);
     }
+  }, []);
+
+  // Check if user is signed in; if so, lock email to session email
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setSignedIn(true);
+        setEmail(user.email ?? "");
+      }
+      setAuthChecked(true);
+    });
   }, []);
 
   async function handleAiGenerate() {
@@ -105,6 +121,9 @@ export default function SignupPage() {
       formData.append('email', email);
       formData.append('password', password);
       formData.append('tagline', tagline);
+      if (consolePassword) {
+        formData.append('consolePassword', consolePassword);
+      }
       
       // Optional fields
       if (validBranches.length > 0) {
@@ -149,7 +168,7 @@ export default function SignupPage() {
         }
       }
 
-      router.push(`/${data.org.slug}`);
+      router.push("/dashboard");
       router.refresh();
     } catch {
       setError("Network error — please try again");
@@ -184,6 +203,20 @@ export default function SignupPage() {
             Get a public menu, reservations, and online ordering.
           </p>
         </div>
+
+        {authChecked && !signedIn && (
+          <div className="ticket p-4 mb-4 bg-[var(--paper-raised)] text-center">
+            <p className="text-sm text-[var(--ink-soft)] mb-2">
+              Signing in first lets you manage all your restaurants in one place.
+            </p>
+            <Link href="/signin?next=/signup" className="btn btn-accent text-xs">
+              Sign in to Tablecraft
+            </Link>
+            <p className="text-xs text-[var(--ink-faint)] mt-2">
+              Or create a new account below with email &amp; password.
+            </p>
+          </div>
+        )}
 
         <form
           onSubmit={handleSubmit}
@@ -257,28 +290,55 @@ export default function SignupPage() {
               id="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => { if (!signedIn) setEmail(e.target.value); }}
               required
+              readOnly={signedIn}
               placeholder="you@restaurant.com"
-              className="input placeholder:text-[var(--ink-faint)]"
+              className={`input placeholder:text-[var(--ink-faint)] ${signedIn ? "opacity-70 cursor-not-allowed bg-[var(--paper-raised)]" : ""}`}
             />
+            {signedIn && (
+              <p className="text-xs text-[var(--ink-faint)] mt-1">
+                Locked to your signed-in account.
+              </p>
+            )}
           </div>
 
+          {!signedIn && (
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium mb-1.5">
+                Tablecraft Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                className="input placeholder:text-[var(--ink-faint)]"
+              />
+              <p className="text-xs text-[var(--ink-faint)] mt-1">
+                At least 8 characters. Used to sign in to your Tablecraft account.
+              </p>
+            </div>
+          )}
+
           <div>
-            <label htmlFor="password" className="block text-sm font-medium mb-1.5">
-              Password
+            <label htmlFor="consolePassword" className="block text-sm font-medium mb-1.5">
+              Console Password <span className="text-[var(--ink-faint)] font-normal">(optional)</span>
             </label>
             <input
-              id="password"
+              id="consolePassword"
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
+              value={consolePassword}
+              onChange={(e) => setConsolePassword(e.target.value)}
               minLength={8}
               className="input placeholder:text-[var(--ink-faint)]"
             />
             <p className="text-xs text-[var(--ink-faint)] mt-1">
-              At least 8 characters. You'll use this to sign in to your console.
+              {signedIn
+                ? "Separate password for console login. Leave blank to use Google sign-in only."
+                : "Optional separate password for the console. If set, you can log into the console with this password independently."}
             </p>
           </div>
 

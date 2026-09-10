@@ -221,11 +221,21 @@ function Reveal({ children, className = "", delay = 0 }: { children: React.React
 function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [user, setUser] = useState<{ id: string } | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   return (
@@ -266,12 +276,6 @@ function Navbar() {
           <a href="#features" className="px-4 py-1.5 text-xs font-medium text-zinc-300 hover:text-white rounded-full hover:bg-white/[0.06] transition-all">
             Experience
           </a>
-          <a href="#features" className="px-4 py-1.5 text-xs font-medium text-zinc-300 hover:text-white rounded-full hover:bg-white/[0.06] transition-all">
-            Features
-          </a>
-          <a href="#how-it-works" className="px-4 py-1.5 text-xs font-medium text-zinc-300 hover:text-white rounded-full hover:bg-white/[0.06] transition-all">
-            How it works
-          </a>
           <a href="#restaurants" className="px-4 py-1.5 text-xs font-medium text-zinc-300 hover:text-white rounded-full hover:bg-white/[0.06] transition-all">
             Directory
           </a>
@@ -285,6 +289,12 @@ function Navbar() {
 
         {/* Actions */}
         <div className="hidden sm:flex items-center gap-3">
+          <Link
+            href={user ? "/dashboard" : "/signin?next=/dashboard"}
+            className="px-4 py-2 text-xs font-semibold text-orange-300 hover:text-orange-200 rounded-lg transition-all border border-orange-500/30 hover:border-orange-400/50"
+          >
+            Dashboard
+          </Link>
           <Link
             href="/console/login"
             className="px-4 py-2 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.05] rounded-lg transition-all border border-transparent hover:border-white/10"
@@ -319,12 +329,17 @@ function Navbar() {
       {mobileOpen && (
         <div className="md:hidden border-t border-white/[0.08] bg-[#0c0c10] px-6 py-5 space-y-3">
           <a href="#features" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-[#ea580c] py-1">Experience</a>
-          <a href="#features" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-[#ea580c] py-1">Features</a>
-          <a href="#how-it-works" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-[#ea580c] py-1">How it works</a>
           <a href="#restaurants" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-[#ea580c] py-1">Directory</a>
           <a href="#pricing" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-[#ea580c] py-1">Pricing</a>
           <a href="#contact" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-zinc-300 hover:text-[#ea580c] py-1">Contact</a>
           <div className="pt-4 border-t border-white/[0.06] flex flex-col gap-2.5">
+            <Link
+              href={user ? "/dashboard" : "/signin?next=/dashboard"}
+              onClick={() => setMobileOpen(false)}
+              className="w-full text-center py-2.5 text-xs font-semibold text-orange-300 bg-white/[0.05] rounded-lg border border-orange-500/30"
+            >
+              Dashboard
+            </Link>
             <Link href="/console/login" className="w-full text-center py-2.5 text-xs font-semibold text-zinc-200 bg-white/[0.05] rounded-lg border border-white/10">Sign in to console</Link>
             <a href="#pricing" className="w-full text-center py-2.5 text-xs font-semibold text-white bg-[#ea580c] rounded-lg shadow-lg shadow-orange-950/40">Create your restaurant</a>
           </div>
@@ -901,9 +916,9 @@ export default function MockLandingPage() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-zinc-400 font-medium">
+            <Link href="/dashboard" className="hover:text-white transition-colors">Back to dashboard</Link>
+            <Link href="/" className="hover:text-white transition-colors">Back to Tablecraft</Link>
             <a href="#features" className="hover:text-white transition-colors">Experience</a>
-            <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#how-it-works" className="hover:text-white transition-colors">How it works</a>
             <a href="#restaurants" className="hover:text-white transition-colors">Directory</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
             <a href="#contact" className="hover:text-white transition-colors">Contact</a>

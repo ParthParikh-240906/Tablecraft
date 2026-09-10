@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { FeaturesCarousel } from "@/components/FeaturesCarousel";
+import { MARKETING_PLANS as PRICING } from "@/lib/marketing-plans";
+import type { User } from "@supabase/supabase-js";
 
 interface Org {
   id: string;
@@ -91,69 +94,12 @@ const AI_FEATURES = [
   },
 ];
 
-const PRICING = [
-  {
-    name: "Free",
-    price: "0",
-    period: "No credit card required",
-    description: "Demo website + demo console. Perfect for planning and testing your restaurant.",
-    cta: "Start free",
-    ctaLink: "/signup",
-    planKey: null,
-    features: [
-      "Mock public website",
-      "Mock console access",
-      "AI chatbot for bookings",
-      "10 AI menu scanner requests / month",
-      "5 AI image generations / month",
-      "AI website content generator",
-    ],
-    highlighted: false,
-  },
-  {
-    name: "Pro",
-    price: "1,500",
-    period: "AED + 350 AED/month recurring",
-    description: "Real hosted website + console. Everything you need to get your restaurant online.",
-    cta: "Go Pro",
-    ctaLink: "/signup?plan=pro",
-    planKey: "pro" as const,
-    features: [
-      "Real hosted website",
-      "Real console access",
-      "AI chatbot for bookings",
-      "AI website content generator",
-      "15 AI menu scanner requests / month",
-      "10 AI image generations / month",
-      "No meetings with senior frontend developer",
-    ],
-    highlighted: true,
-  },
-  {
-    name: "Max",
-    price: "3,500",
-    period: "AED + 500 AED/month recurring",
-    description: "Higher limits plus dedicated senior frontend support for ongoing changes.",
-    cta: "Go Max",
-    ctaLink: "/signup?plan=max",
-    planKey: "max" as const,
-    features: [
-      "Real hosted website",
-      "Real console access",
-      "AI chatbot for bookings",
-      "AI website content generator",
-      "40 AI menu scanner requests / month",
-      "25 AI image generations / month",
-      "3 × 30 min meetings with senior frontend developer / month",
-    ],
-    highlighted: false,
-  },
-];
-
 // ─── Navigation ───────────────────────────────────────────────────────────────
 function Navbar() {
+  const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -161,9 +107,24 @@ function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setUser(null);
+    router.push("/");
+    router.refresh();
+  }
+
   const navLinks = [
-    { label: "Features", href: "#features" },
-    { label: "How it works", href: "#how-it-works" },
     { label: "Restaurants", href: "#restaurants" },
     { label: "Pricing", href: "#pricing" },
     { label: "Contact", href: "#contact" },
@@ -176,9 +137,20 @@ function Navbar() {
       }`}
     >
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="font-display text-xl tracking-tight text-[var(--ink)]">
-          Tablecraft
-        </Link>
+        <div className="flex items-center gap-4">
+          {user ? (
+            <button type="button" onClick={handleSignOut} className="btn btn-outline text-xs">
+              Sign out
+            </button>
+          ) : (
+            <Link href="/signin?next=/dashboard" className="btn btn-outline text-xs">
+              Sign in
+            </Link>
+          )}
+          <Link href="/" className="font-display text-xl tracking-tight text-[var(--ink)]">
+            Tablecraft
+          </Link>
+        </div>
 
         {/* Desktop links */}
         <div className="hidden md:flex items-center gap-8">
@@ -191,6 +163,12 @@ function Navbar() {
               {l.label}
             </a>
           ))}
+          <Link
+            href={user ? "/dashboard" : "/signin?next=/dashboard"}
+            className="btn btn-ink text-xs"
+          >
+            Dashboard
+          </Link>
           <Link href="/console/login" className="btn btn-outline text-xs">
             Sign in to console
           </Link>
@@ -214,6 +192,23 @@ function Navbar() {
       {/* Mobile menu */}
       {mobileOpen && (
         <div className="md:hidden bg-[var(--paper-raised)] border-b border-[var(--rule)] px-6 py-4 space-y-3">
+          {user ? (
+            <button
+              type="button"
+              onClick={() => { handleSignOut(); setMobileOpen(false); }}
+              className="btn btn-outline text-xs w-full"
+            >
+              Sign out
+            </button>
+          ) : (
+            <Link
+              href="/signin?next=/dashboard"
+              onClick={() => setMobileOpen(false)}
+              className="btn btn-outline text-xs w-full"
+            >
+              Sign in
+            </Link>
+          )}
           {navLinks.map((l) => (
             <a
               key={l.href}
@@ -224,6 +219,13 @@ function Navbar() {
               {l.label}
             </a>
           ))}
+          <Link
+            href={user ? "/dashboard" : "/signin?next=/dashboard"}
+            onClick={() => setMobileOpen(false)}
+            className="btn btn-ink text-xs w-full"
+          >
+            Dashboard
+          </Link>
           <Link
             href="/console/login"
             onClick={() => setMobileOpen(false)}
@@ -516,11 +518,18 @@ function RestaurantsSection() {
 
 // ─── Pricing ──────────────────────────────────────────────────────────────────
 function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }) {
+  const router = useRouter();
   const [hovered, setHovered] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleCheckout() {
     if (!plan.planKey || loading) return;
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.push(`/signin?next=/signup?plan=${plan.planKey}`);
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/checkout/one-time", {
@@ -776,8 +785,8 @@ function Footer() {
   return (
     <footer className="border-t border-[var(--rule)] py-10 px-4 text-center space-y-4">
       <div className="flex flex-wrap justify-center gap-6 mb-4">
-        <a href="#features" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Features</a>
-        <a href="#how-it-works" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">How it works</a>
+        <Link href="/dashboard" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Back to dashboard</Link>
+        <Link href="/" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Back to Tablecraft</Link>
         <a href="#pricing" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Pricing</a>
         <Link href="/console/login" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Console</Link>
         <Link href="/restaurants" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Directory</Link>

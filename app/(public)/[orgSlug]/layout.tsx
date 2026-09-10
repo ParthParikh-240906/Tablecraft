@@ -93,6 +93,10 @@ export default async function PublicLayout({
     Back to Tablecraft
   </Link>
   <span className="mx-2">·</span>
+  <Link href="/dashboard" className="hover:underline">
+    Back to dashboard
+  </Link>
+  <span className="mx-2">·</span>
   <Link href={`/console/login?org=${org.slug}`} className="hover:underline">
     Staff login
   </Link>

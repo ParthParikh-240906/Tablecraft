@@ -1,22 +1,26 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { getThemeColors } from "@/lib/theme";
+import bcrypt from "bcryptjs";
 
 /**
  * POST /api/signup
  * Creates a new restaurant organization + owner staff account in one go.
  *
+ * Two modes:
+ *   A) Authenticated (OAuth user): session user's auth_user_id used directly,
+ *      email locked to session email. Optional consolePassword stored independently.
+ *   B) Unauthenticated: creates a new Supabase Auth user (email + password),
+ *      same as the original flow. Optional consolePassword.
+ *
  * Flow:
- *   1. Validate inputs (org name, slug, owner email, password)
- *   2. Create the Supabase Auth user (admin API, email confirmed)
+ *   1. Validate inputs
+ *   2. Check session or create auth user
  *   3. Upload logo if provided
  *   4. Create the organization row with optional fields
  *   5. Create the staff_users owner row linked to the auth user
- *
- * Uses the service-role client (bypasses RLS) — this is the sanctioned
- * public signup path. All inputs validated server-side.
- * 
- * Precedence rule: Manual user inputs override AI-generated theme values.
+ *   6. Optionally hash + store consolePassword in staff_users
  */
 export async function POST(request: Request) {
   let formData: FormData;
@@ -32,7 +36,8 @@ export async function POST(request: Request) {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
   const tagline = formData.get('tagline') as string;
-  
+  const consolePassword = formData.get('consolePassword') as string | null;
+
   // Optional fields
   const branchesStr = formData.get('branches') as string;
   const contactPhone = formData.get('contactPhone') as string;
@@ -57,9 +62,6 @@ export async function POST(request: Request) {
   if (!email || typeof email !== "string" || !email.includes("@")) {
     return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
   }
-  if (!password || typeof password !== "string" || password.length < 8) {
-    return NextResponse.json({ error: "password must be at least 8 characters" }, { status: 400 });
-  }
   if (!aboutText || typeof aboutText !== "string" || aboutText.trim().length < 10) {
     return NextResponse.json({ error: "Please provide a short description of your restaurant" }, { status: 400 });
   }
@@ -77,20 +79,70 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "That URL slug is already taken" }, { status: 409 });
   }
 
-  // --- Create the auth user ---
-  const { data: authUser, error: authError } = await admin.auth.admin.createUser({
-    email: email.trim().toLowerCase(),
-    password,
-    email_confirm: true,
-  });
+  // --- Determine auth user: session-based (OAuth) or create new (email+password) ---
+  let authUserId: string;
+  let isSessionUser = false;
 
-  if (authError) {
-    // Common: email already registered
-    if (authError.message?.toLowerCase().includes("already")) {
-      return NextResponse.json({ error: "That email is already registered" }, { status: 409 });
+  // Try to read the session cookie
+  const serverClient = await createClient();
+  const { data: { user: sessionUser } } = await serverClient.auth.getUser();
+
+  if (sessionUser && sessionUser.email?.toLowerCase() === email.trim().toLowerCase()) {
+    // Authenticated user — use their auth_user_id directly
+    authUserId = sessionUser.id;
+    isSessionUser = true;
+    console.log("[SIGNUP] Authenticated session user:", sessionUser.email);
+  } else {
+    // Not authenticated (or email mismatch) — create a new auth user
+    if (!password || typeof password !== "string" || password.length < 8) {
+      return NextResponse.json({ error: "password must be at least 8 characters" }, { status: 400 });
     }
-    console.error("signup: auth user creation failed", authError);
-    return NextResponse.json({ error: "Could not create account" }, { status: 500 });
+
+    const { data: authUser, error: authError } = await admin.auth.admin.createUser({
+      email: email.trim().toLowerCase(),
+      password,
+      email_confirm: true,
+    });
+
+    if (authError) {
+      if (authError.message?.toLowerCase().includes("already")) {
+        return NextResponse.json({ error: "That email is already registered" }, { status: 409 });
+      }
+      console.error("signup: auth user creation failed", authError);
+      return NextResponse.json({ error: "Could not create account" }, { status: 500 });
+    }
+
+    authUserId = authUser.user.id;
+    console.log("[SIGNUP] Created new auth user:", authUser.user.email);
+  }
+
+  // --- Restaurant limit check (3 for free accounts, 20 for pro/max) ---
+  {
+    const { data: existingStaff } = await admin
+      .from("staff_users")
+      .select("organizations(subscription_plan)")
+      .eq("auth_user_id", authUserId);
+
+    const orgCount = existingStaff?.length ?? 0;
+    const hasPaid = existingStaff?.some((r: any) => {
+      const org = Array.isArray(r.organizations) ? r.organizations[0] : r.organizations;
+      return org?.subscription_plan === "pro" || org?.subscription_plan === "max";
+    });
+    const limit = hasPaid ? 20 : 3;
+
+    if (orgCount >= limit) {
+      if (!isSessionUser) {
+        await admin.auth.admin.deleteUser(authUserId);
+      }
+      return NextResponse.json(
+        {
+          error: hasPaid
+            ? "You've reached the 20-restaurant limit for Pro/Max accounts."
+            : `Free accounts can have up to ${limit} restaurants. Upgrade to Pro to unlock more.`,
+        },
+        { status: 409 },
+      );
+    }
   }
 
   // --- Parse optional fields ---
@@ -108,7 +160,7 @@ export async function POST(request: Request) {
 
   // --- Theme (unified for all restaurants) ---
   const themeColors = getThemeColors();
-  
+
   console.log("[SIGNUP] Using unified theme:", themeColors);
 
    // --- File uploads (if provided) ---
@@ -117,58 +169,61 @@ export async function POST(request: Request) {
 
    if (logoFile || restaurantImageFiles.length > 0) {
      console.log("[SIGNUP] Processing file uploads...");
-     const admin = createAdminClient();
-     
+     const uploadAdmin = createAdminClient();
+
      try {
        // Upload logo
        if (logoFile) {
          const fileExt = logoFile.name.split('.').pop();
          const fileName = `logo-${Date.now()}.${fileExt}`;
          const filePath = `${slug}/${fileName}`;
-         
-         const { data: logoData, error: logoError } = await admin.storage
+
+         const { data: logoData, error: logoError } = await uploadAdmin.storage
            .from('org-logos')
            .upload(filePath, logoFile);
-           
+
          if (logoError) {
            console.error("[SIGNUP] Logo upload failed:", logoError);
          } else {
-           const { data: { publicUrl } } = admin.storage
+           const { data: { publicUrl } } = uploadAdmin.storage
              .from('org-logos')
-             .getPublicUrl(filePath);
+             .getPublicUrl(logoData.path);
            logoUrl = publicUrl;
            console.log("[SIGNUP] Logo uploaded:", logoUrl);
          }
        }
 
        // Upload restaurant images
-       for (const file of restaurantImageFiles) {
-         const fileExt = file.name.split('.').pop();
-         const fileName = `restaurant-${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
-         const filePath = `${slug}/${fileName}`;
+       if (restaurantImageFiles.length > 0) {
+         const imageUrls: string[] = [];
+         for (const image of restaurantImageFiles) {
+           if (!image || image.size === 0) continue;
+           const fileExt = image.name.split('.').pop();
+           const fileName = `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
+           const filePath = `${slug}/${fileName}`;
 
-         const { data: restaurantImageData, error: restaurantImageError } = await admin.storage
-           .from('org-restaurant-images')
-           .upload(filePath, file);
+           const { data: imgData, error: imgError } = await uploadAdmin.storage
+             .from('org-logos')
+             .upload(filePath, image);
 
-         if (restaurantImageError) {
-           console.error("[SIGNUP] Restaurant image upload failed:", restaurantImageError);
-         } else {
-           const { data: { publicUrl } } = admin.storage
-             .from('org-restaurant-images')
-             .getPublicUrl(filePath);
-           restaurantImageUrls.push(publicUrl);
-           console.log("[SIGNUP] Restaurant image uploaded:", publicUrl);
+           if (!imgError && imgData) {
+             const { data: { publicUrl } } = uploadAdmin.storage
+               .from('org-logos')
+               .getPublicUrl(imgData.path);
+             imageUrls.push(publicUrl);
+           }
          }
+         restaurantImageUrls = imageUrls;
+         console.log("[SIGNUP] Restaurant images uploaded:", restaurantImageUrls.length);
        }
-     } catch (e) {
-       console.error("[SIGNUP] File upload error:", e);
-       // Continue without uploads - non-blocking
+     } catch (uploadErr) {
+       console.error("[SIGNUP] Upload error:", uploadErr);
+       // Continue — uploads are non-fatal
      }
    }
 
-  // --- Create the organization with optional fields ---
-  const orgData: any = {
+  // --- Create the organization row ---
+  const orgData: Record<string, any> = {
     name: orgName.trim(),
     slug,
     theme_color: themeColors.main,
@@ -176,8 +231,6 @@ export async function POST(request: Request) {
     theme_secondary_color: themeColors.highlight,
     tagline: tagline && tagline.trim().length > 0 ? tagline.trim() : null,
   };
-
-  // Add optional fields if provided
   if (branches && branches.length > 0) orgData.branches = branches;
   if (contactPhone) orgData.contact_phone = contactPhone;
   if (contactEmail) orgData.contact_email = contactEmail;
@@ -194,24 +247,60 @@ export async function POST(request: Request) {
 
   if (orgError) {
     console.error("signup: org creation failed", orgError);
-    // Roll back the auth user so we don't leave an orphan account
-    await admin.auth.admin.deleteUser(authUser.user.id);
+    // Roll back the auth user only if we just created it (not a session user)
+    if (!isSessionUser) {
+      await admin.auth.admin.deleteUser(authUserId);
+    }
     return NextResponse.json({ error: "Could not create organization" }, { status: 500 });
   }
 
+  // --- Hash optional console password ---
+  let consolePasswordHash: string | null = null;
+  if (consolePassword && consolePassword.length >= 8) {
+    consolePasswordHash = await bcrypt.hash(consolePassword, 10);
+  }
+
   // --- Create the owner staff row ---
-  const { error: staffError } = await admin.from("staff_users").insert({
+  const staffRow: Record<string, any> = {
     org_id: org.id,
     email: email.trim().toLowerCase(),
     role: "owner",
-    auth_user_id: authUser.user.id,
-  });
+    auth_user_id: authUserId,
+  };
+
+  // Insert with console_password_hash; if the column isn't migrated yet,
+  // retry without it so restaurant creation still works.
+  const { error: staffError } = await (async () => {
+    if (consolePasswordHash) {
+      const withHash = await admin.from("staff_users").insert({ ...staffRow, console_password_hash: consolePasswordHash });
+      if (withHash.error?.code === "PGRST204" || withHash.error?.message?.includes("console_password_hash")) {
+        console.warn("signup: console_password_hash column missing — storing without it");
+      } else {
+        return withHash;
+      }
+    }
+    return admin.from("staff_users").insert(staffRow);
+  })();
 
   if (staffError) {
     console.error("signup: staff creation failed", staffError);
-    // Roll back both the org and the auth user
+    // Roll back the org
     await admin.from("organizations").delete().eq("id", org.id);
-    await admin.auth.admin.deleteUser(authUser.user.id);
+    if (!isSessionUser) {
+      await admin.auth.admin.deleteUser(authUserId);
+    }
+
+    if (staffError.code === "23505" && staffError.message?.includes("staff_users_auth_user_id_key")) {
+      return NextResponse.json(
+        {
+          error:
+            "Could not link staff account — this account may already own a restaurant. " +
+            "If this persists, run the SQL migration:\n" +
+            "ALTER TABLE public.staff_users DROP CONSTRAINT staff_users_auth_user_id_key;",
+        },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({ error: "Could not create staff account" }, { status: 500 });
   }
 

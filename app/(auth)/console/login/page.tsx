@@ -28,7 +28,24 @@ function LoginForm() {
     });
 
     if (authError) {
-      setError("Invalid credentials. Please try again.");
+      // Fallback: the entered password may be a standalone console password
+      // (stored in staff_users.console_password_hash, separate from Supabase auth).
+      try {
+        const res = await fetch("/api/console/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email.trim(), password }),
+        });
+        const data = await res.json();
+        if (res.ok && data.url) {
+          window.location.href = data.url;
+          return;
+        }
+      } catch {
+        // fall through to generic error below
+      }
+
+      setError("Invalid email or password. Please try again.");
       setSubmitting(false);
       return;
     }
