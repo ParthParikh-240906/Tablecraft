@@ -41,7 +41,7 @@ export function DeleteRestaurantButton({ orgId, orgName }: { orgId: string; orgN
       type="button"
       onClick={handleDelete}
       disabled={deleting}
-      className="btn text-xs py-1 justify-self-center w-[3.5rem] text-center border border-red-500/40 text-red-300 hover:bg-red-500/10"
+      className="inline-flex items-center justify-center text-xs font-semibold h-8 w-[4.5rem] rounded-sm border border-red-500/40 text-red-300 hover:bg-red-500/10 disabled:opacity-50"
     >
       {deleting ? "..." : "Delete"}
     </button>

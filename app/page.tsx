@@ -278,7 +278,7 @@ function Hero() {
               Create your restaurant
             </Link>
             <a href="#restaurants" className="btn btn-outline text-base px-8 py-3">
-              Browse restaurants
+              Demo restaurants
             </a>
           </div>
         </Reveal>
@@ -465,16 +465,13 @@ function RestaurantsSection() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("organizations")
-        .select("id, name, slug, logo_url, theme_color, tagline")
-        .order("created_at", { ascending: true });
-      setOrgs(data ?? []);
+    const fetchOrgs = async () => {
+      const res = await fetch("/api/demo-restaurants");
+      const data = await res.json();
+      setOrgs(data.orgs ?? []);
       setLoading(false);
     };
-    fetch();
+    fetchOrgs();
   }, []);
 
   return (
@@ -484,12 +481,12 @@ function RestaurantsSection() {
       </Reveal>
       <Reveal delay={80}>
         <h2 className="font-display text-3xl md:text-4xl text-center mb-4 text-[var(--ink)]">
-          Browse restaurants
+          Demo restaurants
         </h2>
       </Reveal>
       <Reveal delay={160}>
         <p className="text-center text-[var(--ink-soft)] max-w-md mx-auto mb-10">
-          See what your restaurant could look like — or find inspiration from others on Tablecraft.
+          Preview our demo sites below. Sign in to see and manage your own restaurant.
         </p>
       </Reveal>
 

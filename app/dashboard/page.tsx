@@ -100,8 +100,8 @@ export default async function DashboardPage() {
             <a href="#pricing" className="btn btn-outline text-xs">
               Pricing
             </a>
-            <Link href="/how-it-works" className="btn btn-outline-accent text-xs">
-              How it works
+            <Link href="/setup-guide" className="btn btn-outline-accent text-xs">
+              Setup guide
             </Link>
             <Link href="/" className="btn btn-outline text-xs">
               ← Marketing site
@@ -128,10 +128,10 @@ export default async function DashboardPage() {
               <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-3 px-2 pb-2 text-[11px] uppercase tracking-wider text-[var(--ink-faint)] border-b border-[var(--rule)]">
                 <span>SR</span>
                 <span>Restaurant</span>
-                <span className="text-center w-[5.5rem]">View Site</span>
+                <span className="text-center w-[4.5rem]">View Site</span>
                 <span className="text-center w-[4.5rem]">Console</span>
-                <span className="text-center w-[3.5rem]">Plan</span>
-                <span className="text-center w-[3.5rem]">Delete</span>
+                <span className="text-center w-[4.5rem]">Plan</span>
+                <span className="text-center w-[4.5rem]">Delete</span>
               </div>
 
               {/* Org rows — horizontal lines only */}
@@ -150,13 +150,19 @@ export default async function DashboardPage() {
                       </p>
                     </div>
 
-                    <Link href={`/${org.slug}`} className="btn btn-outline text-xs py-1 justify-self-center w-[5.5rem] text-center">
+                    <Link
+                      href={`/${org.slug}`}
+                      className="inline-flex items-center justify-center text-xs font-semibold h-8 w-[4.5rem] rounded-sm border border-[var(--rule)] text-[var(--ink)] hover:bg-[var(--paper-raised)]"
+                    >
                       View site
                     </Link>
-                    <Link href="/console" className="btn btn-accent text-xs py-1 justify-self-center w-[4.5rem] text-center">
+                    <Link
+                      href="/console"
+                      className="inline-flex items-center justify-center text-xs font-semibold h-8 w-[4.5rem] rounded-sm bg-[var(--accent)] text-white hover:opacity-90"
+                    >
                       Console
                     </Link>
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-sm text-center w-[3.5rem] ${planBadge(org.subscription_plan)}`}>
+                    <span className={`inline-flex items-center justify-center text-xs font-semibold h-8 w-[4.5rem] rounded-sm ${planBadge(org.subscription_plan)}`}>
                       {PLAN_LABELS[(org.subscription_plan ?? "free") as keyof typeof PLAN_LABELS] ?? "Free"}
                     </span>
                     <DeleteRestaurantButton orgId={org.id} orgName={org.name} />
@@ -199,11 +205,11 @@ export default async function DashboardPage() {
             <h2 className="font-display text-lg mb-4">Getting Started</h2>
             <div className="ticket p-5 space-y-3">
               {[
-                { label: "Create a restaurant", done: true },
+                { label: "Create a record", done: true },
+                { label: "Design Website", done: false },
                 { label: "Add menu items", done: totalMenuItems > 0 },
                 { label: "Set up tables", done: totalTables > 0 },
-                { label: "Design your website", done: false },
-                { label: "Upgrade to Pro or Max", done: orgs.some((o) => o.subscription_plan && o.subscription_plan !== "free") },
+                { label: "Make payment - Go live", done: orgs.some((o) => o.subscription_plan && o.subscription_plan !== "free") },
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-3">
                   <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs shrink-0 ${
