@@ -3,10 +3,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Public demo directory: returns ONLY the restaurants owned by the demo
- * account (parth@gmail.com). Everyone else sees their own restaurants in
- * their dashboard after signing in.
+ * account (parth.kaushik.parikh@gmail.com). Everyone else sees their own
+ * restaurants in their dashboard after signing in.
  */
-const DEMO_OWNER_EMAIL = "parth@gmail.com";
+const DEMO_OWNER_EMAIL = "parth.kaushik.parikh@gmail.com";
 
 export const dynamic = "force-dynamic";
 

@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * Gates /console routes behind Supabase Auth and refreshes sessions.
+ * Gates /console and /dashboard routes behind Supabase Auth and refreshes sessions.
  * Public site routes are untouched.
  */
 export async function middleware(request: NextRequest) {
@@ -10,6 +10,7 @@ export async function middleware(request: NextRequest) {
 
   const isConsole = pathname.startsWith("/console");
   const isLoginPage = pathname === "/console/login";
+  const isDashboard = pathname === "/dashboard";
 
   let response = NextResponse.next({ request });
 
@@ -54,9 +55,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // If unauthenticated user tries to access the dashboard
+  if (!user && isDashboard) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/signin";
+    loginUrl.searchParams.set("next", "/dashboard");
+    return NextResponse.redirect(loginUrl);
+  }
+
   return response;
 }
 
 export const config = {
-  matcher: ["/console/:path*"],
+  matcher: ["/console/:path*", "/dashboard"],
 };

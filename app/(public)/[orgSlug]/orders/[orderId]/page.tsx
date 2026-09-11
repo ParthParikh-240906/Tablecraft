@@ -2,19 +2,23 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { verifyOrderToken } from "@/lib/order-token";
 
 export default async function OrderConfirmationPage({
   params,
   searchParams,
 }: {
   params: Promise<{ orgSlug: string; orderId: string }>;
-  searchParams: Promise<{ status?: string; session_id?: string }>;
+  searchParams: Promise<{ status?: string; session_id?: string; t?: string }>;
 }) {
   const { orgSlug, orderId } = await params;
-  const { status } = await searchParams;
+  const { status, t } = await searchParams;
 
   const org = await getOrgBySlug(orgSlug);
   if (!org) notFound();
+
+  // Only show the receipt to someone holding the signed URL from checkout.
+  if (!verifyOrderToken(orderId, t)) notFound();
 
   const supabase = createAdminClient();
   const { data: order, error } = await supabase

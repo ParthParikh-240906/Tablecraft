@@ -57,31 +57,13 @@ export default async function DashboardPage() {
     .map((r: any) => Array.isArray(r.organizations) ? r.organizations[0] : r.organizations)
     .filter(Boolean);
 
-  // Per-org stats (menu items + tables counts) via admin client (server-side only)
-  const orgStats: Record<string, { menuItems: number; tables: number }> = {};
-
-  await Promise.all(
-    orgs.map(async (org) => {
-      const [menuRes, tablesRes] = await Promise.all([
-        admin.from("menu_items").select("id", { count: "exact", head: true }).eq("org_id", org.id),
-        admin.from("tables").select("id", { count: "exact", head: true }).eq("org_id", org.id),
-      ]);
-      orgStats[org.id] = {
-        menuItems: menuRes.count ?? 0,
-        tables: tablesRes.count ?? 0,
-      };
-    }),
-  );
-
-  const totalMenuItems = Object.values(orgStats).reduce((s, v) => s + v.menuItems, 0);
-  const totalTables = Object.values(orgStats).reduce((s, v) => s + v.tables, 0);
   const hasRestaurants = orgs.length > 0;
 
   const planBadge = (plan: string | null) => {
     switch (plan) {
       case "pro": return "bg-orange-900/40 text-orange-300";
       case "max": return "bg-purple-900/40 text-purple-300";
-      default: return "bg-[var(--paper-raised)] text-[var(--ink-faint)]";
+      default: return "bg-[var(--paper-raised)] text-white";
     }
   };
 
@@ -203,25 +185,17 @@ export default async function DashboardPage() {
         {hasRestaurants && (
           <section>
             <h2 className="font-display text-lg mb-4">Getting Started</h2>
-            <div className="ticket p-5 space-y-3">
+            <div className="ticket p-5 space-y-2">
               {[
-                { label: "Create a record", done: true },
-                { label: "Design Website", done: false },
-                { label: "Add menu items", done: totalMenuItems > 0 },
-                { label: "Set up tables", done: totalTables > 0 },
-                { label: "Make payment - Go live", done: orgs.some((o) => o.subscription_plan && o.subscription_plan !== "free") },
+                { label: "Create a restaurant" },
+                { label: "Design Website" },
+                { label: "Add menu items" },
+                { label: "Set up tables" },
+                { label: "Make payment - Go live" },
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-3">
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs shrink-0 ${
-                    item.done
-                      ? "bg-green-900/40 text-green-400"
-                      : "bg-[var(--paper-raised)] text-[var(--ink-faint)] border border-[var(--rule)]"
-                  }`}>
-                    {item.done ? "✓" : ""}
-                  </span>
-                  <span className={`text-sm ${item.done ? "text-[var(--ink-faint)] line-through" : "text-[var(--ink)]"}`}>
-                    {item.label}
-                  </span>
+                  <span className="text-sm text-[var(--accent)] shrink-0">•</span>
+                  <span className="text-sm text-[var(--ink)]">{item.label}</span>
                 </div>
               ))}
             </div>

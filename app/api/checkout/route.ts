@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { signOrderToken } from "@/lib/order-token";
 
 interface CartItemInput {
   id: string;
@@ -145,7 +146,7 @@ export async function POST(request: Request) {
         orgSlug: org.slug,
         customerName,
       },
-      success_url: `${origin}/${org.slug}/orders/${order.id}?status=success&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${origin}/${org.slug}/orders/${order.id}?status=success&session_id={CHECKOUT_SESSION_ID}&t=${signOrderToken(order.id)}`,
       cancel_url: `${origin}/${org.slug}/cart?status=cancelled`,
     });
 

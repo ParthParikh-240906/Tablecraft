@@ -1173,10 +1173,10 @@ export function DesignPanel({
           )}
         </section>
 
-        {/* AI Background Generator */}
+        {/* AI Image Generator */}
         <section className="ticket p-5 space-y-3">
           <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
-            AI Background Generator
+            AI Image Generator
           </h3>
           <p className="text-xs text-[var(--ink-soft)]">
             Upload a reference image and describe the background you want. The AI will generate a new image.

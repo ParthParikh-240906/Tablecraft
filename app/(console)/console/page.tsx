@@ -32,7 +32,7 @@ export default async function DashboardPage() {
   const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
 
   // --- Stats queries ---
-  const [{ data: tablesData }, { data: bookingsTodayData }, { data: ordersTodayData }, { data: ordersData }] =
+  const [{ data: tablesData }, { data: bookingsTodayData }, { data: ordersData }] =
     await Promise.all([
       // Total tables (all statuses)
       supabase.from("tables").select("id, label, status, capacity, table_type").eq("org_id", orgId),
@@ -47,16 +47,7 @@ export default async function DashboardPage() {
         .neq("status", "cancelled")
         .order("datetime", { ascending: true }),
 
-      // Today's revenue: paid orders today
-      supabase
-        .from("orders")
-        .select("total, status, created_at")
-        .eq("org_id", orgId)
-        .eq("status", "paid")
-        .gte("created_at", todayStart.toISOString())
-        .lt("created_at", tomorrowStart.toISOString()),
-
-      // Active orders for dashboard: exclude paid and cancelled only
+      // Live orders: everything that isn't paid or cancelled
       supabase
         .from("orders")
         .select("id, customer_name, total, status, created_at, stripe_session_id, items")
@@ -112,8 +103,7 @@ export default async function DashboardPage() {
 
   const bookedTables = bookingsTodayData?.length ?? 0;
 
-  const todayRevenue = (ordersTodayData ?? [])
-    .reduce((sum, o) => sum + Number(o.total ?? 0), 0);
+  const liveOrderCount = ordersData?.length ?? 0;
 
   // --- Today's bookings for the list (reuse BookingActionsList) ---
   const { data: bookingTablesData } = await supabase
@@ -175,9 +165,9 @@ export default async function DashboardPage() {
           sub="reservations"
         />
         <StatCard
-          label="Today&apos;s Revenue"
-          value={`AED ${todayRevenue.toFixed(2)}`}
-          sub="paid orders"
+          label="Order Count"
+          value={String(liveOrderCount)}
+          sub="live orders"
         />
         <StatCard
           label="Available Now"

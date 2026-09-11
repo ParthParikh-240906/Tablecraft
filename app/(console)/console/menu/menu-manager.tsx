@@ -34,13 +34,12 @@ export function MenuManager({ orgId }: { orgId: string }) {
   const [saving, setSaving] = useState(false);
 
   // Scan/upload state
-  const [scanMode, setScanMode] = useState<"append" | "replace">("append");
   const [scanning, setScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string>("");
   const [scanError, setScanError] = useState<string | null>(null);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [deleteCatTarget, setDeleteCatTarget] = useState<string | null>(null);
   const [showDeleteCatConfirm, setShowDeleteCatConfirm] = useState(false);
+  const [deleteItemTarget, setDeleteItemTarget] = useState<MenuItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -155,28 +154,23 @@ export function MenuManager({ orgId }: { orgId: string }) {
     setItems((prev) => prev.filter((i) => i.id !== id));
   };
 
-  async function clearAllItems() {
-    const { error } = await supabase.from("menu_items").delete().eq("org_id", orgId);
-    if (error) {
-      console.error("clear all failed:", error);
-      return;
-    }
-    setItems([]);
-    setShowClearConfirm(false);
-  }
-
   async function deleteCategory() {
     if (!deleteCatTarget) return;
-    const { error } = await supabase
+    let query = supabase
       .from("menu_items")
       .delete()
-      .eq("org_id", orgId)
-      .eq("category", deleteCatTarget);
+      .eq("org_id", orgId);
+    if (deleteCatTarget === "Uncategorized") {
+      query = query.is("category", null);
+    } else {
+      query = query.eq("category", deleteCatTarget);
+    }
+    const { error } = await query;
     if (error) {
       console.error("delete category failed:", error);
       return;
     }
-    setItems((prev) => prev.filter((i) => i.category !== deleteCatTarget));
+    setItems((prev) => prev.filter((i) => (i.category || "Uncategorized") !== deleteCatTarget));
     setDeleteCatTarget(null);
     setShowDeleteCatConfirm(false);
   }
@@ -278,7 +272,8 @@ export function MenuManager({ orgId }: { orgId: string }) {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("orgId", orgId);
-    formData.append("mode", scanMode);
+    // Scanned menus always append to the existing menu.
+    formData.append("mode", "append");
 
     try {
       const res = await fetch("/api/menu/vision-parse", {
@@ -292,7 +287,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
         throw new Error(result.error || "Scan failed");
       }
 
-      setScanStatus(`✓ Added ${result.itemCount} items (${result.mode} mode)`);
+      setScanStatus(`✓ Added ${result.itemCount} items`);
       // Refresh menu list
       const { data } = await supabase
         .from("menu_items")
@@ -319,17 +314,8 @@ export function MenuManager({ orgId }: { orgId: string }) {
       <div className="flex items-center justify-between mb-4">
         <h1 className="font-display text-xl">Menu</h1>
         <div className="flex gap-2">
-          {/* Upload section */}
+          {/* Upload section — scanned menus always append */}
           <div className="flex items-center gap-2">
-            <select
-              value={scanMode}
-              onChange={(e) => setScanMode(e.target.value as "append" | "replace")}
-              className="input text-sm py-1.5"
-              disabled={scanning}
-            >
-              <option value="append">Append</option>
-              <option value="replace">Replace all</option>
-            </select>
             <input
               ref={fileInputRef}
               type="file"
@@ -351,46 +337,6 @@ export function MenuManager({ orgId }: { orgId: string }) {
           </div>
           <button type="button" onClick={startAdd} className="btn btn-accent">
             + Add item
-          </button>
-          <div className="flex items-center gap-1">
-            <select
-              value={deleteCatTarget ?? ""}
-              onChange={(e) => setDeleteCatTarget(e.target.value || null)}
-              className="input text-sm py-1.5"
-              disabled={items.length === 0}
-            >
-              <option value="">Category…</option>
-              {(() => {
-                const cats: string[] = [];
-                const seen = new Set<string>();
-                for (const item of items) {
-                  const cat = item.category || "Uncategorized";
-                  if (!seen.has(cat)) {
-                    cats.push(cat);
-                    seen.add(cat);
-                  }
-                }
-                return cats.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ));
-              })()}
-            </select>
-            <button
-              type="button"
-              onClick={() => { if (deleteCatTarget) setShowDeleteCatConfirm(true); }}
-              className="btn btn-error btn-outline"
-              disabled={!deleteCatTarget}
-            >
-              Delete category
-            </button>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowClearConfirm(true)}
-            className="btn btn-error btn-outline"
-            disabled={items.length === 0}
-          >
-            Clear menu
           </button>
         </div>
       </div>
@@ -521,6 +467,17 @@ export function MenuManager({ orgId }: { orgId: string }) {
                     >
                       ↓
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeleteCatTarget(cat);
+                        setShowDeleteCatConfirm(true);
+                      }}
+                      className="btn btn-ghost btn-xs p-1 text-red-400 opacity-50 hover:opacity-100"
+                      title={`Delete ${cat} category`}
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
 
@@ -589,7 +546,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDelete(item.id)}
+                          onClick={() => setDeleteItemTarget(item)}
                           className="btn btn-ghost text-xs py-1 text-red-400"
                         >
                           Delete
@@ -608,13 +565,17 @@ export function MenuManager({ orgId }: { orgId: string }) {
       {showDeleteCatConfirm && deleteCatTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-[var(--card)] p-6 rounded-lg max-w-sm w-full mx-4">
-            <h3 className="text-lg font-semibold mb-2">Delete category &ldquo;{deleteCatTarget}&rdquo;?</h3>
+            <h3 className="text-lg font-semibold mb-2">Delete category?</h3>
             <p className="text-[var(--ink-faint)] mb-4">
-              Are you sure you want to delete all items of category &ldquo;{deleteCatTarget}&rdquo;? This action cannot be undone.
+              Are you sure you want to delete &ldquo;{deleteCatTarget}&rdquo; category?
+              This will remove all its items and cannot be undone.
             </p>
             <div className="flex gap-2 justify-end">
               <button
-                onClick={() => setShowDeleteCatConfirm(false)}
+                onClick={() => {
+                  setShowDeleteCatConfirm(false);
+                  setDeleteCatTarget(null);
+                }}
                 className="btn btn-outline"
               >
                 Cancel
@@ -630,26 +591,29 @@ export function MenuManager({ orgId }: { orgId: string }) {
         </div>
       )}
 
-      {/* Clear menu confirmation modal */}
-      {showClearConfirm && (
+      {/* Delete menu item confirmation modal */}
+      {deleteItemTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-[var(--card)] p-6 rounded-lg max-w-sm w-full mx-4">
-            <h3 className="text-lg font-semibold mb-2">Clear all menu items?</h3>
+            <h3 className="text-lg font-semibold mb-2">Delete menu item?</h3>
             <p className="text-[var(--ink-faint)] mb-4">
-              This will delete {items.length} menu items permanently. This action cannot be undone.
+              Are you sure you want to delete &ldquo;{deleteItemTarget.name}&rdquo;? This action cannot be undone.
             </p>
             <div className="flex gap-2 justify-end">
               <button
-                onClick={() => setShowClearConfirm(false)}
+                onClick={() => setDeleteItemTarget(null)}
                 className="btn btn-outline"
               >
                 Cancel
               </button>
               <button
-                onClick={clearAllItems}
+                onClick={() => {
+                  handleDelete(deleteItemTarget.id);
+                  setDeleteItemTarget(null);
+                }}
                 className="btn btn-error"
               >
-                Clear all
+                Delete
               </button>
             </div>
           </div>
