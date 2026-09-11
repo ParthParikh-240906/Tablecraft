@@ -258,7 +258,7 @@ function Hero() {
 
       <div className="relative z-10 px-4 text-center max-w-3xl">
         <Reveal>
-          <p className="label-caps text-[color:var(--accent)] mb-5" style={{ fontSize: "1.625rem", letterSpacing: "0.22em" }}>Tablecraft</p>
+          <p className="label-caps text-[color:var(--accent)] mb-5" style={{ fontSize: "1.625rem", letterSpacing: "0.12em" }}>Tablecraft</p>
         </Reveal>
         <Reveal delay={100}>
           <h1 className="font-display text-5xl md:text-7xl lg:text-8xl leading-[0.98] tracking-tight mb-6 text-[var(--ink)]">
@@ -348,9 +348,9 @@ function FeatureCard({ feature, index }: { feature: typeof AI_FEATURES[0]; index
 
 function FeaturesSection() {
   return (
-    <section id="features" className="max-w-6xl mx-auto px-4 py-24">
+    <section id="features" className="max-w-6xl mx-auto px-4 py-[72px]">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.2em", textDecoration: "underline" }}>AI-Powered</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.1em", textDecoration: "underline" }}>AI-Powered</p>
       </Reveal>
       <Reveal delay={80}>
         <h2 className="font-display text-3xl md:text-5xl text-center mb-5 text-[var(--ink)]">
@@ -358,7 +358,7 @@ function FeaturesSection() {
         </h2>
       </Reveal>
       <Reveal delay={160}>
-        <p className="text-center text-[var(--ink-soft)] max-w-lg mx-auto mb-12 text-lg">
+        <p className="text-center text-[var(--ink-soft)] max-w-lg mx-auto mb-9 text-lg">
           From booking guests to scanning menus to designing your site — Tablecraft handles the heavy lifting so you can focus on the food.
         </p>
       </Reveal>
@@ -390,15 +390,15 @@ function StepCard({ n, title, body, delay }: { n: number; title: string; body: s
 
 function HowItWorksSection() {
   const steps = [
-    { n: 1, title: "Create your restaurant", body: "Sign up, pick a name, and claim your public URL. AI suggests a tagline and sets up your mock site in seconds." },
-    { n: 2, title: "Set up your menu & design", body: "Scan your printed menu with AI, generate hero images from prompts, or let our senior designer polish it for you." },
-    { n: 3, title: "Go live", body: "Guests find you, book tables via the AI chatbot, and order online. You run everything from the staff dashboard." },
+    { n: 1, title: "Create your restaurant & design", body: "Sign up, pick a name, and claim your public URL, and create your design ." },
+    { n: 2, title: "Set up your menu & tables", body: "Scan your printed menu with AI, setup tables " },
+    { n: 3, title: "Go live", body: "Make the payment and go live, guests can find you, book tables via the AI chatbot, and order online." },
   ];
 
   return (
-    <section id="how-it-works" className="max-w-2xl mx-auto px-4 py-24">
+    <section id="how-it-works" className="max-w-2xl mx-auto px-4 py-[72px]">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.2em", textDecoration: "underline" }}>How it works</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.1em", textDecoration: "underline" }}>How it works</p>
       </Reveal>
       <Reveal delay={80}>
         <h2 className="font-display text-3xl md:text-4xl text-center mb-14 text-[var(--ink)]">
@@ -475,9 +475,9 @@ function RestaurantsSection() {
   }, []);
 
   return (
-    <section id="restaurants" className="max-w-6xl mx-auto px-4 py-24">
+    <section id="restaurants" className="max-w-6xl mx-auto px-4 py-[72px]">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.2em", textDecoration: "underline" }}>Directory</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.1em", textDecoration: "underline" }}>Directory</p>
       </Reveal>
       <Reveal delay={80}>
         <h2 className="font-display text-3xl md:text-4xl text-center mb-5 text-[var(--ink)]">
@@ -623,9 +623,9 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
 
 function PricingSection() {
   return (
-    <section id="pricing" className="max-w-5xl mx-auto px-4 py-24">
+    <section id="pricing" className="max-w-5xl mx-auto px-4 py-[72px]">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.2em", textDecoration: "underline" }}>Pricing</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.1em", textDecoration: "underline" }}>Pricing</p>
       </Reveal>
       <Reveal delay={80}>
         <h2 className="font-display text-3xl md:text-4xl text-center mb-5 text-[var(--ink)]">
@@ -681,9 +681,9 @@ function ContactSection() {
   }
 
   return (
-    <section id="contact" className="max-w-2xl mx-auto px-4 py-24">
+    <section id="contact" className="max-w-2xl mx-auto px-4 py-[72px]">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.2em", textDecoration: "underline" }}>Get in touch</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.1em", textDecoration: "underline" }}>Get in touch</p>
       </Reveal>
       <Reveal delay={80}>
         <h2 className="font-display text-3xl md:text-4xl text-center mb-5 text-[var(--ink)]">
@@ -783,7 +783,6 @@ function Footer() {
     <footer className="border-t border-[var(--rule)] py-10 px-4 text-center space-y-4">
       <div className="flex flex-wrap justify-center gap-6 mb-4">
         <Link href="/dashboard" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Back to dashboard</Link>
-        <Link href="/" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Back to Tablecraft</Link>
         <a href="#pricing" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Pricing</a>
         <Link href="/console/login" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Console</Link>
         <Link href="/restaurants" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Directory</Link>
@@ -804,7 +803,7 @@ export default function MarketingHomePage() {
     <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)]">
       <Navbar />
       <Hero />
-      <div className="bg-[var(--layer2)] border border-white/20 mx-8 md:mx-16 mt-8 mb-12 rounded-sm">
+      <div className="layer2-bg border border-white/20 mx-8 md:mx-16 mt-8 mb-12 rounded-sm">
         <FeaturesSection />
         <HowItWorksSection />
         <RestaurantsSection />

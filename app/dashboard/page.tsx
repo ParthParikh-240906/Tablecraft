@@ -93,7 +93,10 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-12">
+      <div className="layer2-bg border border-white/20 mx-8 md:mx-16 mt-8 mb-12 rounded-sm">
+        {/* Dark overlay so content stays readable over the leaf pattern */}
+        <div className="relative">
+          <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-12">
 
         {/* ─── My Restaurants (row table) ───────────────────────────────────── */}
         <section>
@@ -253,6 +256,8 @@ export default async function DashboardPage() {
           </div>
         </section>
       </main>
+        </div>
+      </div>
     </div>
   );
 }

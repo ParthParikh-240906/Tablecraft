@@ -59,7 +59,7 @@ body {
 .label-caps {
   font-family: var(--font-sans);
   font-size: 0.625rem;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   font-weight: 600;
   opacity: 0.85;
@@ -200,6 +200,15 @@ body {
     0 0 0 1px rgba(0, 0, 0, 0.5),
     0 8px 32px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Layer 2 background texture — subtle cream motif on dark base */
+.layer2-bg {
+  background-color: var(--layer2);
+  background-image: url('/top_layer.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 /* Small caps label utility. */

@@ -54,7 +54,9 @@ export default async function SetupGuidePage() {
 
   return (
     <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)]">
-      <div className="max-w-3xl mx-auto px-6 py-16">
+      <div className="layer2-bg border border-white/20 mx-8 md:mx-16 mt-8 mb-12 rounded-sm">
+        <div className="relative">
+          <div className="max-w-3xl mx-auto px-6 py-16">
         {/* ─── Back ───────────────────────────────────────────────────────────── */}
         <div className="mb-10">
           <Link
@@ -97,6 +99,8 @@ export default async function SetupGuidePage() {
           <Link href={startHref} className="btn btn-accent text-sm px-8 py-3">
             Get started →
           </Link>
+        </div>
+      </div>
         </div>
       </div>
     </div>
