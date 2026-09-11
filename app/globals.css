@@ -12,6 +12,7 @@
   --paper: #0c0a09;
   --paper-raised: #1c1917;
   --paper-overlay: #292524;
+  --layer2: #151110;
 
   --ink: #f5f5f4;
   --ink-soft: #a8a29e;
@@ -31,6 +32,7 @@
   --color-paper: var(--paper);
   --color-paper-raised: var(--paper-raised);
   --color-paper-overlay: var(--paper-overlay);
+  --color-layer2: var(--layer2);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-ink-faint: var(--ink-faint);
@@ -166,6 +168,12 @@ body {
   border-radius: 2px;
 }
 
+/* Dark variant — raised cards on a layer-2 brown background */
+.ticket--dark {
+  background: var(--paper);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
 /* Small caps label utility. */
 .small-caps {
   text-transform: uppercase;
@@ -192,6 +200,7 @@ body {
   --paper: #faf9f6;
   --paper-raised: #ffffff;
   --paper-overlay: #f5f5f4;
+  --layer2: #f0ebe4;
   --ink: #1c1917;
   --ink-soft: #57534e;
   --ink-faint: #a8a29e;
@@ -204,6 +213,7 @@ body {
   --paper: #0c0a09;
   --paper-raised: #1c1917;
   --paper-overlay: #292524;
+  --layer2: #151110;
   --ink: #f5f5f4;
   --ink-soft: #a8a29e;
   --ink-faint: #78716c;

@@ -106,7 +106,7 @@ export function FeaturesCarousel({ features }: FeaturesCarouselProps) {
             className="absolute inset-0 flex items-center justify-center transition-all duration-500 ease-in-out"
             style={getCardStyle(i)}
           >
-            <div className="bg-[var(--paper-raised)] border border-[var(--rule)] rounded-sm p-6 flex flex-col gap-1 w-[92%] max-w-lg">
+            <div className="bg-[var(--paper)] border border-white/20 rounded-sm p-6 flex flex-col gap-1 w-[92%] max-w-lg">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <div
                 className="relative h-[220px] overflow-y-auto overflow-x-hidden rounded-sm scroll-smooth"

@@ -132,8 +132,8 @@ function Navbar() {
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? "bg-[var(--paper)]/90 backdrop-blur-md border-b border-[var(--rule)] shadow-lg" : "bg-transparent"
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b border-white/20 ${
+        scrolled ? "bg-[var(--paper)]/90 backdrop-blur-md border-b border-[var(--rule)] shadow-lg" : ""
       }`}
     >
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -302,7 +302,7 @@ function FeatureCard({ feature, index }: { feature: typeof AI_FEATURES[0]; index
   return (
     <Reveal delay={index * 100}>
       <div
-        className="ticket p-6 sm:p-8 group cursor-default transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+        className="ticket ticket--dark p-6 sm:p-8 group cursor-default transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
@@ -406,7 +406,7 @@ function HowItWorksSection() {
         </h2>
       </Reveal>
 
-      <div className="ticket p-8 space-y-8">
+      <div className="ticket ticket--dark p-8 space-y-8">
         {steps.map((s, i) => (
           <div key={s.n}>
             <StepCard {...s} delay={i * 100} />
@@ -427,7 +427,7 @@ function RestaurantCard({ org, index }: { org: Org; index: number }) {
     <Reveal delay={index * 80}>
       <Link
         href={`/${org.slug}`}
-        className="ticket p-5 block group transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+        className="ticket ticket--dark p-5 block group transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
@@ -491,9 +491,9 @@ function RestaurantsSection() {
       </Reveal>
 
       {loading ? (
-        <div className="ticket p-10 text-center text-[var(--ink-faint)]">Loading restaurants…</div>
+        <div className="ticket ticket--dark p-10 text-center text-[var(--ink-faint)]">Loading restaurants…</div>
       ) : orgs.length === 0 ? (
-        <div className="ticket p-10 text-center text-[var(--ink-faint)]">No restaurants yet. Be the first.</div>
+        <div className="ticket ticket--dark p-10 text-center text-[var(--ink-faint)]">No restaurants yet. Be the first.</div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-[var(--rule)] border border-[var(--rule)] rounded-sm overflow-hidden">
           {orgs.map((org, i) => (
@@ -553,7 +553,7 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
     <Reveal delay={index * 120}>
       <div
         className={[
-          "ticket p-6 sm:p-8 flex flex-col relative transition-all duration-300 h-full",
+          "ticket ticket--dark p-6 sm:p-8 flex flex-col relative transition-all duration-300 h-full",
           plan.highlighted ? "ring-2 ring-[var(--accent)] shadow-xl" : "",
         ]
           .filter(Boolean)
@@ -699,7 +699,7 @@ function ContactSection() {
       <Reveal delay={240}>
         <div ref={ref} className={`transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
           {submitted ? (
-            <div className="ticket p-8 text-center">
+            <div className="ticket ticket--dark p-8 text-center">
               <p className="label-caps text-[color:var(--accent)] mb-2">Message Sent</p>
               <h3 className="font-display text-2xl text-[var(--ink)] mb-2">Thank you, {name}!</h3>
               <p className="text-sm text-[var(--ink-soft)] mb-6">
@@ -714,7 +714,7 @@ function ContactSection() {
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="ticket p-6 sm:p-8 space-y-4">
+            <form onSubmit={handleSubmit} className="ticket ticket--dark p-6 sm:p-8 space-y-4">
               <div>
                 <label htmlFor="m-name" className="block text-xs uppercase tracking-wider font-semibold mb-1 text-[var(--ink-soft)]">
                   Your Name
@@ -804,11 +804,13 @@ export default function MarketingHomePage() {
     <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)]">
       <Navbar />
       <Hero />
-      <FeaturesSection />
-      <HowItWorksSection />
-      <RestaurantsSection />
-      <PricingSection />
-      <ContactSection />
+      <div className="bg-[var(--layer2)] border border-white/20 mx-8 md:mx-16 mt-8 mb-12 rounded-sm">
+        <FeaturesSection />
+        <HowItWorksSection />
+        <RestaurantsSection />
+        <PricingSection />
+        <ContactSection />
+      </div>
       <Footer />
     </div>
   );
