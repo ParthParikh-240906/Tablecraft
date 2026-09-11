@@ -1,31 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 /* =============================================================================
-   Tablecraft design system — "printed menu / order ticket"
-   Warm paper ground, near-black ink, hairline rules, small-caps labels.
-   Org theme_color drives accents via inline style (see --accent usage);
-   the base scaffold stays neutral so any restaurant color works.
+   Tablecraft design system — premium restaurant tech
+   Deep espresso ground, warm brown layer, burnt-orange accent.
+   DM Serif Display for editorial headings, Inter for crisp body text.
    ============================================================================= */
 
 :root {
-  /* Default Tablecraft Theme: Near-black ground, white ink, orange accent */
-  --paper: #0c0a09;
-  --paper-raised: #1c1917;
-  --paper-overlay: #292524;
-  --layer2: #151110;
+  /* Deep espresso base, alabaster cream layer, punchy burnt-orange accent */
+  --paper: #060504;
+  --paper-raised: #0f0b09;
+  --paper-overlay: #1a1410;
+  --layer2: #121212;
 
-  --ink: #f5f5f4;
-  --ink-soft: #a8a29e;
-  --ink-faint: #78716c;
+  --ink: #fefaf6;
+  --ink-soft: #b8a898;
+  --ink-faint: #7a6f64;
 
-  --rule: #292524;
-  --rule-strong: #44403c;
+  --rule: rgba(255, 255, 255, 0.07);
+  --rule-strong: rgba(255, 255, 255, 0.14);
 
-  --accent: #ea580c;
+  --accent: #d45200;
+  --accent-glow: rgba(212, 82, 0, 0.35);
   --secondary: #0ea5e9;
 
-  --font-serif: var(--font-display), Georgia, "Times New Roman", serif;
-  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'DM Serif Display', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Inter', var(--font-body), ui-sans-serif, system-ui, sans-serif;
 }
 
 @theme inline {
@@ -40,8 +41,8 @@
   --color-rule-strong: var(--rule-strong);
   --color-accent: var(--accent);
 
-  --font-display: var(--font-display);
-  --font-body: var(--font-body);
+  --font-display: var(--font-serif);
+  --font-body: var(--font-sans);
 }
 
 body {
@@ -49,6 +50,7 @@ body {
   color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* ---------- Type scale & component language ---------- */
@@ -56,15 +58,26 @@ body {
 /* Small caps labels — the "section header" voice of a printed menu. */
 .label-caps {
   font-family: var(--font-sans);
-  font-size: 0.6875rem;
-  letter-spacing: 0.14em;
+  font-size: 0.625rem;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   font-weight: 600;
+  opacity: 0.85;
 }
 
-/* Serif display for headings and menu item names. */
+/* Serif display for headings — editorial, high-end restaurant feel. */
 .font-display {
   font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* Gradient text utility — for hero accent words. */
+.gradient-text {
+  background: linear-gradient(135deg, var(--accent) 0%, #f59e0b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* Hairline divider. */
@@ -111,9 +124,12 @@ body {
   background: var(--accent);
   color: #ffffff;
   border: 1px solid transparent;
+  box-shadow: 0 0 20px var(--accent-glow);
+  transition: opacity 120ms ease, background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
 }
 .btn-accent:hover {
-  background: #ea580c;
+  background: #c44a00;
+  box-shadow: 0 0 32px var(--accent-glow);
 }
 .btn-ink {
   background: var(--paper-raised);
@@ -171,7 +187,19 @@ body {
 /* Dark variant — raised cards on a layer-2 brown background */
 .ticket--dark {
   background: var(--paper);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 4px 24px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.ticket--dark:hover {
   border-color: rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 8px 32px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* Small caps label utility. */
@@ -199,27 +227,29 @@ body {
 .theme-light {
   --paper: #faf9f6;
   --paper-raised: #ffffff;
-  --paper-overlay: #f5f5f4;
+  --paper-overlay: #f5f0ea;
   --layer2: #f0ebe4;
   --ink: #1c1917;
   --ink-soft: #57534e;
   --ink-faint: #a8a29e;
   --rule: #e7e2d9;
   --rule-strong: #1c1917;
+  --accent: #d45200;
 }
 
 [data-theme="dark"],
 .theme-dark {
-  --paper: #0c0a09;
-  --paper-raised: #1c1917;
-  --paper-overlay: #292524;
-  --layer2: #151110;
-  --ink: #f5f5f4;
-  --ink-soft: #a8a29e;
-  --ink-faint: #78716c;
-  --rule: #292524;
-  --rule-strong: #44403c;
-  --accent: #f97316;
+  --paper: #060504;
+  --paper-raised: #0f0b09;
+  --paper-overlay: #1a1410;
+  --layer2: #121212;
+  --ink: #fefaf6;
+  --ink-soft: #b8a898;
+  --ink-faint: #7a6f64;
+  --rule: rgba(255, 255, 255, 0.07);
+  --rule-strong: rgba(255, 255, 255, 0.14);
+  --accent: #d45200;
+  --accent-glow: rgba(212, 82, 0, 0.35);
 }
 
 /* =============================================================================
@@ -250,11 +280,11 @@ body {
   transform: translate(-50%, -50%);
   background: radial-gradient(
     ellipse at center,
-    rgba(234, 88, 12, 0.18) 0%,
-    rgba(234, 88, 12, 0.08) 45%,
+    rgba(212, 82, 0, 0.22) 0%,
+    rgba(212, 82, 0, 0.1) 45%,
     transparent 70%
   );
-  filter: blur(24px);
+  filter: blur(28px);
   /* No animation — static glow. */
 }
 
@@ -307,10 +337,10 @@ body {
 /* Table outlines — thin rounded rects, near-black fill, orange edge glow. */
 .hero-bg__table {
   position: absolute;
-  border: 1px solid rgba(234, 88, 12, 0.5);
+  border: 1px solid rgba(212, 82, 0, 0.45);
   border-radius: 6px;
-  background: rgba(12, 10, 9, 0.4);
-  box-shadow: 0 0 20px rgba(234, 88, 12, 0.22), inset 0 0 8px rgba(234, 88, 12, 0.08);
+  background: rgba(6, 5, 4, 0.4);
+  box-shadow: 0 0 20px rgba(212, 82, 0, 0.2), inset 0 0 8px rgba(212, 82, 0, 0.06);
   /* No animation — static opacity. */
 }
 

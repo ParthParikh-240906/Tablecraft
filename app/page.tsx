@@ -258,17 +258,17 @@ function Hero() {
 
       <div className="relative z-10 px-4 text-center max-w-3xl">
         <Reveal>
-          <p className="label-caps text-[color:var(--accent)] mb-4" style={{ fontSize: "1.375rem" }}>Tablecraft</p>
+          <p className="label-caps text-[color:var(--accent)] mb-5" style={{ fontSize: "1.625rem", letterSpacing: "0.22em" }}>Tablecraft</p>
         </Reveal>
         <Reveal delay={100}>
-          <h1 className="font-display text-5xl md:text-7xl lg:text-8xl leading-[1.02] tracking-tight mb-6 text-[var(--ink)]">
+          <h1 className="font-display text-5xl md:text-7xl lg:text-8xl leading-[0.98] tracking-tight mb-6 text-[var(--ink)]">
             Your restaurant,
             <br />
-            <span className="text-[var(--accent)]">online</span> in minutes.
+            <span className="gradient-text">online</span> in minutes.
           </h1>
         </Reveal>
         <Reveal delay={300}>
-          <p className="text-[var(--ink-soft)] text-lg md:text-xl mb-10 max-w-xl mx-auto leading-relaxed">
+          <p className="text-[var(--ink-soft)] text-lg md:text-xl mb-10 max-w-xl mx-auto leading-relaxed italic opacity-90">
             AI-powered website, console, and staff dashboard — built for restaurants that want to move fast.
           </p>
         </Reveal>
@@ -350,10 +350,10 @@ function FeaturesSection() {
   return (
     <section id="features" className="max-w-6xl mx-auto px-4 py-24">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "1.03125rem" }}>AI-Powered</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.2em", textDecoration: "underline" }}>AI-Powered</p>
       </Reveal>
       <Reveal delay={80}>
-        <h2 className="font-display text-3xl md:text-5xl text-center mb-4 text-[var(--ink)]">
+        <h2 className="font-display text-3xl md:text-5xl text-center mb-5 text-[var(--ink)]">
           Everything runs on AI.
         </h2>
       </Reveal>
@@ -398,10 +398,10 @@ function HowItWorksSection() {
   return (
     <section id="how-it-works" className="max-w-2xl mx-auto px-4 py-24">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "1.03125rem" }}>How it works</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.2em", textDecoration: "underline" }}>How it works</p>
       </Reveal>
       <Reveal delay={80}>
-        <h2 className="font-display text-3xl md:text-4xl text-center mb-12 text-[var(--ink)]">
+        <h2 className="font-display text-3xl md:text-4xl text-center mb-14 text-[var(--ink)]">
           Three steps. That's it.
         </h2>
       </Reveal>
@@ -477,10 +477,10 @@ function RestaurantsSection() {
   return (
     <section id="restaurants" className="max-w-6xl mx-auto px-4 py-24">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "1.03125rem" }}>Directory</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.2em", textDecoration: "underline" }}>Directory</p>
       </Reveal>
       <Reveal delay={80}>
-        <h2 className="font-display text-3xl md:text-4xl text-center mb-4 text-[var(--ink)]">
+        <h2 className="font-display text-3xl md:text-4xl text-center mb-5 text-[var(--ink)]">
           Demo restaurants
         </h2>
       </Reveal>
@@ -625,10 +625,10 @@ function PricingSection() {
   return (
     <section id="pricing" className="max-w-5xl mx-auto px-4 py-24">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "1.03125rem" }}>Pricing</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.2em", textDecoration: "underline" }}>Pricing</p>
       </Reveal>
       <Reveal delay={80}>
-        <h2 className="font-display text-3xl md:text-4xl text-center mb-4 text-[var(--ink)]">
+        <h2 className="font-display text-3xl md:text-4xl text-center mb-5 text-[var(--ink)]">
           Simple, transparent pricing.
         </h2>
       </Reveal>
@@ -683,10 +683,10 @@ function ContactSection() {
   return (
     <section id="contact" className="max-w-2xl mx-auto px-4 py-24">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "1.03125rem" }}>Get in touch</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.2em", textDecoration: "underline" }}>Get in touch</p>
       </Reveal>
       <Reveal delay={80}>
-        <h2 className="font-display text-3xl md:text-4xl text-center mb-4 text-[var(--ink)]">
+        <h2 className="font-display text-3xl md:text-4xl text-center mb-5 text-[var(--ink)]">
           Questions? Ideas?
         </h2>
       </Reveal>
