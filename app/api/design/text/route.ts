@@ -7,25 +7,37 @@ export async function POST(req: Request) {
   const body = await req.json();
 
   const { org_id, text } = body;
-  if (!org_id || !text) {
+  if (!org_id || !text || typeof text !== "object") {
     return NextResponse.json({ error: "Missing org_id or text" }, { status: 400 });
+  }
+
+  // Partial update: only touch provided keys so per-field saves from the
+  // design console never wipe other org columns.
+  const columns: Record<string, string> = {
+    tagline: "tagline",
+    about_text: "about_text",
+    about_title: "about_title",
+    contact_heading: "contact_heading",
+    location: "location",
+    contact_phone: "contact_phone",
+    contact_email: "contact_email",
+    contact_address: "contact_address",
+  };
+  const update: Record<string, string | null> = {};
+  for (const [key, col] of Object.entries(columns)) {
+    if (text[key] !== undefined) update[col] = text[key];
+  }
+  if (text.location !== undefined) {
+    const locs = text.location.trim() ? text.location.split("\n").filter(Boolean) : [];
+    update.branches = locs;
+  }
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ error: "No updatable fields provided" }, { status: 400 });
   }
 
   const { error } = await admin
     .from("organizations")
-    .update({
-      tagline: text.tagline ?? null,
-      about_text: text.about_text ?? null,
-      about_title: text.about_title ?? null,
-      contact_heading: text.contact_heading ?? null,
-      location: text.location ?? null,
-      contact_phone: text.contact_phone ?? null,
-      contact_email: text.contact_email ?? null,
-      contact_address: text.contact_address ?? null,
-      ...(text.location && text.location.trim() ? {
-        branches: text.location.split("\n").filter(Boolean),
-      } : {}),
-    })
+    .update(update)
     .eq("id", org_id);
 
   if (error) {

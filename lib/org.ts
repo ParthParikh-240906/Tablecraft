@@ -1,4 +1,23 @@
 import { createClient } from "@/lib/supabase/server";
+import { hydrateSettings } from "@/lib/design";
+
+/**
+ * Fetch organization + paragraphs for the design console, and hydrate the
+ * design settings (v1 → v2) so every subpage renders immediately.
+ * Returns null when the org doesn't exist.
+ */
+export async function getDesignData(orgId: string) {
+  const [org, paragraphs] = await Promise.all([getOrgById(orgId), getParagraphsByOrg(orgId)]);
+  if (!org) return null;
+  return {
+    org,
+    paragraphs: paragraphs ?? [],
+    settings: hydrateSettings(org.design_settings as Record<string, any> | null | undefined),
+    orgName: org.name ?? "Restaurant",
+    slug: org.slug,
+    logoUrl: org.logo_url ?? null,
+  };
+}
 
 /**
  * List all public organizations (no auth required).
@@ -22,6 +41,21 @@ export async function getOrgs() {
  * Used by the public site pages (landing, menu) so they stay consistent.
  * Returns null if the org doesn't exist (caller renders notFound()).
  */
+/**
+ * Fetch an organization by its UUID (console pages use org_id, not slug).
+ * Returns null on error or not found.
+ */
+export async function getOrgById(orgId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("id, name, slug, logo_url, theme_color, theme_text_color, theme_secondary_color, theme_font_pair, theme_motif, tagline, about_text, about_title, contact_heading, location, restaurant_image_url, branches, contact_phone, contact_email, contact_address, design_settings, restaurant_photos, background_image_url")
+    .eq("id", orgId)
+    .maybeSingle();
+  if (error) { console.error("getOrgById:", error); return null; }
+  return data;
+}
+
 export async function getOrgBySlug(slug: string) {
   const supabase = await createClient();
 

@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { getDesignData } from "@/lib/org";
-import { CanvasPanel } from "./canvas-panel";
+import { HeroPanel } from "./hero-panel";
 
-export default async function ConsoleDesignPage() {
+export default async function ConsoleDesignHeroPage() {
   const supabase = await createClient();
 
   const {
@@ -20,31 +20,31 @@ export default async function ConsoleDesignPage() {
   const data = await getDesignData(staff.org_id);
   if (!data) return null;
 
+  const org = data.org;
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <h1 className="font-display text-2xl font-bold mb-2 text-[var(--ink)]">
-        Design
+        Hero
       </h1>
       <p className="text-sm text-[var(--ink-soft)] mb-6">
-        Header, page colors, and the layer canvas. Hero content, content
-        sections, and AI images live on their own pages.
+        Hero background and the text/logo elements that sit on top of it.
       </p>
-      <CanvasPanel
+      <HeroPanel
         orgId={staff.org_id}
         orgName={data.orgName}
         initialSettings={data.settings}
         org={{
-          name: data.org.name,
-          tagline: data.org.tagline ?? null,
-          logo_url: data.org.logo_url,
-          about_title: data.org.about_title ?? null,
-          about_text: data.org.about_text ?? null,
-          contact_heading: data.org.contact_heading ?? null,
-          location: data.org.location ?? null,
-          contact_phone: data.org.contact_phone ?? null,
-          contact_email: data.org.contact_email ?? null,
-          contact_address: data.org.contact_address ?? null,
-          restaurant_photos: (data.org.restaurant_photos as string[] | null) ?? [],
+          name: org.name,
+          tagline: org.tagline ?? null,
+          logo_url: org.logo_url,
+          about_title: org.about_title ?? null,
+          about_text: org.about_text ?? null,
+          contact_heading: org.contact_heading ?? null,
+          location: org.location ?? null,
+          contact_phone: org.contact_phone ?? null,
+          contact_email: org.contact_email ?? null,
+          contact_address: org.contact_address ?? null,
+          restaurant_photos: (org.restaurant_photos as string[] | null) ?? [],
         }}
         paragraphs={data.paragraphs}
       />

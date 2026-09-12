@@ -6,10 +6,14 @@ export function RestaurantPhotoCarousel({
   photos,
   name,
   accent,
+  intervalMs = 5000,
+  showArrows = true,
 }: {
   photos: string[] | null;
   name: string;
   accent: string;
+  intervalMs?: number;
+  showArrows?: boolean;
 }) {
   const [current, setCurrent] = useState(0);
 
@@ -17,9 +21,9 @@ export function RestaurantPhotoCarousel({
     if (!photos || photos.length <= 1) return;
     const timer = setInterval(() => {
       setCurrent((c) => (c + 1) % photos.length);
-    }, 5000);
+    }, intervalMs);
     return () => clearInterval(timer);
-  }, [photos]);
+  }, [photos, intervalMs]);
 
   if (!photos || photos.length === 0) return null;
 
@@ -36,24 +40,28 @@ export function RestaurantPhotoCarousel({
       />
       {photos.length > 1 && (
         <>
-          <button
-            type="button"
-            onClick={prev}
-            className="absolute left-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full flex items-center justify-center text-white shadow transition-opacity hover:opacity-90"
-            style={{ backgroundColor: accent }}
-            aria-label="Previous photo"
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            onClick={next}
-            className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full flex items-center justify-center text-white shadow transition-opacity hover:opacity-90"
-            style={{ backgroundColor: accent }}
-            aria-label="Next photo"
-          >
-            ›
-          </button>
+          {showArrows && (
+            <>
+              <button
+                type="button"
+                onClick={prev}
+                className="absolute left-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full flex items-center justify-center text-white shadow transition-opacity hover:opacity-90"
+                style={{ backgroundColor: accent }}
+                aria-label="Previous photo"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                onClick={next}
+                className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full flex items-center justify-center text-white shadow transition-opacity hover:opacity-90"
+                style={{ backgroundColor: accent }}
+                aria-label="Next photo"
+              >
+                ›
+              </button>
+            </>
+          )}
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
             {photos.map((_, i) => (
               <span
