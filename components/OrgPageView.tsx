@@ -288,7 +288,6 @@ function SiteHeader({
               fontFamily: h.design.fontFamily,
               fontSize: fS(h.design.fontSize),
               color: h.design.color,
-              textAlign: h.design.textAlign,
             }}
             className="font-semibold"
           >
@@ -327,8 +326,66 @@ function SiteHeader({
 
   return (
     <header ref={ref} className="sticky top-0 z-[70]">
-      {/* The decorative border is deliberate — see B above */}
-      {theme}
+      <div
+        className="relative z-[60] transition-all duration-300"
+        style={{
+          backgroundColor: hexToRgba(h.background_color, h.opacity / 100),
+          backdropFilter: scrolled ? "blur(12px)" : undefined,
+          boxShadow: scrolled ? "0 4px 24px rgba(0,0,0,0.35)" : undefined,
+          borderBottom: `2px solid ${colors.text}`,
+        }}
+      >
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            {org.logo_url ? (
+              <img src={org.logo_url} alt={`${org.name} logo`} className="h-8 w-8 rounded-full object-cover" />
+            ) : (
+              <span
+                className="h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold"
+                style={{ backgroundColor: colors.accent, color: colors.text }}
+              >
+                {org.name.charAt(0).toUpperCase()}
+              </span>
+            )}
+            <span
+              style={{
+                fontFamily: h.design.fontFamily,
+                fontSize: fS(h.design.fontSize),
+                color: h.design.color,
+              }}
+              className="font-semibold"
+            >
+              {org.name}
+            </span>
+          </div>
+          <nav className="hidden sm:flex items-center gap-4 text-sm" style={{ color: colors.text }}>
+            {mode === "site" && slug ? (
+              <>
+                <Link href={`/${slug}/menu`} className="hover:underline">Menu</Link>
+                <Link href={`/${slug}/cart`} className="hover:underline">Cart</Link>
+                <Link
+                  href={`/${slug}/reserve`}
+                  className="px-3 py-1.5 rounded-full text-sm font-medium border-2"
+                  style={{ backgroundColor: colors.accent, color: colors.text, borderColor: colors.accent }}
+                >
+                  Book a table
+                </Link>
+              </>
+            ) : (
+              <>
+                <span>Menu</span>
+                <span>Cart</span>
+                <span
+                  className="px-3 py-1.5 rounded-full text-sm font-medium border-2"
+                  style={{ backgroundColor: colors.accent, color: colors.text, borderColor: colors.accent }}
+                >
+                  Book a table
+                </span>
+              </>
+            )}
+          </nav>
+        </div>
+      </div>
     </header>
   );
 }

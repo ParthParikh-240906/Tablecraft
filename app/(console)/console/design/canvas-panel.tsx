@@ -62,21 +62,8 @@ function CanvasOverlay({
             {layers.map((l) => (
               <ResizableBox
                 key={l.id}
-                rect={{ x: 0, y: 0, w: 100, h: 100 }}
-                positionStyle={{
-                  left: `${l.x}%`,
-                  top: cvH(l.y),
-                  width: `${l.w}%`,
-                  height: cvH(l.h),
-                }}
-                onChange={(r) =>
-                  onLayerChange(l.id, {
-                    x: l.x + (r.x * l.w) / 100,
-                    y: l.y + (r.y * l.h) / 100,
-                    w: (l.w * r.w) / 100,
-                    h: (l.h * r.h) / 100,
-                  })
-                }
+                rect={l}
+                onChange={(r) => onLayerChange(l.id, r)}
                 selected={selected === l.id}
                 onSelect={() => onSelect(l.id)}
                 zIndex={l.z + 1}
@@ -91,8 +78,8 @@ function CanvasOverlay({
         createPortal(
           <div className="absolute inset-0 z-20 pointer-events-none">
             <ResizableBox
-              rect={{ x: 0, y: 0, w: 100, h: 100 }}
-              onChange={(r) => onHeroRectChange(Math.min(90, Math.max(10, (heroRect.h * r.h) / 100)))}
+              rect={{ x: 0, y: heroRect.y, w: 100, h: heroRect.h }}
+              onChange={(r) => onHeroRectChange(Math.min(90, Math.max(10, r.h)))}
               selected={selected === "hero"}
               onSelect={() => onSelect("hero")}
               zIndex={21}
