@@ -17,7 +17,6 @@ export function PreviewShell({
   colors,
   orgName,
   onGrowHero,
-  onGrowContent,
   children,
   previewHeight = 640,
 }: {
@@ -27,7 +26,6 @@ export function PreviewShell({
   colors: { bg: string; text: string; accent: string };
   orgName: string;
   onGrowHero?: (id: string, h: number) => void;
-  onGrowContent?: (id: string, h: number) => void;
   children?: ReactNode;
   previewHeight?: number;
 }) {
@@ -60,7 +58,7 @@ export function PreviewShell({
           paragraphs={paragraphs}
           colors={colors}
           onGrowHero={onGrowHero}
-          onGrowContent={onGrowContent}
+          previewHeight={previewHeight}
         />
         {children}
       </div>

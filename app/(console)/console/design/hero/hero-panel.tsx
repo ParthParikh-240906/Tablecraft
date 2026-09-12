@@ -81,6 +81,12 @@ export function HeroPanel({
   const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
   const [selected, setSelected] = useState<string | null>(null);
   const [adding, setAdding] = useState<"text" | "title" | null>(null);
+  const [previewHeight, setPreviewHeight] = useState(() => {
+    try {
+      const stored = Number(localStorage.getItem("tablecraft_preview_height"));
+      return [640, 960, 1280].includes(stored) ? stored : 640;
+    } catch { return 640; }
+  });
 
   const bg = settings.hero.background;
   const elements = settings.hero.elements;
@@ -354,6 +360,16 @@ export function HeroPanel({
         {/* ── Preview ──────────────────────────────────────────── */}
         <div className="space-y-4">
           <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Live Preview</h2>
+          <div className="flex items-center gap-2 mb-2">
+            <button type="button" onClick={() => setPreviewHeight((h) => {
+              const next = h === 640 ? 960 : h === 960 ? 1280 : 640;
+              try { localStorage.setItem("tablecraft_preview_height", String(next)); } catch {}
+              return next;
+            })} className="btn btn-outline text-xs px-2">
+              {previewHeight === 640 ? "Extend canvas (1.5×)" : previewHeight === 960 ? "Extend canvas (2×)" : "Collapse canvas"}
+            </button>
+            <span className="text-[10px] font-mono text-[var(--ink-faint)]">{previewHeight}px</span>
+          </div>
           <PreviewShell
             settings={settings}
             org={org}
@@ -364,6 +380,7 @@ export function HeroPanel({
               accent: settings.accent_color,
             }}
             orgName={orgName}
+            previewHeight={previewHeight}
             onGrowHero={(id, h) => updateEl(id, { h })}
           />
         </div>

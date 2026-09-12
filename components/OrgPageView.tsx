@@ -153,15 +153,11 @@ function ContentVisual({
   org,
   paragraphs,
   mode,
-  contentPx,
-  onGrow,
 }: {
   el: ContentElement;
   org: OrgView;
   paragraphs: { id: string; title: string | null; content: string | null }[];
   mode: "preview" | "site";
-  contentPx: number;
-  onGrow?: (id: string, h: number) => void;
 }) {
   const s = el.design;
 
@@ -223,18 +219,12 @@ function ContentVisual({
   if (!text) return null;
 
   return (
-    <FitText
-      bandPx={contentPx}
-      onGrow={onGrow ? (h) => onGrow(el.id, h) : undefined}
-      fontSize={s.fontSize}
-      fontFamily={s.fontFamily}
-      text={text}
-      widthPct={el.w}
+    <div
       className={`w-full h-full overflow-hidden leading-relaxed ${el.kind === "title" ? "font-bold" : ""}`}
       style={{ fontFamily: s.fontFamily, fontSize: fS(s.fontSize), color: s.color, textAlign: s.textAlign }}
     >
       <span className="whitespace-pre-line">{text}</span>
-    </FitText>
+    </div>
   );
 }
 
@@ -380,7 +370,7 @@ export function OrgPageView({
   mode,
   slug,
   onGrowHero,
-  onGrowContent,
+  previewHeight,
 }: {
   org: OrgView;
   settings: DesignSettingsV2;
@@ -389,7 +379,7 @@ export function OrgPageView({
   mode: "preview" | "site";
   slug?: string;
   onGrowHero?: (id: string, h: number) => void;
-  onGrowContent?: (id: string, h: number) => void;
+  previewHeight?: number;
 }) {
   const { ref, width: cw } = useContainerWidth();
   const hero = settings.hero;
@@ -404,7 +394,15 @@ export function OrgPageView({
       ? cw / heroBg.aspectRatio
       : cw * heroRect.h * 0.008;
   const contentMax = Math.max(...contentEls.map((e) => e.y + e.h), 100 - heroRect.h, 40);
-  const contentPx = cw * contentMax * 0.008;
+
+  // In preview mode with an extended canvas, size the content section to fill
+  // the remaining visible area (previewHeight - heroHeight). This makes the
+  // preview match the live site proportionally. Fall back to percentage-based
+  // sizing when no explicit previewHeight is given (live site, no extend).
+  const contentSectionHeight =
+    mode === "preview" && previewHeight && previewHeight > heroPx
+      ? fS(previewHeight - heroPx)
+      : undefined;
 
   const heroHeight =
     heroBg.type === "image" && heroBg.aspectRatio && heroBg.aspectRatio > 0
@@ -432,9 +430,9 @@ export function OrgPageView({
               className="absolute overflow-hidden pointer-events-none"
               style={{
                 left: `${l.x}%`,
-                top: isPreview ? `${l.y}%` : cvH(l.y),
+                top: cvH(l.y),
                 width: `${l.w}%`,
-                height: isPreview ? `${l.h}%` : cvH(l.h),
+                height: cvH(l.h),
                 zIndex: l.z,
                 opacity: (l.opacity ?? 100) / 100,
               }}
@@ -508,7 +506,7 @@ export function OrgPageView({
       {contentEls.length > 0 && (
         <section
           className="relative w-full"
-          style={{ height: cvH(contentMax), minHeight: 280, zIndex: 5 }}
+          style={{ height: contentSectionHeight ?? cvH(contentMax), minHeight: 280, zIndex: 5 }}
         >
           {contentEls.map((el) => (
             <div
@@ -521,8 +519,6 @@ export function OrgPageView({
                 org={org}
                 paragraphs={paragraphs}
                 mode={mode}
-                contentPx={contentPx}
-                onGrow={onGrowContent}
               />
             </div>
           ))}

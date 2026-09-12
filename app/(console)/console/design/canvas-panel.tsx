@@ -108,7 +108,12 @@ export function CanvasPanel({
   const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
   const [selected, setSelected] = useState<string | "hero" | null>(null);
   const [addType, setAddType] = useState<LayerType | null>(null);
-  const [previewHeight, setPreviewHeight] = useState(640);
+  const [previewHeight, setPreviewHeight] = useState(() => {
+    try {
+      const stored = Number(localStorage.getItem("tablecraft_preview_height"));
+      return [640, 960, 1280].includes(stored) ? stored : 640;
+    } catch { return 640; }
+  });
 
   const layers = settings.canvas.layers;
   const heroRect = settings.canvas.hero_rect;
@@ -459,7 +464,11 @@ export function CanvasPanel({
         <div className="space-y-4">
           <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Live Preview</h2>
           <div className="flex items-center gap-2 mb-2">
-            <button type="button" onClick={() => setPreviewHeight((h) => (h === 640 ? 960 : h === 960 ? 1280 : 640))} className="btn btn-outline text-xs px-2">
+            <button type="button" onClick={() => setPreviewHeight((h) => {
+              const next = h === 640 ? 960 : h === 960 ? 1280 : 640;
+              try { localStorage.setItem("tablecraft_preview_height", String(next)); } catch {}
+              return next;
+            })} className="btn btn-outline text-xs px-2">
               {previewHeight === 640 ? "Extend canvas (1.5×)" : previewHeight === 960 ? "Extend canvas (2×)" : "Collapse canvas"}
             </button>
             <span className="text-[10px] font-mono text-[var(--ink-faint)]">{previewHeight}px</span>

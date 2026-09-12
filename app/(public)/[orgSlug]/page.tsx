@@ -95,6 +95,7 @@ export default async function OrgLandingPage({
           text: hasSavedDesign ? design.text_color : (org.theme_text_color ?? "#f5f5f4"),
           accent: hasSavedDesign ? design.accent_color : (org.theme_secondary_color ?? "#f97316"),
         }}
+        previewHeight={640}
       />
     </>
   );

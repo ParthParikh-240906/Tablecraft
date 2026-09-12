@@ -10,9 +10,10 @@ import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
  * text height snaps back on the next font/content/width change.
  * Pass no onGrow to render a plain (non-measuring) box — used on the site.
  *
- * bandPx is read via a ref (not a dep) to avoid cascading re-measures
- * whenever ANY content element resizes — only real container-width changes
- * (detected via ResizeObserver) should trigger a re-measure.
+ * bandPx changes whenever ANY content element resizes (because contentPx
+ * depends on contentMax, which is driven by all element heights). To avoid
+ * an infinite re-measure loop, bandPx is cached in a ref and only the
+ * REFERENCE is checked on width-change events — not the prop itself.
  */
 export function FitText({
   bandPx,
@@ -41,14 +42,17 @@ export function FitText({
   const ref = useRef<HTMLDivElement>(null);
   const bandPxRef = useRef(bandPx);
   const lastCalledH = useRef(0);
+  const lastWidth = useRef(0);
+  const widthDirty = useRef(false);
 
-  // Keep the ref in sync with the current bandPx prop.
+  // Keep the ref in sync with the current bandPx prop (used when prop changes
+  // from font/size updates, not from sibling element growth).
   useEffect(() => {
     bandPxRef.current = bandPx;
   }, [bandPx]);
 
   useEffect(() => {
-    if (!onGrow || !bandPx || !ref.current) return;
+    if (!onGrow || !ref.current) return;
     const div = ref.current;
 
     const measure = () => {
@@ -72,17 +76,29 @@ export function FitText({
     let ro: ResizeObserver | null = null;
     if (parent) {
       ro = new ResizeObserver(() => {
-        const wid = requestAnimationFrame(measure);
-        return () => cancelAnimationFrame(wid);
+        const w = parent.clientWidth;
+        if (Math.abs(w - lastWidth.current) > 2) {
+          lastWidth.current = w;
+          // Width changed — sync the band height ref from the prop so the
+          // next measure uses the up-to-date value, then trigger measurement.
+          bandPxRef.current = bandPx;
+          widthDirty.current = true;
+        }
+        if (widthDirty.current) {
+          const wid = requestAnimationFrame(measure);
+          widthDirty.current = false;
+          return () => cancelAnimationFrame(wid);
+        }
       });
       ro.observe(parent);
+      lastWidth.current = parent.clientWidth;
     }
 
     return () => {
       cancelAnimationFrame(id);
       ro?.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- onGrow is stable per element; bandPx is read via ref
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- bandPx is read via ref to avoid cascade
   }, [fontSize, fontFamily, text, widthPct, minHPct]);
 
   return (
