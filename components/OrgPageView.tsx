@@ -421,25 +421,28 @@ export function OrgPageView({
       <SiteHeader org={org} settings={settings} colors={colors} slug={slug} mode={mode} />
 
       {/* Layers — decorative rectangles behind the hero/content */}
-      {layers
-        .slice()
-        .sort((a, b) => a.z - b.z)
-        .map((l) => (
-          <div
-            key={l.id}
-            className="absolute overflow-hidden pointer-events-none"
-            style={{
-              left: `${l.x}%`,
-              top: cvH(l.y),
-              width: `${l.w}%`,
-              height: cvH(l.h),
-              zIndex: l.z,
-              opacity: (l.opacity ?? 100) / 100,
-            }}
-          >
-            <LayerVisual l={l} />
-          </div>
-        ))}
+      {(() => {
+        const isPreview = mode === "preview";
+        return layers
+          .slice()
+          .sort((a, b) => a.z - b.z)
+          .map((l) => (
+            <div
+              key={l.id}
+              className="absolute overflow-hidden pointer-events-none"
+              style={{
+                left: `${l.x}%`,
+                top: isPreview ? `${l.y}%` : cvH(l.y),
+                width: `${l.w}%`,
+                height: isPreview ? `${l.h}%` : cvH(l.h),
+                zIndex: l.z,
+                opacity: (l.opacity ?? 100) / 100,
+              }}
+            >
+              <LayerVisual l={l} />
+            </div>
+          ));
+      })()}
 
       {/* Hero section */}
       <section
@@ -532,7 +535,10 @@ export function OrgPageView({
 
       {/* Console overlay slot: layer drag/resize boxes (whole page) */}
       {mode === "preview" && (
-        <div className="absolute inset-0 z-40 pointer-events-none" data-panel-overlays="layers" />
+        <div
+          className="absolute inset-0 z-40 pointer-events-none"
+          data-panel-overlays="layers"
+        />
       )}
     </div>
   );

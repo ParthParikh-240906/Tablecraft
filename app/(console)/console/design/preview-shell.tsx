@@ -19,6 +19,7 @@ export function PreviewShell({
   onGrowHero,
   onGrowContent,
   children,
+  previewHeight = 640,
 }: {
   settings: DesignSettingsV2;
   org: OrgView;
@@ -28,6 +29,7 @@ export function PreviewShell({
   onGrowHero?: (id: string, h: number) => void;
   onGrowContent?: (id: string, h: number) => void;
   children?: ReactNode;
+  previewHeight?: number;
 }) {
   // Make the 10 Google Fonts available to the preview.
   useEffect(() => {
@@ -39,6 +41,8 @@ export function PreviewShell({
     document.head.appendChild(link);
   }, []);
 
+  const hClass = previewHeight === 640 ? "h-[640px]" : previewHeight === 960 ? "h-[960px]" : previewHeight === 1280 ? "h-[1280px]" : `h-[${previewHeight}px]`;
+
   return (
     <div className="rounded-lg overflow-hidden border border-[var(--rule)] bg-[var(--paper-raised)]">
       <div className="flex items-center justify-between px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--ink-faint)] border-b border-[var(--rule)]">
@@ -46,7 +50,7 @@ export function PreviewShell({
         <span>{orgName}</span>
       </div>
       <div
-        className="h-[640px] overflow-y-auto relative scroll-smooth"
+        className={`${hClass} overflow-y-auto relative scroll-smooth`}
         style={{ backgroundColor: settings.background_color, color: settings.text_color }}
       >
         <OrgPageView

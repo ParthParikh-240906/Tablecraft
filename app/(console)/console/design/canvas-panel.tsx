@@ -23,9 +23,6 @@ const LAYER_TYPES: { type: LayerType; label: string }[] = [
   { type: "video", label: "Video" },
 ];
 
-// Design canvas is 800w x 640h — same height unit the shared renderer uses.
-const cvH = (pct: number) => `calc(${((pct * 0.8) / 100).toFixed(5)} * 100cqw)`;
-
 function useOverlaySlot(name: string) {
   const [el, setEl] = useState<HTMLElement | null>(null);
   useEffect(() => {
@@ -111,6 +108,7 @@ export function CanvasPanel({
   const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
   const [selected, setSelected] = useState<string | "hero" | null>(null);
   const [addType, setAddType] = useState<LayerType | null>(null);
+  const [previewHeight, setPreviewHeight] = useState(640);
 
   const layers = settings.canvas.layers;
   const heroRect = settings.canvas.hero_rect;
@@ -460,6 +458,12 @@ export function CanvasPanel({
         {/* ── Preview ──────────────────────────────────────────── */}
         <div className="space-y-4">
           <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Live Preview</h2>
+          <div className="flex items-center gap-2 mb-2">
+            <button type="button" onClick={() => setPreviewHeight((h) => (h === 640 ? 960 : h === 960 ? 1280 : 640))} className="btn btn-outline text-xs px-2">
+              {previewHeight === 640 ? "Extend canvas (1.5×)" : previewHeight === 960 ? "Extend canvas (2×)" : "Collapse canvas"}
+            </button>
+            <span className="text-[10px] font-mono text-[var(--ink-faint)]">{previewHeight}px</span>
+          </div>
           <PreviewShell
             settings={settings}
             org={org}
@@ -470,6 +474,7 @@ export function CanvasPanel({
               accent: settings.accent_color,
             }}
             orgName={orgName}
+            previewHeight={previewHeight}
           />
           <p className="text-xs text-[var(--ink-soft)] text-center">
             Drag layers and the hero band in the preview.
