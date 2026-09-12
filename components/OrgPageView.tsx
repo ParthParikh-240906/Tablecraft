@@ -54,23 +54,32 @@ function useContainerWidth() {
 }
 
 function LayerVisual({ l }: { l: Layer }) {
-  if (l.type === "image") {
-    return l.image_url ? (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={l.image_url} alt="" className="w-full h-full object-cover" draggable={false} />
-    ) : null;
-  }
-  if (l.type === "images") {
-    return l.image_urls && l.image_urls.length > 0 ? (
-      <AutoBackgroundCarousel urls={l.image_urls} intervalMs={4000} />
-    ) : null;
-  }
-  if (l.type === "video") {
-    return l.video_url ? (
-      <video src={l.video_url} muted autoPlay loop playsInline className="w-full h-full object-cover" />
-    ) : null;
-  }
-  return <div className="w-full h-full" style={{ backgroundColor: l.color }} />;
+  const borderStyle: React.CSSProperties = l.borderWidth
+    ? { borderWidth: l.borderWidth, borderColor: l.borderColor ?? "#ffffff", borderStyle: "solid" as const }
+    : {};
+  const content = l.type === "image"
+    ? (l.image_url
+        ? <img src={l.image_url} alt="" className="w-full h-full object-cover" draggable={false} />
+        : null)
+    : l.type === "images"
+      ? (l.image_urls && l.image_urls.length > 0 ? <AutoBackgroundCarousel urls={l.image_urls} intervalMs={4000} /> : null)
+      : l.type === "video"
+        ? (l.video_url
+            ? <video src={l.video_url} muted autoPlay loop playsInline className="w-full h-full object-cover" />
+            : null)
+        : <div className="w-full h-full" style={{ backgroundColor: l.color }} />;
+  return (
+    <div
+      className="w-full h-full"
+      style={{
+        ...borderStyle,
+        borderRadius: l.borderRadius ? `${l.borderRadius}px` : undefined,
+        overflow: "hidden",
+      }}
+    >
+      {content}
+    </div>
+  );
 }
 
 function BackgroundVisual({ bg }: { bg: HeroBackground }) {
@@ -247,87 +256,16 @@ function SiteHeader({
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    let sp: HTMLElement | null = el;
-    while (sp && !/(auto|scroll)/.test(getComputedStyle(sp).overflowY)) {
-      sp = sp.parentElement;
-    }
-    const target = (sp ?? document.scrollingElement) as Element;
-    const onScroll = () => setScrolled(target.scrollTop > 20);
+    const onScroll = () => setScrolled(window.scrollY > 20);
     onScroll();
-    target.addEventListener("scroll", onScroll, { passive: true });
-    return () => target.removeEventListener("scroll", onScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  const theme = (
-    <div
-      className="relative z-[60] transition-all duration-300"
-      style={{
-        backgroundColor: scrolled ? hexToRgba(h.background_color, h.opacity / 100) : "transparent",
-        backdropFilter: scrolled ? "blur(12px)" : undefined,
-        boxShadow: scrolled ? "0 4px 24px rgba(0,0,0,0.35)" : undefined,
-        borderBottom: `2px solid ${colors.text}`,
-      }}
-    >
-      <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          {org.logo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={org.logo_url} alt={`${org.name} logo`} className="h-8 w-8 rounded-full object-cover" />
-          ) : (
-            <span
-              className="h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold"
-              style={{ backgroundColor: colors.accent, color: colors.text }}
-            >
-              {org.name.charAt(0).toUpperCase()}
-            </span>
-          )}
-          <span
-            style={{
-              fontFamily: h.design.fontFamily,
-              fontSize: fS(h.design.fontSize),
-              color: h.design.color,
-            }}
-            className="font-semibold"
-          >
-            {org.name}
-          </span>
-        </div>
-        <nav className="hidden sm:flex items-center gap-4 text-sm" style={{ color: colors.text }}>
-          {mode === "site" && slug ? (
-            <>
-              <Link href={`/${slug}/menu`} className="hover:underline">Menu</Link>
-              <Link href={`/${slug}/cart`} className="hover:underline">Cart</Link>
-              <Link
-                href={`/${slug}/reserve`}
-                className="px-3 py-1.5 rounded-full text-sm font-medium border-2"
-                style={{ backgroundColor: colors.accent, color: colors.text, borderColor: colors.accent }}
-              >
-                Book a table
-              </Link>
-            </>
-          ) : (
-            <>
-              <span>Menu</span>
-              <span>Cart</span>
-              <span
-                className="px-3 py-1.5 rounded-full text-sm font-medium border-2"
-                style={{ backgroundColor: colors.accent, color: colors.text, borderColor: colors.accent }}
-              >
-                Book a table
-              </span>
-            </>
-          )}
-        </nav>
-      </div>
-    </div>
-  );
 
   return (
     <header ref={ref} className="sticky top-0 z-[70]">
       <div
-        className="relative z-[60] transition-all duration-300"
+        className="relative z-[60] transition-shadow duration-300"
         style={{
           backgroundColor: hexToRgba(h.background_color, h.opacity / 100),
           backdropFilter: scrolled ? "blur(12px)" : undefined,
@@ -342,7 +280,7 @@ function SiteHeader({
             ) : (
               <span
                 className="h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold"
-                style={{ backgroundColor: colors.accent, color: colors.text }}
+                style={{ backgroundColor: h.cta_design.bgColor, color: h.logo_color }}
               >
                 {org.name.charAt(0).toUpperCase()}
               </span>
@@ -358,26 +296,64 @@ function SiteHeader({
               {org.name}
             </span>
           </div>
-          <nav className="hidden sm:flex items-center gap-4 text-sm" style={{ color: colors.text }}>
+          <nav className="hidden sm:flex items-center gap-4">
             {mode === "site" && slug ? (
               <>
-                <Link href={`/${slug}/menu`} className="hover:underline">Menu</Link>
-                <Link href={`/${slug}/cart`} className="hover:underline">Cart</Link>
+                <Link
+                  href={`/${slug}/menu`}
+                  className="hover:underline"
+                  style={{ color: h.nav_design.color, fontFamily: h.nav_design.fontFamily, fontSize: fS(h.nav_design.fontSize) }}
+                >
+                  Menu
+                </Link>
+                <Link
+                  href={`/${slug}/cart`}
+                  className="hover:underline"
+                  style={{ color: h.nav_design.color, fontFamily: h.nav_design.fontFamily, fontSize: fS(h.nav_design.fontSize) }}
+                >
+                  Cart
+                </Link>
                 <Link
                   href={`/${slug}/reserve`}
-                  className="px-3 py-1.5 rounded-full text-sm font-medium border-2"
-                  style={{ backgroundColor: colors.accent, color: colors.text, borderColor: colors.accent }}
+                  className="font-medium border-2 hover:opacity-90 transition-opacity"
+                  style={{
+                    backgroundColor: h.cta_design.bgColor,
+                    color: h.cta_design.textColor,
+                    borderColor: h.cta_design.borderColor,
+                    borderRadius: h.cta_design.borderRadius,
+                    borderWidth: h.cta_design.borderWidth,
+                    fontSize: fS(h.cta_design.fontSize),
+                    fontFamily: h.cta_design.fontFamily,
+                    padding: "0.375rem 0.75rem",
+                  }}
                 >
                   Book a table
                 </Link>
               </>
             ) : (
               <>
-                <span>Menu</span>
-                <span>Cart</span>
                 <span
-                  className="px-3 py-1.5 rounded-full text-sm font-medium border-2"
-                  style={{ backgroundColor: colors.accent, color: colors.text, borderColor: colors.accent }}
+                  style={{ color: h.nav_design.color, fontFamily: h.nav_design.fontFamily, fontSize: fS(h.nav_design.fontSize) }}
+                >
+                  Menu
+                </span>
+                <span
+                  style={{ color: h.nav_design.color, fontFamily: h.nav_design.fontFamily, fontSize: fS(h.nav_design.fontSize) }}
+                >
+                  Cart
+                </span>
+                <span
+                  className="font-medium border-2"
+                  style={{
+                    backgroundColor: h.cta_design.bgColor,
+                    color: h.cta_design.textColor,
+                    borderColor: h.cta_design.borderColor,
+                    borderRadius: h.cta_design.borderRadius,
+                    borderWidth: h.cta_design.borderWidth,
+                    fontSize: fS(h.cta_design.fontSize),
+                    fontFamily: h.cta_design.fontFamily,
+                    padding: "0.375rem 0.75rem",
+                  }}
                 >
                   Book a table
                 </span>

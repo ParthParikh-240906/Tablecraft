@@ -329,6 +329,19 @@ export function HeroPanel({
                   Delete
                 </button>
               </div>
+              {sel && (sel.kind === "text" || sel.kind === "title") && (
+                <div className="space-y-2">
+                  <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+                    {sel.kind === "title" ? "Title text" : "Text content"}
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={sel.content ?? ""}
+                    onChange={(e) => updateEl(sel.id, { content: e.target.value })}
+                    className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-3 py-2 text-sm resize-y"
+                  />
+                </div>
+              )}
               <DesignField
                 label=""
                 design={sel.design}

@@ -10,6 +10,20 @@ export interface TextDesign {
   textAlign: "left" | "center" | "right";
 }
 
+export interface HeaderNavDesign {
+  color: string;
+  fontFamily: string;
+  fontSize: number;
+}
+export interface HeaderCtaDesign {
+  bgColor: string;
+  textColor: string;
+  borderColor: string;
+  fontFamily: string;
+  fontSize: number;
+  borderRadius: number; // px
+  borderWidth: number; // px
+}
 export type LayerType = "color" | "image" | "images" | "video";
 export type HeroElementKind = "logo" | "title" | "tagline" | "text";
 export type ContentElementKind = "title" | "text" | "image" | "images";
@@ -30,6 +44,9 @@ export interface Layer extends Rect {
   image_url?: string;
   image_urls?: string[];
   video_url?: string;
+  borderWidth?: number; // 0 = no border
+  borderColor?: string;
+  borderRadius?: number; // px, 0 = square
 }
 
 export interface HeroBackground {
@@ -78,6 +95,9 @@ export interface DesignSettingsV2 {
     background_color: string;
     opacity: number; // 0-100, marketing page uses ~90
     design: TextDesign; // brand text / nav text
+    logo_color: string;
+    nav_design: HeaderNavDesign;
+    cta_design: HeaderCtaDesign;
   };
   canvas: {
     hero_rect: { y: number; h: number }; // % of page height
@@ -149,12 +169,15 @@ export function newLayer(type: LayerType, z: number): Layer {
   return {
     id: uid(),
     type,
-    x: 0,
-    y: 0,
-    w: 100,
-    h: 100,
+    x: 5,
+    y: 5,
+    w: 40,
+    h: 35,
     z,
     opacity: 100,
+    borderWidth: 0,
+    borderColor: undefined,
+    borderRadius: 0,
     color: type === "color" ? "#1a1a1a" : undefined,
     image_urls: type === "images" ? [] : undefined,
   };
@@ -186,11 +209,29 @@ export function newContentElement(kind: ContentElementKind): ContentElement {
   return base;
 }
 
-export function defaultHeaderDesign(): { background_color: string; opacity: number; design: TextDesign } {
+export function defaultHeaderDesign(): {
+  background_color: string;
+  opacity: number;
+  design: TextDesign;
+  logo_color: string;
+  nav_design: HeaderNavDesign;
+  cta_design: HeaderCtaDesign;
+} {
   return {
     background_color: "#0f0f0f",
     opacity: 90,
     design: { ...DEFAULT_TEXT_DESIGN, fontSize: 18, textAlign: "left", color: "#f5f5f4" },
+    logo_color: "#f5f5f4",
+    nav_design: { color: "#f5f5f4", fontFamily: "Inter", fontSize: 14 },
+    cta_design: {
+      bgColor: "#f97316",
+      textColor: "#ffffff",
+      borderColor: "#f97316",
+      fontFamily: "Inter",
+      fontSize: 14,
+      borderRadius: 9999,
+      borderWidth: 2,
+    },
   };
 }
 
@@ -273,6 +314,9 @@ function normalizeHeader(h: any): DesignSettingsV2["header"] {
     background_color: h.background_color ?? d.background_color,
     opacity: h.opacity !== undefined ? Math.round(h.opacity * 100) : d.opacity,
     design: h.title_design ?? d.design,
+    logo_color: h.logo_color ?? d.logo_color,
+    nav_design: h.nav_design ?? d.nav_design,
+    cta_design: h.cta_design ?? d.cta_design,
   };
 }
 
@@ -294,9 +338,17 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
     restaurant_photos: legacy.restaurant_photos ?? [],
     header: normalizeHeader(legacy.header),
     canvas: legacy.canvas?.layers
-      ? legacy.canvas
+      ? {
+          ...legacy.canvas,
+          layers: legacy.canvas.layers.map((l: any) => ({
+            ...l,
+            borderWidth: l.borderWidth ?? 0,
+            borderColor: l.borderColor ?? undefined,
+            borderRadius: l.borderRadius ?? 0,
+          })),
+        }
       : legacy.page_layers
-        ? { hero_rect: { y: 14, h: 55 }, layers: migratePageLayers(legacy.page_layers) }
+        ? { hero_rect: { y: 14, h: 55 }, layers: migratePageLayers(legacy.page_layers).map((l: any) => ({ ...l, borderWidth: l.borderWidth ?? 0, borderColor: l.borderColor ?? undefined, borderRadius: l.borderRadius ?? 0 })) }
         : {
             hero_rect: { y: 14, h: 55 },
             layers: [],

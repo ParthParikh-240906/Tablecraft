@@ -10,6 +10,7 @@ import { ColorField, DesignField, OpacityField } from "./design-fields";
 import { type OrgView } from "@/components/OrgPageView";
 import {
   newLayer,
+  GOOGLE_FONTS,
   type DesignSettingsV2,
   type Layer,
   type LayerType,
@@ -195,6 +196,7 @@ export function CanvasPanel({
             <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Header</h3>
             <ColorField label="Header Background" value={settings.header.background_color} onChange={(v) => updateSettings({ header: { ...settings.header, background_color: v } })} />
             <OpacityField label="Header Background Opacity (on scroll)" value={settings.header.opacity} onChange={(v) => updateSettings({ header: { ...settings.header, opacity: v } })} />
+            <ColorField label="Logo color" value={settings.header.logo_color} onChange={(v) => updateSettings({ header: { ...settings.header, logo_color: v } })} />
             <div>
               <p className="text-xs font-mono text-[var(--ink-soft)] mb-1">Restaurant name</p>
               <DesignField
@@ -202,6 +204,82 @@ export function CanvasPanel({
                 design={settings.header.design}
                 onChange={(d) => updateSettings({ header: { ...settings.header, design: d } })}
               />
+            </div>
+            <div>
+              <p className="text-xs font-mono text-[var(--ink-soft)] mb-1">Nav text (Menu / Cart)</p>
+              <div className="grid grid-cols-3 gap-2 items-end">
+                <select
+                  value={settings.header.nav_design.fontFamily}
+                  onChange={(e) => updateSettings({ header: { ...settings.header, nav_design: { ...settings.header.nav_design, fontFamily: e.target.value } } })}
+                  className="col-span-1 w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs"
+                >
+                  {GOOGLE_FONTS.map((f) => (
+                    <option key={f.value} value={f.value}>{f.name}</option>
+                  ))}
+                </select>
+                <input
+                  type="number" min={8} max={160}
+                  value={settings.header.nav_design.fontSize}
+                  onChange={(e) => updateSettings({ header: { ...settings.header, nav_design: { ...settings.header.nav_design, fontSize: parseInt(e.target.value, 10) || 14 } } })}
+                  className="col-span-1 w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-sm"
+                />
+                <div className="col-span-1 flex items-center gap-1">
+                  <input type="color" value={settings.header.nav_design.color}
+                    onChange={(e) => updateSettings({ header: { ...settings.header, nav_design: { ...settings.header.nav_design, color: e.target.value } } })}
+                    className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
+                  <span className="text-[10px] font-mono text-[var(--ink-soft)]">{settings.header.nav_design.color}</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-mono text-[var(--ink-soft)] mb-1">Book a table button</p>
+              <div className="grid grid-cols-3 gap-2 items-end">
+                <select
+                  value={settings.header.cta_design.fontFamily}
+                  onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, fontFamily: e.target.value } } })}
+                  className="col-span-1 w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs"
+                >
+                  {GOOGLE_FONTS.map((f) => (
+                    <option key={f.value} value={f.value}>{f.name}</option>
+                  ))}
+                </select>
+                <input
+                  type="number" min={8} max={160}
+                  value={settings.header.cta_design.fontSize}
+                  onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, fontSize: parseInt(e.target.value, 10) || 14 } } })}
+                  className="col-span-1 w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-sm"
+                />
+                <div className="col-span-1 flex items-center gap-1">
+                  <input type="color" value={settings.header.cta_design.textColor}
+                    onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, textColor: e.target.value } } })}
+                    className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
+                  <span className="text-[10px] font-mono text-[var(--ink-soft)]">{settings.header.cta_design.textColor}</span>
+                </div>
+                <div className="col-span-1 flex items-center gap-1">
+                  <span className="text-[10px] font-mono text-[var(--ink-soft)]">BG</span>
+                  <input type="color" value={settings.header.cta_design.bgColor}
+                    onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, bgColor: e.target.value } } })}
+                    className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
+                </div>
+                <div className="col-span-1 flex items-center gap-1">
+                  <span className="text-[10px] font-mono text-[var(--ink-soft)]">Border</span>
+                  <input type="color" value={settings.header.cta_design.borderColor}
+                    onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, borderColor: e.target.value } } })}
+                    className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
+                </div>
+                <div className="col-span-1">
+                  <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Radius: {settings.header.cta_design.borderRadius}</label>
+                  <input type="range" min={0} max={9999} value={settings.header.cta_design.borderRadius}
+                    onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, borderRadius: parseInt(e.target.value, 10) } } })}
+                    className="w-full accent-[var(--accent)]" />
+                </div>
+                <div className="col-span-1">
+                  <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Width: {settings.header.cta_design.borderWidth}</label>
+                  <input type="range" min={0} max={8} value={settings.header.cta_design.borderWidth}
+                    onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, borderWidth: parseInt(e.target.value, 10) } } })}
+                    className="w-full accent-[var(--accent)]" />
+                </div>
+              </div>
             </div>
           </section>
 
@@ -253,6 +331,27 @@ export function CanvasPanel({
               {selectedLayer.type === "color" && (
                 <ColorField label="Color" value={selectedLayer.color ?? "#141414"} onChange={(v) => updateLayer(selectedLayer.id, { color: v })} />
               )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Border width: {selectedLayer.borderWidth ?? 0}</label>
+                  <input type="range" min={0} max={8} value={selectedLayer.borderWidth ?? 0}
+                    onChange={(e) => updateLayer(selectedLayer.id, { borderWidth: parseInt(e.target.value, 10) })}
+                    className="w-full accent-[var(--accent)]" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Border radius: {selectedLayer.borderRadius ?? 0}px</label>
+                  <input type="range" min={0} max={200} value={selectedLayer.borderRadius ?? 0}
+                    onChange={(e) => updateLayer(selectedLayer.id, { borderRadius: parseInt(e.target.value, 10) })}
+                    className="w-full accent-[var(--accent)]" />
+                </div>
+                <ColorField label="Border color" value={selectedLayer.borderColor ?? "#ffffff"} onChange={(v) => updateLayer(selectedLayer.id, { borderColor: v })} />
+                <div>
+                  <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">Opacity: {selectedLayer.opacity}%</label>
+                  <input type="range" min={0} max={100} value={selectedLayer.opacity}
+                    onChange={(e) => updateLayer(selectedLayer.id, { opacity: parseInt(e.target.value, 10) })}
+                    className="w-full accent-[var(--accent)]" />
+                </div>
+              </div>
               {selectedLayer.type === "image" && (
                 <div className="space-y-2">
                   <label className="btn btn-outline text-xs cursor-pointer inline-block">
