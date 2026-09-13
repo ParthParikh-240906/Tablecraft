@@ -109,19 +109,19 @@ export interface DesignSettingsV2 {
 // ─── Fonts ────────────────────────────────────────────────────────────────────
 
 export const GOOGLE_FONTS_CSS =
-  "https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Poppins:wght@400;700&family=Playfair+Display:wght@400;700&family=Lora:wght@400;700&family=Roboto+Slab:wght@400;700&family=Merriweather:wght@400;700&family=Open+Sans:wght@400;700&family=Montserrat:wght@400;700&family=Raleway:wght@400;700&family=Ubuntu:wght@400;700&display=swap";
+  "https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&family=Montserrat:wght@400;700&family=Poppins:wght@400;700&family=Lato:wght@400;700&family=Playfair+Display:wght@400;700&family=Lora:wght@400;700&family=DM+Sans:wght@400;700&family=Merriweather:wght@400;700&display=swap";
 
 export const GOOGLE_FONTS = [
   { name: "Inter", value: "'Inter', sans-serif" },
-  { name: "Poppins", value: "'Poppins', sans-serif" },
-  { name: "Playfair Display", value: "'Playfair Display', serif" },
-  { name: "Lora", value: "'Lora', serif" },
-  { name: "Roboto Slab", value: "'Roboto Slab', serif" },
-  { name: "Merriweather", value: "'Merriweather', serif" },
+  { name: "Roboto", value: "'Roboto', sans-serif" },
   { name: "Open Sans", value: "'Open Sans', sans-serif" },
   { name: "Montserrat", value: "'Montserrat', sans-serif" },
-  { name: "Raleway", value: "'Raleway', sans-serif" },
-  { name: "Ubuntu", value: "'Ubuntu', sans-serif" },
+  { name: "Poppins", value: "'Poppins', sans-serif" },
+  { name: "Lato", value: "'Lato', sans-serif" },
+  { name: "Playfair Display", value: "'Playfair Display', serif" },
+  { name: "Lora", value: "'Lora', serif" },
+  { name: "DM Sans", value: "'DM Sans', sans-serif" },
+  { name: "Merriweather", value: "'Merriweather', serif" },
 ];
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
@@ -427,6 +427,25 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
       ...base.content.elements.filter((e) => e.kind !== "shape"),
     ];
   }
+  // Removed fonts: remap saved families to the closest still-loaded one.
+  const FONT_REMAP: Record<string, string> = {
+    "'Raleway', sans-serif": "'Inter', sans-serif",
+    "'Ubuntu', sans-serif": "'Roboto', sans-serif",
+    "'Roboto Slab', serif": "'Merriweather', serif",
+  };
+  (function remapFonts(node: unknown) {
+    if (Array.isArray(node)) return node.forEach(remapFonts);
+    if (node && typeof node === "object") {
+      for (const key of Object.keys(node as Record<string, unknown>)) {
+        const v = (node as Record<string, unknown>)[key];
+        if (key === "fontFamily" && typeof v === "string" && FONT_REMAP[v]) {
+          (node as Record<string, unknown>)[key] = FONT_REMAP[v];
+        } else {
+          remapFonts(v);
+        }
+      }
+    }
+  })(base);
   return base;
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */

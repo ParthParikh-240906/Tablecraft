@@ -26,11 +26,13 @@ export function ResizableBox({
   lockMove = false,
   maxY = 100,
   positionStyle,
+  multiMode = false,
+  onMove,
 }: {
   rect: Rect;
   onChange: (r: Rect) => void;
   selected?: boolean;
-  onSelect?: () => void;
+  onSelect?: (e: React.PointerEvent) => void;
   zIndex?: number;
   label?: string;
   children?: ReactNode;
@@ -38,13 +40,17 @@ export function ResizableBox({
   lockMove?: boolean;
   maxY?: number;
   positionStyle?: React.CSSProperties;
+  /** Part of a multi-selection: dragging emits deltas (onMove) instead of an
+   *  absolute rect, and resize handles are hidden (group move only). */
+  multiMode?: boolean;
+  onMove?: (dx: number, dy: number) => void;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ mode: string; startX: number; startY: number; startRect: Rect } | null>(null);
 
   const onPointerDown = (e: React.PointerEvent, mode: string) => {
     if (mode === "move" && lockMove) return;
-    if (onSelect) onSelect();
+    if (onSelect) onSelect(e);
     drag.current = { mode, startX: e.clientX, startY: e.clientY, startRect: { ...rect } };
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -58,6 +64,11 @@ export function ResizableBox({
 
     const dx = ((e.clientX - startX) / pr.width) * 100;
     const dy = ((e.clientY - startY) / pr.height) * 100;
+
+    if (mode === "move" && multiMode) {
+      if (onMove) onMove(dx, dy);
+      return;
+    }
 
     const next: Rect = { ...startRect };
     if (mode === "move") {
@@ -99,6 +110,7 @@ export function ResizableBox({
         }`}
       >
         {selected &&
+          !multiMode &&
           HANDLES.map((h) => (
             <span
               key={h.key}

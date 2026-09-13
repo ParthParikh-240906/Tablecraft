@@ -31,12 +31,12 @@ export function RestaurantPhotoCarousel({
   const next = () => setCurrent((c) => (c + 1) % photos.length);
 
   return (
-    <div className="relative">
+    <div className="relative w-full h-full">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={photos[current]}
         alt={`${name} restaurant photo`}
-        className="rounded-2xl shadow-2xl w-full h-80 object-cover"
+        className="rounded-2xl shadow-2xl w-full h-full object-cover"
       />
       {photos.length > 1 && (
         <>

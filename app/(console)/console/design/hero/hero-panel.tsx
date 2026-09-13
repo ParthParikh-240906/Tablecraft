@@ -1,7 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useDesign } from "../use-design";
 import { ResizableBox } from "../resizable-box";
 import { PreviewShell } from "../preview-shell";
@@ -43,27 +43,96 @@ function HeroOverlay({
   selected,
   onSelect,
   onUpdate,
+  onMoveMany,
+  setSelected,
 }: {
   elements: HeroElement[];
-  selected: string | null;
-  onSelect: (id: string) => void;
+  selected: string[];
+  onSelect: (id: string, additive: boolean) => void;
   onUpdate: (id: string, patch: Partial<HeroElement>) => void;
+  /** dx/dy are TOTAL deltas from drag start; startRects are the rects at
+   *  drag start so the group moves 1:1 with the pointer (no accumulation). */
+  onMoveMany: (dx: number, dy: number, startRects: HeroElement[]) => void;
+  setSelected: React.Dispatch<React.SetStateAction<string[]>>;
 }) {
   const slot = useOverlaySlot("hero");
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const startRectsRef = useRef<HeroElement[]>([]);
+  const marqueeRef = useRef<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   if (!slot) return null;
+
+  const toPct = (e: React.PointerEvent) => {
+    const pr = wrapperRef.current!.getBoundingClientRect();
+    return { x: ((e.clientX - pr.left) / pr.width) * 100, y: ((e.clientY - pr.top) / pr.height) * 100 };
+  };
+
+  const intersect = (m: { x0: number; y0: number; x1: number; y1: number }) => {
+    const x0 = Math.min(m.x0, m.x1), x1 = Math.max(m.x0, m.x1);
+    const y0 = Math.min(m.y0, m.y1), y1 = Math.max(m.y0, m.y1);
+    return elements
+      .filter((el) => el.x < x1 && el.x + el.w > x0 && el.y < y1 && el.y + el.h > y0)
+      .map((el) => el.id);
+  };
+
   return createPortal(
-    <div className="absolute inset-0 pointer-events-auto">
+    <div
+      ref={wrapperRef}
+      className="absolute inset-0 pointer-events-auto"
+      onPointerDownCapture={() => {
+        // Remember where every box was when the drag started — the group
+        // moves from here, so dragging feels identical to a single box.
+        startRectsRef.current = elements;
+      }}
+      onPointerDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        const p = toPct(e);
+        marqueeRef.current = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        if (!marqueeRef.current) return;
+        const p = toPct(e);
+        const m = { ...marqueeRef.current, x1: p.x, y1: p.y };
+        marqueeRef.current = m;
+        setMarquee(m);
+        const ids = intersect(m);
+        if (e.shiftKey || e.metaKey || e.ctrlKey) {
+          setSelected((prev) => [...new Set([...prev, ...ids])]);
+        } else {
+          setSelected(ids);
+        }
+      }}
+      onPointerUp={() => {
+        if (!marqueeRef.current) return;
+        marqueeRef.current = null;
+        setMarquee(null);
+      }}
+    >
       {elements.map((el) => (
         <ResizableBox
           key={el.id}
           rect={{ x: el.x, y: el.y, w: el.w, h: el.h }}
           onChange={(r) => onUpdate(el.id, r)}
-          selected={selected === el.id}
-          onSelect={() => onSelect(el.id)}
+          selected={selected.includes(el.id)}
+          onSelect={(ev) => onSelect(el.id, ev.shiftKey || ev.metaKey || ev.ctrlKey)}
+          onMove={(dx, dy) => onMoveMany(dx, dy, startRectsRef.current)}
+          multiMode={selected.length > 1 && selected.includes(el.id)}
           zIndex={31}
           label={KIND_LABELS[el.kind]}
         />
       ))}
+      {marquee && (
+        <div
+          className="absolute border-2 border-sky-400/80 bg-sky-400/10 pointer-events-none"
+          style={{
+            left: `${Math.min(marquee.x0, marquee.x1)}%`,
+            top: `${Math.min(marquee.y0, marquee.y1)}%`,
+            width: `${Math.abs(marquee.x1 - marquee.x0)}%`,
+            height: `${Math.abs(marquee.y1 - marquee.y0)}%`,
+          }}
+        />
+      )}
     </div>,
     slot,
   );
@@ -83,7 +152,7 @@ export function HeroPanel({
   paragraphs: { id: string; title: string | null; content: string | null }[];
 }) {
   const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
   const [adding, setAdding] = useState<HeroElementKind | null>(null);
   const [previewHeight, setPreviewHeight] = useState(() => {
     try {
@@ -91,6 +160,15 @@ export function HeroPanel({
       return [640, 960, 1280].includes(stored) ? stored : 640;
     } catch { return 640; }
   });
+
+  // Esc clears the selection.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelected([]);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const bg = settings.hero.background;
   const elements = settings.hero.elements;
@@ -112,15 +190,55 @@ export function HeroPanel({
 
   const removeEl = (id: string) => {
     updateSettings({ hero: { ...settings.hero, elements: elements.filter((e) => e.id !== id) } });
-    setSelected(null);
+    setSelected((prev) => prev.filter((x) => x !== id));
   };
 
   const addEl = (kind: HeroElementKind) => {
     const el = newHeroElement(kind, kind === "title" ? 30 : 18);
     // Shapes go to the back (bottom of the stack); everything else on top.
     updateSettings({ hero: { ...settings.hero, elements: kind === "shape" ? [el, ...elements] : [...elements, el] } });
-    setSelected(el.id);
+    setSelected([el.id]);
     setAdding(null);
+  };
+
+  // Click (or ⇧/⌘ + click) on a box: additive toggles, plain click selects one.
+  const handleSelect = (id: string, additive: boolean) => {
+    setSelected((prev) => {
+      if (additive) return prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      return prev.includes(id) ? prev : [id];
+    });
+  };
+
+  // Drag of any selected box moves the whole group. startRects are where the
+  // boxes sat when the drag began, so the group tracks the pointer 1:1 (same
+  // feel as a single box — no delta accumulation). The group is clamped as
+  // ONE bounding box, so hitting an edge stops the whole group together and
+  // keeps the relative layout intact.
+  const moveMany = (dx: number, dy: number, startRects: HeroElement[]) => {
+    if (selected.length === 0) return;
+    const items = startRects.filter((e) => selected.includes(e.id));
+    if (items.length === 0) return;
+    const b = {
+      x0: Math.min(...items.map((e) => e.x)),
+      y0: Math.min(...items.map((e) => e.y)),
+      x1: Math.max(...items.map((e) => e.x + e.w)),
+      y1: Math.max(...items.map((e) => e.y + e.h)),
+    };
+    const bw = b.x1 - b.x0, bh = b.y1 - b.y0;
+    const nx = bw >= 100 ? b.x0 + dx : Math.min(100 - bw, Math.max(0, b.x0 + dx));
+    const ny = bh >= 100 ? b.y0 + dy : Math.min(100 - bh, Math.max(0, b.y0 + dy));
+    const adx = nx - b.x0, ady = ny - b.y0;
+    const startById = new Map(startRects.map((e) => [e.id, e]));
+    updateSettings({
+      hero: {
+        ...settings.hero,
+        elements: elements.map((e) => {
+          if (!selected.includes(e.id)) return e;
+          const s = startById.get(e.id);
+          return { ...e, x: (s?.x ?? e.x) + adx, y: (s?.y ?? e.y) + ady };
+        }),
+      },
+    });
   };
 
   const moveEl = (id: string, dir: -1 | 1) => {
@@ -149,7 +267,7 @@ export function HeroPanel({
     return res.ok ? (data.url as string) : (alert(data.error ?? "Upload failed"), null);
   };
 
-  const sel = elements.find((e) => e.id === selected);
+  const sel = selected.length === 1 ? (elements.find((e) => e.id === selected[0]) ?? null) : null;
 
   return (
     <div>
@@ -322,12 +440,12 @@ export function HeroPanel({
                 <div
                   key={el.id}
                   className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs transition-colors ${
-                    selected === el.id ? "bg-[var(--accent)] text-white" : "hover:bg-[var(--rule)]"
+                    selected.includes(el.id) ? "bg-[var(--accent)] text-white" : "hover:bg-[var(--rule)]"
                   }`}
                 >
                   <button
                     type="button"
-                    onClick={() => setSelected(el.id === selected ? null : el.id)}
+                    onClick={(ev) => handleSelect(el.id, ev.shiftKey || ev.metaKey || ev.ctrlKey)}
                     className="flex-1 text-left truncate"
                   >
                     <span className="font-mono mr-2 text-[10px] opacity-60">{el.kind.slice(0, 3).toUpperCase()}</span>
@@ -459,9 +577,11 @@ export function HeroPanel({
       {/* Hero element overlay portals */}
       <HeroOverlay
         elements={elements}
-        selected={selected ?? null}
-        onSelect={(id) => setSelected(id)}
+        selected={selected}
+        onSelect={handleSelect}
         onUpdate={updateEl}
+        onMoveMany={moveMany}
+        setSelected={setSelected}
       />
     </div>
   );
