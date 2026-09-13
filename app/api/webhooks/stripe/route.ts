@@ -53,47 +53,8 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient();
 
-  // ─── One-time order payments ──────────────────────────────────────────────
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
-    const orderId = session.client_reference_id || session.metadata?.orderId;
-
-    if (orderId) {
-      const { error } = await supabase
-        .from("orders")
-        .update({
-          status: "paid",
-          stripe_session_id: session.id,
-        })
-        .eq("id", orderId);
-
-      if (error) {
-        console.error("Failed to mark order as paid:", error);
-        return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
-      }
-      console.log(`Order ${orderId} marked as paid successfully`);
-    }
-
-    // Also handle one-time setup-fee checkouts
-    if (session.metadata?.type === "setup-fee" && session.metadata?.orgId) {
-      console.log(`Setup fee paid for org ${session.metadata.orgId} (plan: ${session.metadata.plan})`);
-    }
-  }
-
-  else if (event.type === "checkout.session.async_payment_failed" || event.type === "checkout.session.expired") {
-    const session = event.data.object as Stripe.Checkout.Session;
-    const orderId = session.client_reference_id || session.metadata?.orderId;
-
-    if (orderId) {
-      await supabase
-        .from("orders")
-        .update({ status: "failed" })
-        .eq("id", orderId);
-    }
-  }
-
   // ─── Subscription lifecycle events ────────────────────────────────────────
-  else if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
+  if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
     const sub = event.data.object as Stripe.Subscription & { current_period_end?: number };
     const orgSlug = await resolveOrgSlug(supabase, sub.metadata);
 

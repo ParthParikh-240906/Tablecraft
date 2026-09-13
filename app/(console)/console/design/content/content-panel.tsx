@@ -21,6 +21,7 @@ const KIND_LABELS: Record<string, string> = {
   image: "Image",
   images: "Images (carousel)",
   shape: "Shape",
+  button: "Button",
 };
 
 function useOverlaySlot(name: string) {
@@ -207,6 +208,13 @@ export function ContentPanel({
     setSelected([el.id]);
   };
 
+  const addButton = (buttonType: "book" | "menu") => {
+    const el = newContentElement("button");
+    el.buttonType = buttonType;
+    updateSettings({ content: { elements: [...elements, el] } });
+    setSelected([el.id]);
+  };
+
   // Click (or ⇧/⌘ + click) on a box: additive toggles, plain click selects one.
   const handleSelect = (id: string, additive: boolean) => {
     setSelected((prev) => {
@@ -303,13 +311,31 @@ export function ContentPanel({
                 </div>
               ))}
             </div>
-            <div className="flex gap-2">
-              {(["title", "text", "image", "images", "shape"] as ContentElementKind[]).map((k) => (
+            <div className="flex flex-wrap gap-2">
+              {(["title", "text", "image", "images", "shape", "button"] as ContentElementKind[]).map((k) => (
                 <button key={k} type="button" onClick={() => addEl(k)} className="btn btn-outline text-xs">
                   + {KIND_LABELS[k]}
                 </button>
               ))}
             </div>
+            {selected.length === 1 && sel?.kind === "button" && (
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => addButton("book")}
+                  className="block w-full text-left px-3 py-2 text-xs border border-[var(--accent)]/50 rounded hover:bg-[var(--accent)]/10 text-[var(--accent)]"
+                >
+                  Book a table
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addButton("menu")}
+                  className="block w-full text-left px-3 py-2 text-xs border border-[var(--accent)]/50 rounded hover:bg-[var(--accent)]/10 text-[var(--accent)]"
+                >
+                  Menu
+                </button>
+              </div>
+            )}
           </section>
 
           {/* Selected element controls */}
@@ -379,6 +405,38 @@ export function ContentPanel({
                 </div>
               )}
 
+              {sel.kind === "button" && (
+                <>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+                      Button type
+                    </label>
+                    <div className="flex gap-2">
+                      {(["book", "menu"] as const).map((bt) => (
+                        <button
+                          key={bt}
+                          type="button"
+                          onClick={() => updateEl(sel.id, { buttonType: bt })}
+                          className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                            sel.buttonType === bt
+                              ? "bg-[var(--accent)] border-[var(--accent)] text-white"
+                              : "border-[var(--rule)] text-[var(--ink-soft)]"
+                          }`}
+                        >
+                          {bt === "book" ? "Book a table" : "Menu"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <ColorField label="Button background" value={sel.bgColor ?? "#f97316"} onChange={(v) => updateEl(sel.id, { bgColor: v })} />
+                  <DesignField
+                    label=""
+                    design={sel.design}
+                    onChange={(d) => updateEl(sel.id, { design: d })}
+                  />
+                </>
+              )}
+
               {sel.kind === "shape" && (
                 <>
                   <ColorField label="Color" value={sel.color ?? "#141414"} onChange={(v) => updateEl(sel.id, { color: v })} />
@@ -406,7 +464,7 @@ export function ContentPanel({
                 </>
               )}
 
-              {sel.kind !== "shape" && (
+              {sel.kind !== "shape" && sel.kind !== "button" && (
                 <DesignField
                   label=""
                   design={sel.design}

@@ -24,8 +24,9 @@ const KIND_LABELS: Record<string, string> = {
   text: "Text",
   shape: "Shape",
   image: "Image",
+  button: "Button",
 };
-const SHAPE_KINDS: HeroElementKind[] = ["text", "title", "shape", "image"];
+const SHAPE_KINDS: HeroElementKind[] = ["logo", "text", "title", "shape", "image", "button"];
 
 function useOverlaySlot(name: string) {
   const [el, setEl] = useState<HTMLElement | null>(null);
@@ -197,6 +198,14 @@ export function HeroPanel({
     const el = newHeroElement(kind, kind === "title" ? 30 : 18);
     // Shapes go to the back (bottom of the stack); everything else on top.
     updateSettings({ hero: { ...settings.hero, elements: kind === "shape" ? [el, ...elements] : [...elements, el] } });
+    setSelected([el.id]);
+    setAdding(null);
+  };
+
+  const addButton = (buttonType: "book" | "menu") => {
+    const el = newHeroElement("button", 16);
+    el.buttonType = buttonType;
+    updateSettings({ hero: { ...settings.hero, elements: [...elements, el] } });
     setSelected([el.id]);
     setAdding(null);
   };
@@ -412,7 +421,7 @@ export function HeroPanel({
             <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
               Hero Elements
             </h3>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {SHAPE_KINDS.map((k) => (
                 <button
                   key={k}
@@ -425,7 +434,25 @@ export function HeroPanel({
               ))}
             </div>
 
-            {adding && (
+            {adding === "button" && (
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => addButton("book")}
+                  className="block w-full text-left px-3 py-2 text-xs border border-[var(--accent)]/50 rounded hover:bg-[var(--accent)]/10 text-[var(--accent)]"
+                >
+                  Book a table
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addButton("menu")}
+                  className="block w-full text-left px-3 py-2 text-xs border border-[var(--accent)]/50 rounded hover:bg-[var(--accent)]/10 text-[var(--accent)]"
+                >
+                  Menu
+                </button>
+              </div>
+            )}
+            {adding && adding !== "button" && (
               <button
                 type="button"
                 onClick={() => addEl(adding)}
@@ -519,7 +546,38 @@ export function HeroPanel({
                   <OpacityField label="Opacity" value={sel.opacity ?? 100} onChange={(v) => updateEl(sel.id, { opacity: v })} />
                 </div>
               )}
-              {sel.kind !== "shape" && sel.kind !== "image" && (
+              {sel.kind === "button" && (
+                <>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+                      Button type
+                    </label>
+                    <div className="flex gap-2">
+                      {(["book", "menu"] as const).map((bt) => (
+                        <button
+                          key={bt}
+                          type="button"
+                          onClick={() => updateEl(sel.id, { buttonType: bt })}
+                          className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                            sel.buttonType === bt
+                              ? "bg-[var(--accent)] border-[var(--accent)] text-white"
+                              : "border-[var(--rule)] text-[var(--ink-soft)]"
+                          }`}
+                        >
+                          {bt === "book" ? "Book a table" : "Menu"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <ColorField label="Button background" value={sel.bgColor ?? "#f97316"} onChange={(v) => updateEl(sel.id, { bgColor: v })} />
+                  <DesignField
+                    label=""
+                    design={sel.design}
+                    onChange={(d) => updateEl(sel.id, { design: d })}
+                  />
+                </>
+              )}
+              {sel.kind !== "shape" && sel.kind !== "image" && sel.kind !== "button" && (
                 <>
                   {sel && (sel.kind === "text" || sel.kind === "title") && (
                     <div className="space-y-2">

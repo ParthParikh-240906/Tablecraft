@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org";
 import { hydrateSettings } from "@/lib/design";
-import { CartProvider } from "@/lib/cart";
 import { BookingChatbot } from "@/components/BookingChatbot";
 import { PublicSiteFrame } from "@/components/PublicSiteFrame";
 
@@ -28,8 +27,21 @@ export default async function PublicLayout({
   const textColor = hasSavedDesign ? design.text_color : (org.theme_text_color ?? "#f5f5f4");
   const highlightColor = hasSavedDesign ? design.accent_color : (org.theme_secondary_color ?? "#f97316");
 
+  const orgView = {
+    name: org.name,
+    tagline: org.tagline ?? null,
+    logo_url: org.logo_url,
+    about_title: org.about_title ?? null,
+    about_text: org.about_text ?? null,
+    contact_heading: org.contact_heading ?? null,
+    location: org.location ?? null,
+    contact_phone: org.contact_phone ?? null,
+    contact_email: org.contact_email ?? null,
+    contact_address: org.contact_address ?? null,
+    restaurant_photos: (org.restaurant_photos as string[] | null) ?? [],
+  };
+
   return (
-    <CartProvider orgSlug={org.slug}>
     <div
       data-theme="light"
       className="theme-light min-h-screen flex flex-col"
@@ -40,14 +52,14 @@ export default async function PublicLayout({
       }}
     >
       <PublicSiteFrame
-        orgName={org.name}
         slug={org.slug}
-        logoUrl={org.logo_url}
-        accent={highlightColor}
-        textColor={textColor}
-        headerBg={design.header.background_color}
-        headerOpacity={design.header.opacity}
-        headerDesign={design.header.design}
+        org={orgView}
+        settings={design}
+        colors={{
+          bg: mainColor,
+          text: textColor,
+          accent: highlightColor,
+        }}
       />
 
       <main className="flex-1">{children}</main>
@@ -66,8 +78,12 @@ export default async function PublicLayout({
   </Link>
 </footer>
 
-      <BookingChatbot orgSlug={org.slug} orgName={org.name} accent={highlightColor} />
+      <BookingChatbot
+        orgSlug={org.slug}
+        orgName={org.name}
+        accent={highlightColor}
+        chatbot={design.chatbot}
+      />
     </div>
-    </CartProvider>
   );
 }

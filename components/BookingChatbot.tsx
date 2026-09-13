@@ -31,11 +31,24 @@ export function BookingChatbot({
   orgSlug,
   orgName,
   accent,
+  chatbot,
 }: {
   orgSlug: string;
   orgName: string;
   accent: string;
+  chatbot?: {
+    color?: string;
+    logo_url?: string | null;
+    text_color?: string;
+    text_size?: number;
+    font_family?: string;
+  };
 }) {
+  const chatColor = chatbot?.color ?? accent;
+  const chatTextColor = chatbot?.text_color ?? "#ffffff";
+  const chatTextSize = chatbot?.text_size ?? 14;
+  const chatFontFamily = chatbot?.font_family ?? "Inter";
+  const chatLogo = chatbot?.logo_url ?? null;
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [slots, setSlots] = useState<SlotState>({ name: null, party_size: null, date: null, time: null });
@@ -254,18 +267,23 @@ export function BookingChatbot({
       <button
         onClick={() => setOpen(true)}
         className="fixed bottom-5 right-5 z-50 h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
-        style={{ backgroundColor: accent }}
+        style={{ backgroundColor: chatColor }}
         aria-label="Open booking assistant"
       >
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="11" width="18" height="10" rx="2" />
-          <circle cx="12" cy="6" r="3" />
-          <line x1="12" y1="9" x2="12" y2="11" />
-          <line x1="8" y1="14" x2="8" y2="17" />
-          <line x1="16" y1="14" x2="16" y2="17" />
-          <line x1="10" y1="15" x2="10" y2="16" />
-          <line x1="14" y1="15" x2="14" y2="16" />
-        </svg>
+        {chatLogo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={chatLogo} alt="" className="h-8 w-8 rounded-full object-cover" />
+        ) : (
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="10" rx="2" />
+            <circle cx="12" cy="6" r="3" />
+            <line x1="12" y1="9" x2="12" y2="11" />
+            <line x1="8" y1="14" x2="8" y2="17" />
+            <line x1="16" y1="14" x2="16" y2="17" />
+            <line x1="10" y1="15" x2="10" y2="16" />
+            <line x1="14" y1="15" x2="14" y2="16" />
+          </svg>
+        )}
       </button>
     );
   }
@@ -292,15 +310,20 @@ export function BookingChatbot({
       {/* Header */}
       <div
         className="flex items-center justify-between px-4 py-3 border-b"
-        style={{ borderColor: "var(--rule)", backgroundColor: accent }}
+        style={{ borderColor: "var(--rule)", backgroundColor: chatColor }}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-lg">🤖</span>
+          {chatLogo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={chatLogo} alt="" className="h-8 w-8 rounded-full object-cover" />
+          ) : (
+            <span className="text-lg">🤖</span>
+          )}
           <div className="min-w-0">
-            <p className="text-sm font-semibold truncate" style={{ color: "var(--ink)" }}>
+            <p className="text-sm font-semibold truncate" style={{ color: chatTextColor, fontFamily: chatFontFamily, fontSize: chatTextSize }}>
               Book a table
             </p>
-            <p className="text-xs" style={{ color: "black" }}>
+            <p className="text-xs" style={{ color: chatTextColor, opacity: 0.8, fontFamily: chatFontFamily }}>
               {orgName}
             </p>
           </div>
@@ -343,8 +366,8 @@ export function BookingChatbot({
               className="max-w-[85%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap leading-relaxed"
               style={
                 m.role === "user"
-                  ? { backgroundColor: accent, color: "#fff" }
-                  : { backgroundColor: "var(--paper-overlay)", color: "var(--ink)" }
+                  ? { backgroundColor: chatColor, color: chatTextColor, fontFamily: chatFontFamily, fontSize: chatTextSize }
+                  : { backgroundColor: "var(--paper-overlay)", color: "var(--ink)", fontFamily: chatFontFamily, fontSize: chatTextSize }
               }
             >
               {m.text}
@@ -414,9 +437,9 @@ export function BookingChatbot({
             <button
               onClick={submitBooking}
               className="flex-1 py-2 rounded-full text-sm font-semibold text-white transition-transform active:scale-[0.98]"
-              style={{ backgroundColor: accent }}
+              style={{ backgroundColor: chatColor, color: chatTextColor, fontFamily: chatFontFamily }}
             >
-              Confirm &amp; Book
+              Confirm & Book
             </button>
             <button
               onClick={() => setStatus("collecting")}
@@ -434,7 +457,7 @@ export function BookingChatbot({
         <div className="px-4 py-5 text-center space-y-2">
           <div
             className="h-10 w-10 rounded-full mx-auto flex items-center justify-center text-white text-xl"
-            style={{ backgroundColor: accent }}
+            style={{ backgroundColor: chatColor, color: chatTextColor }}
           >
             ✓
           </div>
@@ -462,7 +485,7 @@ export function BookingChatbot({
             <button
               onClick={() => submitComboBooking(comboDetails)}
               className="flex-1 py-2 rounded-full text-sm font-semibold text-white transition-transform active:scale-[0.98]"
-              style={{ backgroundColor: accent }}
+              style={{ backgroundColor: chatColor, color: chatTextColor, fontFamily: chatFontFamily }}
             >
               Yes, proceed
             </button>
@@ -493,7 +516,7 @@ export function BookingChatbot({
             onClick={() => input.trim() && sendMessage(input)}
             disabled={!input.trim()}
             className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-opacity disabled:opacity-30"
-            style={{ backgroundColor: accent }}
+            style={{ backgroundColor: chatColor }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
@@ -511,7 +534,7 @@ export function BookingChatbot({
           <a
             href={`/${orgSlug}/reserve`}
             className="text-xs font-medium px-4 py-2 rounded-full inline-block transition-opacity hover:opacity-80"
-            style={{ backgroundColor: accent, color: "#fff" }}
+            style={{ backgroundColor: chatColor, color: chatTextColor, fontFamily: chatFontFamily }}
           >
             Open booking form
           </a>

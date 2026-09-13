@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useDesign } from "../use-design";
 import { DesignNav } from "../design-nav";
-import { newContentElement, newHeroElement, type DesignSettingsV2 } from "@/lib/design";
+import { ColorField } from "../design-fields";
+import { GOOGLE_FONTS, newContentElement, newHeroElement, type DesignSettingsV2 } from "@/lib/design";
 
-export function ImageGenPanel({
+export function AiPanel({
   orgId,
   initialSettings,
   orgName,
@@ -87,6 +88,19 @@ export function ImageGenPanel({
     updateSettings({ hero: { ...settings.hero, elements: [...settings.hero.elements, el] } });
   };
 
+  // Chatbot settings
+  const chatbot = settings.chatbot ?? {
+    color: "#f97316",
+    logo_url: null as string | null,
+    text_color: "#ffffff",
+    text_size: 14,
+    font_family: "Inter",
+  };
+
+  const updateChatbot = (patch: Partial<typeof chatbot>) => {
+    updateSettings({ chatbot: { ...chatbot, ...patch } } as Partial<DesignSettingsV2>);
+  };
+
   return (
     <div>
       <DesignNav />
@@ -94,12 +108,13 @@ export function ImageGenPanel({
         {/* ── Controls ─────────────────────────────────────────── */}
         <div className="space-y-8">
           <div className="flex items-center justify-between">
-            <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Image Generation</h2>
+            <h2 className="font-display text-lg font-semibold text-[var(--ink)]">AI Tools</h2>
             <span className="text-xs text-[var(--ink-faint)]">
               {saving ? "Saving…" : saved ? "✓ Saved" : ""}
             </span>
           </div>
 
+          {/* AI Image Generator */}
           <section className="ticket p-5 space-y-3">
             <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
               AI Image Generator
@@ -190,6 +205,99 @@ export function ImageGenPanel({
               <p className="text-[10px] font-mono text-[var(--ink-faint)] break-all">{result}</p>
             </section>
           )}
+
+          {/* AI Chatbot Configurables */}
+          <section className="ticket p-5 space-y-3">
+            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
+              AI Chatbot
+            </h3>
+            <p className="text-xs text-[var(--ink-soft)]">
+              Configure the appearance of the AI booking chatbot that appears
+              on your restaurant site.
+            </p>
+
+            <ColorField
+              label="Chatbot Color"
+              value={chatbot.color}
+              onChange={(v) => updateChatbot({ color: v })}
+            />
+
+            <div>
+              <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+                Chatbot Logo
+              </label>
+              <div className="flex items-center gap-2">
+                {chatbot.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={chatbot.logo_url} alt="Chatbot logo" className="h-8 w-8 rounded-full object-cover" />
+                ) : (
+                  <span className="h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ backgroundColor: chatbot.color, color: chatbot.text_color }}>
+                    {orgName.charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <label className="btn btn-outline text-xs cursor-pointer inline-block">
+                  {chatbot.logo_url ? "Replace" : "Upload"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      const form = new FormData();
+                      form.append("file", f);
+                      form.append("org_id", orgId);
+                      const res = await fetch("/api/design/photos/upload", { method: "POST", body: form });
+                      if (res.ok) {
+                        const data = await res.json();
+                        updateChatbot({ logo_url: data.url });
+                      }
+                    }}
+                  />
+                </label>
+                {chatbot.logo_url && (
+                  <button type="button" onClick={() => updateChatbot({ logo_url: null })} className="text-xs text-red-500 underline">
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <ColorField
+              label="Text Color"
+              value={chatbot.text_color}
+              onChange={(v) => updateChatbot({ text_color: v })}
+            />
+
+            <div>
+              <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+                Text Size: {chatbot.text_size}px
+              </label>
+              <input
+                type="range"
+                min={10}
+                max={24}
+                value={chatbot.text_size}
+                onChange={(e) => updateChatbot({ text_size: parseInt(e.target.value, 10) })}
+                className="w-full accent-[var(--accent)]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+                Font
+              </label>
+              <select
+                value={chatbot.font_family}
+                onChange={(e) => updateChatbot({ font_family: e.target.value })}
+                className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs"
+              >
+                {GOOGLE_FONTS.map((f) => (
+                  <option key={f.value} value={f.value}>{f.name}</option>
+                ))}
+              </select>
+            </div>
+          </section>
         </div>
 
         {/* ── Info ─────────────────────────────────────────────── */}

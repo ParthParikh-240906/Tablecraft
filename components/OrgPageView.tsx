@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   GOOGLE_FONTS_CSS,
-  hexToRgba,
   type ContentElement,
   type DesignSettingsV2,
   type HeroBackground,
@@ -14,6 +13,7 @@ import {
 import { FitText } from "./fit-text";
 import { AutoBackgroundCarousel } from "./AutoBackgroundCarousel";
 import { RestaurantPhotoCarousel } from "./RestaurantPhotoCarousel";
+import { SiteHeader } from "./SiteHeader";
 
 export interface OrgView {
   name: string;
@@ -146,21 +146,66 @@ function HeroText({
   );
 }
 
+function ButtonVisual({
+  el,
+  slug,
+  mode,
+}: {
+  el: { buttonType?: "book" | "menu"; bgColor?: string; design: { fontFamily: string; fontSize: number; color: string; textAlign: string } };
+  slug?: string;
+  mode: "preview" | "site";
+}) {
+  const label = el.buttonType === "menu" ? "Menu" : "Book a table";
+  const href = el.buttonType === "menu" ? `/${slug}/menu` : `/${slug}/reserve`;
+  const style: React.CSSProperties = {
+    backgroundColor: el.bgColor ?? "#f97316",
+    color: el.design.color,
+    fontFamily: el.design.fontFamily,
+    fontSize: fS(el.design.fontSize),
+    textAlign: el.design.textAlign as React.CSSProperties["textAlign"],
+    display: "flex",
+    alignItems: "center",
+    justifyContent: el.design.textAlign === "center" ? "center" : el.design.textAlign === "right" ? "flex-end" : "flex-start",
+    width: "100%",
+    height: "100%",
+    borderRadius: "9999px",
+    padding: "0 1rem",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: 600,
+  };
+
+  if (mode === "site" && slug) {
+    return (
+      <Link href={href} className="w-full h-full block" style={style}>
+        {label}
+      </Link>
+    );
+  }
+  return <div className="w-full h-full" style={style}>{label}</div>;
+}
+
 function ContentVisual({
   el,
   org,
   paragraphs,
   mode,
+  slug,
 }: {
   el: ContentElement;
   org: OrgView;
   paragraphs: { id: string; title: string | null; content: string | null }[];
   mode: "preview" | "site";
+  slug?: string;
 }) {
   const s = el.design;
 
   if (el.kind === "shape") {
     return <ShapeVisual s={el} image={false} />;
+  }
+
+  if (el.kind === "button") {
+    return <ButtonVisual el={el} slug={slug} mode={mode} />;
   }
 
   if (el.kind === "image" || el.kind === "images") {
@@ -227,134 +272,6 @@ function ContentVisual({
     >
       <span className="whitespace-pre-line">{text}</span>
     </div>
-  );
-}
-
-function SiteHeader({
-  org,
-  settings,
-  colors,
-  slug,
-  mode,
-}: {
-  org: OrgView;
-  settings: DesignSettingsV2;
-  colors: { bg: string; text: string; accent: string };
-  slug?: string;
-  mode: "preview" | "site";
-}) {
-  const h = settings.header;
-  const ref = useRef<HTMLElement>(null);
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  return (
-    <header ref={ref} className="sticky top-0 z-[70]">
-      <div
-        className="relative z-[60] transition-shadow duration-300"
-        style={{
-          backgroundColor: hexToRgba(h.background_color, h.opacity / 100),
-          backdropFilter: scrolled ? "blur(12px)" : undefined,
-          boxShadow: scrolled ? "0 4px 24px rgba(0,0,0,0.35)" : undefined,
-          borderBottom: `2px solid ${colors.text}`,
-        }}
-      >
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            {org.logo_url ? (
-              <img src={org.logo_url} alt={`${org.name} logo`} className="h-8 w-8 rounded-full object-cover" />
-            ) : (
-              <span
-                className="h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold"
-                style={{ backgroundColor: h.cta_design.bgColor, color: h.logo_color }}
-              >
-                {org.name.charAt(0).toUpperCase()}
-              </span>
-            )}
-            <span
-              style={{
-                fontFamily: h.design.fontFamily,
-                fontSize: fS(h.design.fontSize),
-                color: h.design.color,
-              }}
-              className="font-semibold"
-            >
-              {org.name}
-            </span>
-          </div>
-          <nav className="hidden sm:flex items-center gap-4">
-            {mode === "site" && slug ? (
-              <>
-                <Link
-                  href={`/${slug}/menu`}
-                  className="hover:underline"
-                  style={{ color: h.nav_design.color, fontFamily: h.nav_design.fontFamily, fontSize: fS(h.nav_design.fontSize) }}
-                >
-                  Menu
-                </Link>
-                <Link
-                  href={`/${slug}/cart`}
-                  className="hover:underline"
-                  style={{ color: h.nav_design.color, fontFamily: h.nav_design.fontFamily, fontSize: fS(h.nav_design.fontSize) }}
-                >
-                  Cart
-                </Link>
-                <Link
-                  href={`/${slug}/reserve`}
-                  className="font-medium border-2 hover:opacity-90 transition-opacity"
-                  style={{
-                    backgroundColor: h.cta_design.bgColor,
-                    color: h.cta_design.textColor,
-                    borderColor: h.cta_design.borderColor,
-                    borderRadius: h.cta_design.borderRadius,
-                    borderWidth: h.cta_design.borderWidth,
-                    fontSize: fS(h.cta_design.fontSize),
-                    fontFamily: h.cta_design.fontFamily,
-                    padding: "0.375rem 0.75rem",
-                  }}
-                >
-                  Book a table
-                </Link>
-              </>
-            ) : (
-              <>
-                <span
-                  style={{ color: h.nav_design.color, fontFamily: h.nav_design.fontFamily, fontSize: fS(h.nav_design.fontSize) }}
-                >
-                  Menu
-                </span>
-                <span
-                  style={{ color: h.nav_design.color, fontFamily: h.nav_design.fontFamily, fontSize: fS(h.nav_design.fontSize) }}
-                >
-                  Cart
-                </span>
-                <span
-                  className="font-medium border-2"
-                  style={{
-                    backgroundColor: h.cta_design.bgColor,
-                    color: h.cta_design.textColor,
-                    borderColor: h.cta_design.borderColor,
-                    borderRadius: h.cta_design.borderRadius,
-                    borderWidth: h.cta_design.borderWidth,
-                    fontSize: fS(h.cta_design.fontSize),
-                    fontFamily: h.cta_design.fontFamily,
-                    padding: "0.375rem 0.75rem",
-                  }}
-                >
-                  Book a table
-                </span>
-              </>
-            )}
-          </nav>
-        </div>
-      </div>
-    </header>
   );
 }
 
@@ -440,6 +357,14 @@ export function OrgPageView({
               >
                 <ShapeVisual s={el} image={el.kind === "image"} />
               </div>
+            ) : el.kind === "button" ? (
+              <div
+                key={el.id}
+                className="absolute"
+                style={{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.w}%`, height: `${el.h}%`, zIndex: 6 }}
+              >
+                <ButtonVisual el={el} slug={slug} mode={mode} />
+              </div>
             ) : el.kind === "logo" ? (
               org.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -509,6 +434,7 @@ export function OrgPageView({
                 org={org}
                 paragraphs={paragraphs}
                 mode={mode}
+                slug={slug}
               />
             </div>
           ))}

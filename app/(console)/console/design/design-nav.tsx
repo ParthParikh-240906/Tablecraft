@@ -7,7 +7,7 @@ const LINKS = [
   { href: "/console/design", label: "Design" },
   { href: "/console/design/hero", label: "Hero" },
   { href: "/console/design/content", label: "Content" },
-  { href: "/console/design/image_gen", label: "Image Gen" },
+  { href: "/console/design/ai", label: "AI" },
 ];
 
 export function DesignNav() {

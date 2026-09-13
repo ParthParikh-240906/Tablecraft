@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrgBySlug, getMenuByOrg } from "@/lib/org";
 import { MenuItems } from "./menu-items";
@@ -21,6 +22,17 @@ export default async function MenuPage({
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
+      {/* Back to restaurant landing page */}
+      <div className="mb-6">
+        <Link
+          href={`/${org.slug}`}
+          className={isCleanSlate ? "inline-flex items-center gap-2 text-sm font-medium hover:underline" : "inline-flex items-center gap-2 text-sm font-medium text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors"}
+        >
+          <span aria-hidden="true">&larr;</span>
+          <span>Back to {org.name}</span>
+        </Link>
+      </div>
+
       <h1 className="text-3xl font-bold mb-2">Menu</h1>
       <p className={isCleanSlate ? "text-sm mb-8" : "text-[var(--ink-faint)] mb-8"}>
         Everything we're serving right now at {org.name}.

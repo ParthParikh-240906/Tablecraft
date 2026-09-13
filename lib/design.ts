@@ -25,8 +25,9 @@ export interface HeaderCtaDesign {
   borderWidth: number; // px
 }
 export type LayerType = "color" | "image" | "images" | "video";
-export type HeroElementKind = "logo" | "title" | "tagline" | "text" | "shape" | "image";
-export type ContentElementKind = "title" | "text" | "image" | "images" | "shape";
+export type HeroElementKind = "logo" | "title" | "tagline" | "text" | "shape" | "image" | "button";
+export type ContentElementKind = "title" | "text" | "image" | "images" | "shape" | "button";
+export type ButtonType = "book" | "menu";
 
 export interface Rect {
   x: number; // percent of container width
@@ -61,6 +62,8 @@ export interface HeroElement extends Rect, ShapeStyle {
   ref?: { org: "logo_url" | "name" | "tagline" };
   content?: string; // free text/title
   design: TextDesign;
+  buttonType?: ButtonType;
+  bgColor?: string;
 }
 
 export interface ContentElement extends Rect, ShapeStyle {
@@ -70,6 +73,16 @@ export interface ContentElement extends Rect, ShapeStyle {
   content?: string; // free text/title
   image_urls?: string[];
   design: TextDesign;
+  buttonType?: ButtonType;
+  bgColor?: string;
+}
+
+export interface ChatbotDesign {
+  color: string;
+  logo_url: string | null;
+  text_color: string;
+  text_size: number;
+  font_family: string;
 }
 
 export interface DesignSettingsV2 {
@@ -104,6 +117,7 @@ export interface DesignSettingsV2 {
   content: {
     elements: ContentElement[];
   };
+  chatbot?: ChatbotDesign;
 }
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
@@ -187,6 +201,15 @@ export function newHeroElement(kind: HeroElementKind, size: number): HeroElement
     base.w = 30;
     base.h = 30;
   }
+  if (kind === "button") {
+    base.buttonType = "book";
+    base.bgColor = "#f97316";
+    base.design = { ...DEFAULT_TEXT_DESIGN, fontSize: 16, color: "#ffffff", textAlign: "center" };
+    base.x = 30;
+    base.y = 60;
+    base.w = 25;
+    base.h = 8;
+  }
   return base;
 }
 
@@ -209,6 +232,15 @@ export function newContentElement(kind: ContentElementKind): ContentElement {
     base.opacity = 100;
     base.w = 30;
     base.h = 30;
+  }
+  if (kind === "button") {
+    base.buttonType = "book";
+    base.bgColor = "#f97316";
+    base.design = { ...DEFAULT_TEXT_DESIGN, fontSize: 16, color: "#ffffff", textAlign: "center" };
+    base.x = 10;
+    base.y = 0;
+    base.w = 25;
+    base.h = 8;
   }
   return base;
 }
@@ -245,6 +277,16 @@ export function defaultHeroBackground(): HeroBackground {
     color: "#141414",
     opacity: 100,
     intervalMs: 4000,
+  };
+}
+
+export function defaultChatbotDesign(): ChatbotDesign {
+  return {
+    color: "#f97316",
+    logo_url: null,
+    text_color: "#ffffff",
+    text_size: 14,
+    font_family: "Inter",
   };
 }
 
@@ -389,6 +431,7 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
     content: legacy.content?.blocks
       ? { elements: migrateExperimentBlocks(legacy.content.blocks) as ContentElement[] }
       : legacy.content ?? { elements: [] },
+    chatbot: legacy.chatbot ?? defaultChatbotDesign(),
   };
 
   // Legacy page layers / canvas shapes ride along as hero elements

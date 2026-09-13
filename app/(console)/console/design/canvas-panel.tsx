@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useState, useEffect } from "react";
 import { useDesign } from "./use-design";
@@ -72,8 +73,10 @@ export function CanvasPanel({
   org: OrgView;
   paragraphs: { id: string; title: string | null; content: string | null }[];
 }) {
+  const router = useRouter();
   const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
   const [selected, setSelected] = useState<string | "hero" | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
   const [previewHeight, setPreviewHeight] = useState(() => {
     try {
       const stored = Number(localStorage.getItem("tablecraft_preview_height"));
@@ -111,6 +114,52 @@ export function CanvasPanel({
           {/* Header */}
           <section className="ticket p-5 space-y-3">
             <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Header</h3>
+            <div>
+              <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-soft)] mb-1">
+                Logo
+              </label>
+              <div className="flex items-center gap-2">
+                {org.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={org.logo_url} alt="Logo" className="h-9 w-9 rounded-full object-cover" />
+                ) : (
+                  <span className="h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold" style={{ backgroundColor: settings.header.cta_design.bgColor, color: settings.header.logo_color }}>
+                    {orgName.charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <label className="btn btn-outline text-xs cursor-pointer inline-block">
+                  {logoUploading ? "Uploading…" : org.logo_url ? "Replace logo" : "Upload logo"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={logoUploading}
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      setLogoUploading(true);
+                      try {
+                        const form = new FormData();
+                        form.append("file", f);
+                        form.append("org_id", orgId);
+                        const res = await fetch("/api/design/logo", { method: "POST", body: form });
+                        if (res.ok) {
+                          router.refresh();
+                        } else {
+                          const data = await res.json();
+                          alert(data.error ?? "Logo upload failed");
+                        }
+                      } finally {
+                        setLogoUploading(false);
+                      }
+                    }}
+                  />
+                </label>
+                {org.logo_url && (
+                  <span className="text-[10px] text-[var(--ink-faint)]">Shown in header & hero</span>
+                )}
+              </div>
+            </div>
             <ColorField label="Header Background" value={settings.header.background_color} onChange={(v) => updateSettings({ header: { ...settings.header, background_color: v } })} />
             <OpacityField label="Header Background Opacity (on scroll)" value={settings.header.opacity} onChange={(v) => updateSettings({ header: { ...settings.header, opacity: v } })} />
             <ColorField label="Logo color" value={settings.header.logo_color} onChange={(v) => updateSettings({ header: { ...settings.header, logo_color: v } })} />
