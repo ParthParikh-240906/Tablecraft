@@ -9,7 +9,7 @@ import {
   type DesignSettingsV2,
   type HeroBackground,
   type HeroElement,
-  type Layer,
+  type ShapeStyle,
 } from "@/lib/design";
 import { FitText } from "./fit-text";
 import { AutoBackgroundCarousel } from "./AutoBackgroundCarousel";
@@ -53,28 +53,26 @@ function useContainerWidth() {
   return { ref, width: w };
 }
 
-function LayerVisual({ l }: { l: Layer }) {
-  const borderStyle: React.CSSProperties = l.borderWidth
-    ? { borderWidth: l.borderWidth, borderColor: l.borderColor ?? "#ffffff", borderStyle: "solid" as const }
+function ShapeVisual({ s, image }: { s: ShapeStyle; image: boolean }) {
+  const borderStyle: React.CSSProperties = s.borderWidth
+    ? { borderWidth: s.borderWidth, borderColor: s.borderColor ?? "#ffffff", borderStyle: "solid" as const }
     : {};
-  const content = l.type === "image"
-    ? (l.image_url
-        ? <img src={l.image_url} alt="" className="w-full h-full object-cover" draggable={false} />
-        : null)
-    : l.type === "images"
-      ? (l.image_urls && l.image_urls.length > 0 ? <AutoBackgroundCarousel urls={l.image_urls} intervalMs={4000} /> : null)
-      : l.type === "video"
-        ? (l.video_url
-            ? <video src={l.video_url} muted autoPlay loop playsInline className="w-full h-full object-cover" />
-            : null)
-        : <div className="w-full h-full" style={{ backgroundColor: l.color }} />;
+  const content =
+    image
+      ? s.image_url
+        ? <img src={s.image_url} alt="" className="w-full h-full object-cover" draggable={false} />
+        : null
+      : s.color
+        ? <div className="w-full h-full" style={{ backgroundColor: s.color }} />
+        : null;
   return (
     <div
       className="w-full h-full"
       style={{
         ...borderStyle,
-        borderRadius: l.borderRadius ? `${l.borderRadius}px` : undefined,
+        borderRadius: s.borderRadius ? `${s.borderRadius}%` : undefined,
         overflow: "hidden",
+        opacity: (s.opacity ?? 100) / 100,
       }}
     >
       {content}
@@ -160,6 +158,10 @@ function ContentVisual({
   mode: "preview" | "site";
 }) {
   const s = el.design;
+
+  if (el.kind === "shape") {
+    return <ShapeVisual s={el} image={false} />;
+  }
 
   if (el.kind === "image" || el.kind === "images") {
     const urls =
@@ -384,7 +386,6 @@ export function OrgPageView({
   const { ref, width: cw } = useContainerWidth();
   const hero = settings.hero;
   const heroRect = settings.canvas.hero_rect;
-  const layers = settings.canvas.layers;
   const contentEls = settings.content.elements;
   const heroBg = hero.background;
 
@@ -395,15 +396,6 @@ export function OrgPageView({
       : cw * heroRect.h * 0.008;
   const contentMax = Math.max(...contentEls.map((e) => e.y + e.h), 100 - heroRect.h, 40);
 
-  // In preview mode with an extended canvas, size the content section to fill
-  // the remaining visible area (previewHeight - heroHeight). This makes the
-  // preview match the live site proportionally. Fall back to percentage-based
-  // sizing when no explicit previewHeight is given (live site, no extend).
-  const contentSectionHeight =
-    mode === "preview" && previewHeight && previewHeight > heroPx
-      ? fS(previewHeight - heroPx)
-      : undefined;
-
   const heroHeight =
     heroBg.type === "image" && heroBg.aspectRatio && heroBg.aspectRatio > 0
       ? `calc(100cqw / ${heroBg.aspectRatio})`
@@ -413,39 +405,25 @@ export function OrgPageView({
     <div
       ref={ref}
       className="relative"
-      style={{ containerType: "inline-size", backgroundColor: colors.bg, color: colors.text }}
+      style={{
+        containerType: "inline-size",
+        backgroundColor: colors.bg,
+        color: colors.text,
+        // In preview the canvas is a fixed-height coordinate space; the content
+        // section flex-fills the space below the hero so every block can be
+        // dragged anywhere in the extended area.
+        ...(previewHeight && mode === "preview"
+          ? { height: `${previewHeight}px`, display: "flex", flexDirection: "column" as const }
+          : {}),
+      }}
     >
       {/* Header — sticky, with page-text-colored bottom border */}
       <SiteHeader org={org} settings={settings} colors={colors} slug={slug} mode={mode} />
 
-      {/* Layers — decorative rectangles behind the hero/content */}
-      {(() => {
-        const isPreview = mode === "preview";
-        return layers
-          .slice()
-          .sort((a, b) => a.z - b.z)
-          .map((l) => (
-            <div
-              key={l.id}
-              className="absolute overflow-hidden pointer-events-none"
-              style={{
-                left: `${l.x}%`,
-                top: cvH(l.y),
-                width: `${l.w}%`,
-                height: cvH(l.h),
-                zIndex: l.z,
-                opacity: (l.opacity ?? 100) / 100,
-              }}
-            >
-              <LayerVisual l={l} />
-            </div>
-          ));
-      })()}
-
       {/* Hero section */}
       <section
         className="relative w-full overflow-hidden"
-        style={{ height: heroHeight, minHeight: 300, zIndex: 5 }}
+        style={{ height: heroHeight, minHeight: 300, zIndex: 5, flexShrink: 0 }}
       >
         <div className="absolute inset-0" style={{ opacity: (heroBg.opacity ?? 100) / 100 }}>
           <BackgroundVisual bg={heroBg} />
@@ -456,7 +434,15 @@ export function OrgPageView({
         )}
         <div className="absolute inset-0">
           {hero.elements.map((el) =>
-            el.kind === "logo" ? (
+            el.kind === "shape" || el.kind === "image" ? (
+              <div
+                key={el.id}
+                className="absolute"
+                style={{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.w}%`, height: `${el.h}%`, zIndex: 6 }}
+              >
+                <ShapeVisual s={el} image={el.kind === "image"} />
+              </div>
+            ) : el.kind === "logo" ? (
               org.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -506,7 +492,11 @@ export function OrgPageView({
       {contentEls.length > 0 && (
         <section
           className="relative w-full"
-          style={{ height: contentSectionHeight ?? cvH(contentMax), minHeight: 280, zIndex: 5 }}
+          style={
+            previewHeight && mode === "preview"
+              ? { flex: 1, minHeight: cvH(contentMax), zIndex: 5 }
+              : { height: cvH(contentMax), minHeight: 280, zIndex: 5 }
+          }
         >
           {contentEls.map((el) => (
             <div
@@ -524,17 +514,13 @@ export function OrgPageView({
           ))}
           {/* Console overlay slot: content element drag/resize boxes */}
           {mode === "preview" && (
-            <div className="absolute inset-0 z-30 pointer-events-none" data-panel-overlays="content" />
+            <div
+              className="absolute z-30 pointer-events-none"
+              style={{ top: 0, left: 0, width: "100%", height: "100%" }}
+              data-panel-overlays="content"
+            />
           )}
         </section>
-      )}
-
-      {/* Console overlay slot: layer drag/resize boxes (whole page) */}
-      {mode === "preview" && (
-        <div
-          className="absolute inset-0 z-40 pointer-events-none"
-          data-panel-overlays="layers"
-        />
       )}
     </div>
   );

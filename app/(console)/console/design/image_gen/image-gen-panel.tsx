@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useDesign } from "../use-design";
 import { DesignNav } from "../design-nav";
-import { newContentElement, newLayer, type DesignSettingsV2 } from "@/lib/design";
+import { newContentElement, newHeroElement, type DesignSettingsV2 } from "@/lib/design";
 
 export function ImageGenPanel({
   orgId,
@@ -80,11 +80,11 @@ export function ImageGenPanel({
     updateSettings({ content: { elements: [...settings.content.elements, el] } });
   };
 
-  const addAsLayerImage = () => {
+  const addAsHeroImage = () => {
     if (!result) return;
-    const layer = newLayer("image", settings.canvas.layers.length);
-    layer.image_url = result;
-    updateSettings({ canvas: { ...settings.canvas, layers: [...settings.canvas.layers, layer] } });
+    const el = newHeroElement("image", 18);
+    el.image_url = result;
+    updateSettings({ hero: { ...settings.hero, elements: [...settings.hero.elements, el] } });
   };
 
   return (
@@ -176,8 +176,8 @@ export function ImageGenPanel({
                 <button type="button" onClick={addAsContentImages} className="btn btn-outline text-xs">
                   Add to Content Images
                 </button>
-                <button type="button" onClick={addAsLayerImage} className="btn btn-outline text-xs">
-                  Add as Layer Image
+                <button type="button" onClick={addAsHeroImage} className="btn btn-outline text-xs">
+                  Add as Hero Image
                 </button>
                 <button
                   type="button"
@@ -203,7 +203,7 @@ export function ImageGenPanel({
             <ul className="text-xs text-[var(--ink-soft)] space-y-2">
               <li>• <span className="text-[var(--ink)]">Use as Hero Background</span> — swaps the hero image background.</li>
               <li>• <span className="text-[var(--ink)]">Add to Content Images</span> — new carousel block on the Content page.</li>
-              <li>• <span className="text-[var(--ink)]">Add as Layer Image</span> — new image layer on the Design page.</li>
+              <li>• <span className="text-[var(--ink)]">Add as Hero Image</span> — new image element on the Hero page.</li>
             </ul>
           </div>
         </div>

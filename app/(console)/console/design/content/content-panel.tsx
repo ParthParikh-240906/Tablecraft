@@ -6,7 +6,7 @@ import { useDesign } from "../use-design";
 import { ResizableBox } from "../resizable-box";
 import { PreviewShell } from "../preview-shell";
 import { DesignNav } from "../design-nav";
-import { DesignField } from "../design-fields";
+import { ColorField, DesignField, OpacityField } from "../design-fields";
 import { type OrgView } from "@/components/OrgPageView";
 import {
   newContentElement,
@@ -20,6 +20,7 @@ const KIND_LABELS: Record<string, string> = {
   text: "Text",
   image: "Image",
   images: "Images (carousel)",
+  shape: "Shape",
 };
 
 function useOverlaySlot(name: string) {
@@ -122,8 +123,18 @@ export function ContentPanel({
 
   const addEl = (kind: ContentElementKind) => {
     const el = newContentElement(kind);
-    updateSettings({ content: { elements: [...elements, el] } });
+    // Shapes go to the back (bottom of the stack); everything else on top.
+    updateSettings({ content: { elements: kind === "shape" ? [el, ...elements] : [...elements, el] } });
     setSelected(el.id);
+  };
+
+  const moveEl = (id: string, dir: -1 | 1) => {
+    const arr = [...elements];
+    const i = arr.findIndex((e) => e.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= arr.length) return;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    updateSettings({ content: { elements: arr } });
   };
 
   const uploadImage = async (file: File) => {
@@ -159,7 +170,7 @@ export function ContentPanel({
               Blocks
             </h3>
             <div className="space-y-2">
-              {elements.map((e) => (
+              {elements.map((e, i) => (
                 <div
                   key={e.id}
                   className={`flex items-center gap-2 px-3 py-2 rounded border text-xs ${
@@ -170,12 +181,14 @@ export function ContentPanel({
                     <span className="font-mono mr-2 text-[10px] opacity-60">{KIND_LABELS[e.kind]?.slice(0, 3).toUpperCase()}</span>
                     {e.kind === "title" || e.kind === "text" ? (e.content || (e.ref && "org" in e.ref ? `(${e.ref.org})` : "") || resolveText(e).slice(0, 30) || `Empty ${KIND_LABELS[e.kind]}`) : KIND_LABELS[e.kind]}
                   </button>
+                  <button type="button" onClick={() => moveEl(e.id, -1)} disabled={i === 0} className="px-1 disabled:opacity-30" title="Move behind">↑</button>
+                  <button type="button" onClick={() => moveEl(e.id, 1)} disabled={i === elements.length - 1} className="px-1 disabled:opacity-30" title="Move in front">↓</button>
                   <button type="button" onClick={() => removeEl(e.id)} className="text-red-500 text-[10px]">✕</button>
                 </div>
               ))}
             </div>
             <div className="flex gap-2">
-              {(["title", "text", "image", "images"] as ContentElementKind[]).map((k) => (
+              {(["title", "text", "image", "images", "shape"] as ContentElementKind[]).map((k) => (
                 <button key={k} type="button" onClick={() => addEl(k)} className="btn btn-outline text-xs">
                   + {KIND_LABELS[k]}
                 </button>
@@ -250,11 +263,40 @@ export function ContentPanel({
                 </div>
               )}
 
-              <DesignField
-                label=""
-                design={sel.design}
-                onChange={(d) => updateEl(sel.id, { design: d })}
-              />
+              {sel.kind === "shape" && (
+                <>
+                  <ColorField label="Color" value={sel.color ?? "#141414"} onChange={(v) => updateEl(sel.id, { color: v })} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Border width: {sel.borderWidth ?? 0}px</label>
+                      <input type="range" min={0} max={12} value={sel.borderWidth ?? 0}
+                        onChange={(e) => updateEl(sel.id, { borderWidth: parseInt(e.target.value, 10) })}
+                        className="w-full accent-[var(--accent)]" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Roundness: {sel.borderRadius ?? 0}% (50 = circle)</label>
+                      <input type="range" min={0} max={50} value={sel.borderRadius ?? 0}
+                        onChange={(e) => updateEl(sel.id, { borderRadius: parseInt(e.target.value, 10) })}
+                        className="w-full accent-[var(--accent)]" />
+                    </div>
+                    <ColorField label="Border color" value={sel.borderColor ?? "#ffffff"} onChange={(v) => updateEl(sel.id, { borderColor: v })} />
+                    <div>
+                      <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Opacity: {sel.opacity ?? 100}%</label>
+                      <input type="range" min={0} max={100} value={sel.opacity ?? 100}
+                        onChange={(e) => updateEl(sel.id, { opacity: parseInt(e.target.value, 10) })}
+                        className="w-full accent-[var(--accent)]" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {sel.kind !== "shape" && (
+                <DesignField
+                  label=""
+                  design={sel.design}
+                  onChange={(d) => updateEl(sel.id, { design: d })}
+                />
+              )}
             </section>
           )}
         </div>

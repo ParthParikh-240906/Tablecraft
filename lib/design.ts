@@ -25,8 +25,8 @@ export interface HeaderCtaDesign {
   borderWidth: number; // px
 }
 export type LayerType = "color" | "image" | "images" | "video";
-export type HeroElementKind = "logo" | "title" | "tagline" | "text";
-export type ContentElementKind = "title" | "text" | "image" | "images";
+export type HeroElementKind = "logo" | "title" | "tagline" | "text" | "shape" | "image";
+export type ContentElementKind = "title" | "text" | "image" | "images" | "shape";
 
 export interface Rect {
   x: number; // percent of container width
@@ -35,18 +35,13 @@ export interface Rect {
   h: number; // percent of container height
 }
 
-export interface Layer extends Rect {
-  id: string;
-  type: LayerType;
-  z: number;
-  opacity: number; // 0-100
-  color?: string;
-  image_url?: string;
-  image_urls?: string[];
-  video_url?: string;
-  borderWidth?: number; // 0 = no border
+export interface ShapeStyle {
+  color?: string; // fill for shape blocks
+  image_url?: string; // for image blocks
+  borderWidth?: number; // px, 0 = no border
   borderColor?: string;
-  borderRadius?: number; // px, 0 = square
+  borderRadius?: number; // percent 0-50, 0 = square, 50 = circle/oval
+  opacity?: number; // 0-100
 }
 
 export interface HeroBackground {
@@ -60,7 +55,7 @@ export interface HeroBackground {
   aspectRatio?: number; // width/height of the single background image, filled on upload
 }
 
-export interface HeroElement extends Rect {
+export interface HeroElement extends Rect, ShapeStyle {
   id: string;
   kind: HeroElementKind;
   ref?: { org: "logo_url" | "name" | "tagline" };
@@ -68,7 +63,7 @@ export interface HeroElement extends Rect {
   design: TextDesign;
 }
 
-export interface ContentElement extends Rect {
+export interface ContentElement extends Rect, ShapeStyle {
   id: string;
   kind: ContentElementKind;
   ref?: { para: string } | { org: "about_title" | "about_text" | "location" | "contact_heading" | "contact_body" | "restaurant_photos" };
@@ -101,7 +96,6 @@ export interface DesignSettingsV2 {
   };
   canvas: {
     hero_rect: { y: number; h: number }; // % of page height
-    layers: Layer[];
   };
   hero: {
     background: HeroBackground;
@@ -165,26 +159,8 @@ export function clampRect(r: Rect, min = 3): Rect {
   };
 }
 
-export function newLayer(type: LayerType, z: number): Layer {
-  return {
-    id: uid(),
-    type,
-    x: 5,
-    y: 5,
-    w: 40,
-    h: 35,
-    z,
-    opacity: 100,
-    borderWidth: 0,
-    borderColor: undefined,
-    borderRadius: 0,
-    color: type === "color" ? "#1a1a1a" : undefined,
-    image_urls: type === "images" ? [] : undefined,
-  };
-}
-
 export function newHeroElement(kind: HeroElementKind, size: number): HeroElement {
-  return {
+  const base: HeroElement = {
     id: uid(),
     kind,
     design: { ...DEFAULT_TEXT_DESIGN, fontSize: size, color: "#f5f5f4" },
@@ -193,6 +169,25 @@ export function newHeroElement(kind: HeroElementKind, size: number): HeroElement
     w: 40,
     h: 15,
   };
+  if (kind === "shape") {
+    base.color = "#1a1a1a";
+    base.borderWidth = 0;
+    base.borderColor = undefined;
+    base.borderRadius = 0;
+    base.opacity = 100;
+    base.x = 30;
+    base.y = 30;
+    base.w = 30;
+    base.h = 30;
+  }
+  if (kind === "image") {
+    base.opacity = 100;
+    base.x = 30;
+    base.y = 30;
+    base.w = 30;
+    base.h = 30;
+  }
+  return base;
 }
 
 export function newContentElement(kind: ContentElementKind): ContentElement {
@@ -206,6 +201,15 @@ export function newContentElement(kind: ContentElementKind): ContentElement {
     h: kind === "title" ? 10 : kind === "images" ? 35 : 15,
   };
   if (kind === "images") base.image_urls = [];
+  if (kind === "shape") {
+    base.color = "#1a1a1a";
+    base.borderWidth = 0;
+    base.borderColor = undefined;
+    base.borderRadius = 0;
+    base.opacity = 100;
+    base.w = 30;
+    base.h = 30;
+  }
   return base;
 }
 
@@ -289,19 +293,22 @@ function migrateExperimentBlocks(blocks: any[] | undefined): HeroElement[] | Con
   return els;
 }
 
-function migratePageLayers(layers: any[] | undefined): Layer[] {
-  if (!Array.isArray(layers)) return [];
-  return layers.map((l, i) => ({
+/** A legacy canvas shape / page layer (saved by the short-lived Shapes panel or pre-2.0 page_layers) becomes a hero element. */
+function shapeToHeroElement(l: any): HeroElement {
+  const flat = l.x !== undefined;
+  const r = flat ? { x: l.x, y: l.y, w: l.w, h: l.h } : rectOf(l.rect);
+  return {
     id: l.id ?? uid(),
-    type: (["color", "image", "images", "video"] as const).includes(l.type) ? l.type : "color",
-    x: rectOf(l.rect).x,
-    y: rectOf(l.rect).y,
-    w: rectOf(l.rect).w,
-    h: rectOf(l.rect).h,
-    z: l.position ?? i,
-    opacity: l.config?.opacity !== undefined ? Math.round(l.config.opacity * 100) : 100,
-    color: l.type === "color" ? l.config?.color ?? "#1a1a1a" : undefined,
-  }));
+    kind: l.type === "image" || l.type === "images" ? "image" : "shape",
+    ...r,
+    design: { ...DEFAULT_TEXT_DESIGN },
+    opacity: flat ? (l.opacity ?? 100) : l.config?.opacity !== undefined ? Math.round(l.config.opacity * 100) : 100,
+    color: l.color ?? (l.type === "color" || l.type === "shape" ? l.config?.color ?? "#1a1a1a" : undefined),
+    image_url: flat ? (l.image_url ?? l.image_urls?.[0]) : undefined,
+    borderWidth: l.borderWidth ?? 0,
+    borderColor: l.borderColor ?? undefined,
+    borderRadius: Math.min(50, Math.max(0, Math.round(l.borderRadius ?? 0))),
+  };
 }
 
 function normalizeHeader(h: any): DesignSettingsV2["header"] {
@@ -337,22 +344,9 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
     contact_body_design: { ...DEFAULT_TEXT_DESIGN, ...(legacy.contact_body_design ?? {}), fontSize: legacy.contact_body_design?.fontSize ?? 15, textAlign: "left" },
     restaurant_photos: legacy.restaurant_photos ?? [],
     header: normalizeHeader(legacy.header),
-    canvas: legacy.canvas?.layers
-      ? {
-          ...legacy.canvas,
-          layers: legacy.canvas.layers.map((l: any) => ({
-            ...l,
-            borderWidth: l.borderWidth ?? 0,
-            borderColor: l.borderColor ?? undefined,
-            borderRadius: l.borderRadius ?? 0,
-          })),
-        }
-      : legacy.page_layers
-        ? { hero_rect: { y: 14, h: 55 }, layers: migratePageLayers(legacy.page_layers).map((l: any) => ({ ...l, borderWidth: l.borderWidth ?? 0, borderColor: l.borderColor ?? undefined, borderRadius: l.borderRadius ?? 0 })) }
-        : {
-            hero_rect: { y: 14, h: 55 },
-            layers: [],
-          },
+    canvas: {
+      hero_rect: legacy.canvas?.hero_rect ?? { y: 14, h: 55 },
+    },
     hero: legacy.hero?.blocks
       ? {
           background: {
@@ -397,22 +391,41 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
       : legacy.content ?? { elements: [] },
   };
 
-  // hero background: legacy background image rides along as a default layer
+  // Legacy page layers / canvas shapes ride along as hero elements
+  const legacyShapes = legacy.canvas?.shapes ?? legacy.canvas?.layers ?? legacy.page_layers;
+  if (Array.isArray(legacyShapes) && legacyShapes.length > 0) {
+    base.hero.elements.push(...legacyShapes.map(shapeToHeroElement));
+  }
+  // hero background: legacy background image rides along as a default hero image
   if (!legacy.hero) {
     const bgUrl = legacy.background_image_url;
     if (bgUrl) {
-      base.canvas.layers.push({
+      base.hero.elements.push({
         id: uid(),
-        type: "image",
+        kind: "image",
+        design: { ...DEFAULT_TEXT_DESIGN },
         x: 0,
         y: 0,
         w: 100,
         h: 100,
-        z: 0,
         opacity: 35,
         image_url: bgUrl,
       });
     }
+  }
+  // Stacking rule: shape elements are backgrounds — keep them behind text,
+  // images and everything else (stable partition; no-op once already ordered).
+  if (base.hero.elements.some((e) => e.kind === "shape")) {
+    base.hero.elements = [
+      ...base.hero.elements.filter((e) => e.kind === "shape"),
+      ...base.hero.elements.filter((e) => e.kind !== "shape"),
+    ];
+  }
+  if (base.content.elements.some((e) => e.kind === "shape")) {
+    base.content.elements = [
+      ...base.content.elements.filter((e) => e.kind === "shape"),
+      ...base.content.elements.filter((e) => e.kind !== "shape"),
+    ];
   }
   return base;
 }

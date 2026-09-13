@@ -13,6 +13,7 @@ import {
   type DesignSettingsV2,
   type HeroBackground,
   type HeroElement,
+  type HeroElementKind,
   type LayerType,
 } from "@/lib/design";
 
@@ -21,7 +22,10 @@ const KIND_LABELS: Record<string, string> = {
   title: "Restaurant name",
   tagline: "Tagline",
   text: "Text",
+  shape: "Shape",
+  image: "Image",
 };
+const SHAPE_KINDS: HeroElementKind[] = ["text", "title", "shape", "image"];
 
 function useOverlaySlot(name: string) {
   const [el, setEl] = useState<HTMLElement | null>(null);
@@ -80,7 +84,7 @@ export function HeroPanel({
 }) {
   const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
   const [selected, setSelected] = useState<string | null>(null);
-  const [adding, setAdding] = useState<"text" | "title" | null>(null);
+  const [adding, setAdding] = useState<HeroElementKind | null>(null);
   const [previewHeight, setPreviewHeight] = useState(() => {
     try {
       const stored = Number(localStorage.getItem("tablecraft_preview_height"));
@@ -111,11 +115,21 @@ export function HeroPanel({
     setSelected(null);
   };
 
-  const addEl = (kind: "text" | "title") => {
+  const addEl = (kind: HeroElementKind) => {
     const el = newHeroElement(kind, kind === "title" ? 30 : 18);
-    updateSettings({ hero: { ...settings.hero, elements: [...elements, el] } });
+    // Shapes go to the back (bottom of the stack); everything else on top.
+    updateSettings({ hero: { ...settings.hero, elements: kind === "shape" ? [el, ...elements] : [...elements, el] } });
     setSelected(el.id);
     setAdding(null);
+  };
+
+  const moveEl = (id: string, dir: -1 | 1) => {
+    const arr = [...elements];
+    const i = arr.findIndex((e) => e.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= arr.length) return;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    updateSettings({ hero: { ...settings.hero, elements: arr } });
   };
 
   const uploadSingle = async (file: File) => {
@@ -278,23 +292,19 @@ export function HeroPanel({
           {/* Hero elements */}
           <section className="ticket p-5 space-y-3">
             <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
-              Text &amp; Logo
+              Hero Elements
             </h3>
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setAdding(adding ? null : "text")}
-                className="btn btn-outline text-xs"
-              >
-                {adding === "text" ? "Cancel" : "+ Text"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setAdding(adding ? null : "title")}
-                className="btn btn-outline text-xs"
-              >
-                {adding === "title" ? "Cancel" : "+ Title"}
-              </button>
+              {SHAPE_KINDS.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setAdding(adding ? null : k)}
+                  className="btn btn-outline text-xs"
+                >
+                  {adding === k ? "Cancel" : `+ ${KIND_LABELS[k]}`}
+                </button>
+              ))}
             </div>
 
             {adding && (
@@ -303,23 +313,29 @@ export function HeroPanel({
                 onClick={() => addEl(adding)}
                 className="block w-full text-left px-3 py-2 text-xs border border-[var(--accent)]/50 rounded hover:bg-[var(--accent)]/10 text-[var(--accent)]"
               >
-                Place {adding} on canvas
+                Place {KIND_LABELS[adding]} on hero
               </button>
             )}
 
             <div className="space-y-1">
-              {elements.map((el) => (
-                <button
+              {elements.map((el, i) => (
+                <div
                   key={el.id}
-                  type="button"
-                  onClick={() => setSelected(el.id === selected ? null : el.id)}
-                  className={`block w-full text-left px-3 py-1.5 text-xs rounded transition-colors ${
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs transition-colors ${
                     selected === el.id ? "bg-[var(--accent)] text-white" : "hover:bg-[var(--rule)]"
                   }`}
                 >
-                  <span className="font-mono mr-2 text-[10px] opacity-60">{el.kind.slice(0, 3).toUpperCase()}</span>
-                  {el.kind === "logo" ? "Org logo" : el.kind === "title" ? "Restaurant name" : el.kind === "tagline" ? "Tagline" : "Free text"}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(el.id === selected ? null : el.id)}
+                    className="flex-1 text-left truncate"
+                  >
+                    <span className="font-mono mr-2 text-[10px] opacity-60">{el.kind.slice(0, 3).toUpperCase()}</span>
+                    {KIND_LABELS[el.kind] ?? el.kind}
+                  </button>
+                  <button type="button" onClick={() => moveEl(el.id, -1)} disabled={i === 0} className="px-1 disabled:opacity-30" title="Move behind">↑</button>
+                  <button type="button" onClick={() => moveEl(el.id, 1)} disabled={i === elements.length - 1} className="px-1 disabled:opacity-30" title="Move in front">↓</button>
+                </div>
               ))}
             </div>
           </section>
@@ -335,24 +351,78 @@ export function HeroPanel({
                   Delete
                 </button>
               </div>
-              {sel && (sel.kind === "text" || sel.kind === "title") && (
+              {sel.kind === "shape" && (
+                <>
+                  <ColorField label="Color" value={sel.color ?? "#141414"} onChange={(v) => updateEl(sel.id, { color: v })} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Border width: {sel.borderWidth ?? 0}px</label>
+                      <input type="range" min={0} max={12} value={sel.borderWidth ?? 0}
+                        onChange={(e) => updateEl(sel.id, { borderWidth: parseInt(e.target.value, 10) })}
+                        className="w-full accent-[var(--accent)]" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Roundness: {sel.borderRadius ?? 0}% (50 = circle)</label>
+                      <input type="range" min={0} max={50} value={sel.borderRadius ?? 0}
+                        onChange={(e) => updateEl(sel.id, { borderRadius: parseInt(e.target.value, 10) })}
+                        className="w-full accent-[var(--accent)]" />
+                    </div>
+                    <ColorField label="Border color" value={sel.borderColor ?? "#ffffff"} onChange={(v) => updateEl(sel.id, { borderColor: v })} />
+                    <div>
+                      <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Opacity: {sel.opacity ?? 100}%</label>
+                      <input type="range" min={0} max={100} value={sel.opacity ?? 100}
+                        onChange={(e) => updateEl(sel.id, { opacity: parseInt(e.target.value, 10) })}
+                        className="w-full accent-[var(--accent)]" />
+                    </div>
+                  </div>
+                </>
+              )}
+              {sel.kind === "image" && (
                 <div className="space-y-2">
-                  <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
-                    {sel.kind === "title" ? "Title text" : "Text content"}
+                  <label className="btn btn-outline text-xs cursor-pointer inline-block">
+                    {sel.image_url ? "Replace Image" : "Upload Image"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        const url = await uploadSingle(f);
+                        if (url) updateEl(sel.id, { image_url: url });
+                      }}
+                    />
                   </label>
-                  <textarea
-                    rows={3}
-                    value={sel.content ?? ""}
-                    onChange={(e) => updateEl(sel.id, { content: e.target.value })}
-                    className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-3 py-2 text-sm resize-y"
-                  />
+                  {sel.image_url && (
+                    <button type="button" onClick={() => updateEl(sel.id, { image_url: undefined })} className="block text-xs text-red-500 underline">
+                      Remove image
+                    </button>
+                  )}
+                  <OpacityField label="Opacity" value={sel.opacity ?? 100} onChange={(v) => updateEl(sel.id, { opacity: v })} />
                 </div>
               )}
-              <DesignField
-                label=""
-                design={sel.design}
-                onChange={(d) => updateEl(sel.id, { design: d })}
-              />
+              {sel.kind !== "shape" && sel.kind !== "image" && (
+                <>
+                  {sel && (sel.kind === "text" || sel.kind === "title") && (
+                    <div className="space-y-2">
+                      <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+                        {sel.kind === "title" ? "Title text" : "Text content"}
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={sel.content ?? ""}
+                        onChange={(e) => updateEl(sel.id, { content: e.target.value })}
+                        className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-3 py-2 text-sm resize-y"
+                      />
+                    </div>
+                  )}
+                  <DesignField
+                    label=""
+                    design={sel.design}
+                    onChange={(d) => updateEl(sel.id, { design: d })}
+                  />
+                </>
+              )}
             </section>
           )}
         </div>
