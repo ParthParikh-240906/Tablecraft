@@ -19,7 +19,7 @@ import {
 
 const KIND_LABELS: Record<string, string> = {
   logo: "Logo",
-  title: "Restaurant name",
+  title: "Title",
   tagline: "Tagline",
   text: "Text",
   shape: "Shape",
@@ -409,6 +409,17 @@ export function HeroPanel({
                 )}
               </div>
             )}
+            {bg.type !== "color" && (
+              <>
+                <ColorField label="Media border color" value={bg.border_color ?? "#000000"} onChange={(v) => updateBg({ border_color: v })} />
+                <div>
+                  <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Media border thickness: {bg.border_width ?? 0}px</label>
+                  <input type="range" min={0} max={12} value={bg.border_width ?? 0}
+                    onChange={(e) => updateBg({ border_width: parseInt(e.target.value, 10) })}
+                    className="w-full accent-[var(--accent)]" />
+                </div>
+              </>
+            )}
             <OpacityField
               label="Background Opacity"
               value={bg.opacity}
@@ -543,6 +554,13 @@ export function HeroPanel({
                       Remove image
                     </button>
                   )}
+                  <ColorField label="Border color" value={sel.borderColor ?? "#000000"} onChange={(v) => updateEl(sel.id, { borderColor: v })} />
+                  <div>
+                    <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Border thickness: {sel.borderWidth ?? 0}px</label>
+                    <input type="range" min={0} max={12} value={sel.borderWidth ?? 0}
+                      onChange={(e) => updateEl(sel.id, { borderWidth: parseInt(e.target.value, 10) })}
+                      className="w-full accent-[var(--accent)]" />
+                  </div>
                   <OpacityField label="Opacity" value={sel.opacity ?? 100} onChange={(v) => updateEl(sel.id, { opacity: v })} />
                 </div>
               )}

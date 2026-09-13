@@ -57,11 +57,26 @@ export function SiteHeader({
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             {org.logo_url ? (
-              <img src={org.logo_url} alt={`${org.name} logo`} className="h-8 w-8 rounded-full object-cover" />
+              <img
+                src={org.logo_url}
+                alt={`${org.name} logo`}
+                className="h-8 w-8 rounded-full object-cover"
+                style={{
+                  border: h.logo_border_width
+                    ? `${h.logo_border_width}px solid ${h.logo_border_color}`
+                    : undefined,
+                }}
+              />
             ) : (
               <span
                 className="h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold"
-                style={{ backgroundColor: h.cta_design.bgColor, color: h.logo_color }}
+                style={{
+                  backgroundColor: h.cta_design.bgColor,
+                  color: h.logo_color,
+                  border: h.logo_border_width
+                    ? `${h.logo_border_width}px solid ${h.logo_border_color}`
+                    : undefined,
+                }}
               >
                 {org.name.charAt(0).toUpperCase()}
               </span>

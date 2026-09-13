@@ -128,7 +128,7 @@ export function CanvasPanel({
                   </span>
                 )}
                 <label className="btn btn-outline text-xs cursor-pointer inline-block">
-                  {logoUploading ? "Uploading…" : org.logo_url ? "Replace logo" : "Upload logo"}
+                  {logoUploading ? "Uploading…" : "Upload logo"}
                   <input
                     type="file"
                     accept="image/*"
@@ -156,9 +156,47 @@ export function CanvasPanel({
                   />
                 </label>
                 {org.logo_url && (
-                  <span className="text-[10px] text-[var(--ink-faint)]">Shown in header & hero</span>
+                  <button
+                    type="button"
+                    disabled={logoUploading}
+                    onClick={async () => {
+                      setLogoUploading(true);
+                      try {
+                        const res = await fetch("/api/design/logo", {
+                          method: "DELETE",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ org_id: orgId }),
+                        });
+                        if (res.ok) {
+                          router.refresh();
+                        } else {
+                          const data = await res.json();
+                          alert(data.error ?? "Failed to clear logo");
+                        }
+                      } finally {
+                        setLogoUploading(false);
+                      }
+                    }}
+                    className="text-xs text-red-500 underline"
+                  >
+                    Clear logo
+                  </button>
                 )}
               </div>
+            </div>
+            <ColorField label="Logo border color" value={settings.header.logo_border_color} onChange={(v) => updateSettings({ header: { ...settings.header, logo_border_color: v } })} />
+            <div>
+              <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-soft)] mb-1">
+                Logo border thickness · {settings.header.logo_border_width}px
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={8}
+                value={settings.header.logo_border_width}
+                onChange={(e) => updateSettings({ header: { ...settings.header, logo_border_width: parseInt(e.target.value, 10) } })}
+                className="w-full accent-[var(--accent)]"
+              />
             </div>
             <ColorField label="Header Background" value={settings.header.background_color} onChange={(v) => updateSettings({ header: { ...settings.header, background_color: v } })} />
             <OpacityField label="Header Background Opacity (on scroll)" value={settings.header.opacity} onChange={(v) => updateSettings({ header: { ...settings.header, opacity: v } })} />
@@ -189,11 +227,8 @@ export function CanvasPanel({
                   onChange={(e) => updateSettings({ header: { ...settings.header, nav_design: { ...settings.header.nav_design, fontSize: parseInt(e.target.value, 10) || 14 } } })}
                   className="col-span-1 w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-sm"
                 />
-                <div className="col-span-1 flex items-center gap-1">
-                  <input type="color" value={settings.header.nav_design.color}
-                    onChange={(e) => updateSettings({ header: { ...settings.header, nav_design: { ...settings.header.nav_design, color: e.target.value } } })}
-                    className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
-                  <span className="text-[10px] font-mono text-[var(--ink-soft)]">{settings.header.nav_design.color}</span>
+                <div className="col-span-1">
+                  <ColorField label="" value={settings.header.nav_design.color} onChange={(v) => updateSettings({ header: { ...settings.header, nav_design: { ...settings.header.nav_design, color: v } } })} />
                 </div>
               </div>
             </div>
@@ -215,23 +250,14 @@ export function CanvasPanel({
                   onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, fontSize: parseInt(e.target.value, 10) || 14 } } })}
                   className="col-span-1 w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-sm"
                 />
-                <div className="col-span-1 flex items-center gap-1">
-                  <input type="color" value={settings.header.cta_design.textColor}
-                    onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, textColor: e.target.value } } })}
-                    className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
-                  <span className="text-[10px] font-mono text-[var(--ink-soft)]">{settings.header.cta_design.textColor}</span>
+                <div className="col-span-1">
+                  <ColorField label="Text" value={settings.header.cta_design.textColor} onChange={(v) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, textColor: v } } })} />
                 </div>
-                <div className="col-span-1 flex items-center gap-1">
-                  <span className="text-[10px] font-mono text-[var(--ink-soft)]">BG</span>
-                  <input type="color" value={settings.header.cta_design.bgColor}
-                    onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, bgColor: e.target.value } } })}
-                    className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
+                <div className="col-span-1">
+                  <ColorField label="BG" value={settings.header.cta_design.bgColor} onChange={(v) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, bgColor: v } } })} />
                 </div>
-                <div className="col-span-1 flex items-center gap-1">
-                  <span className="text-[10px] font-mono text-[var(--ink-soft)]">Border</span>
-                  <input type="color" value={settings.header.cta_design.borderColor}
-                    onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, borderColor: e.target.value } } })}
-                    className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
+                <div className="col-span-1">
+                  <ColorField label="Border" value={settings.header.cta_design.borderColor} onChange={(v) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, borderColor: v } } })} />
                 </div>
                 <div className="col-span-1">
                   <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Radius: {settings.header.cta_design.borderRadius}</label>

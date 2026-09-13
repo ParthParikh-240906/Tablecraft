@@ -402,6 +402,13 @@ export function ContentPanel({
                       ))}
                     </ul>
                   )}
+                  <ColorField label="Border color" value={sel.borderColor ?? "#000000"} onChange={(v) => updateEl(sel.id, { borderColor: v })} />
+                  <div>
+                    <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Border thickness: {sel.borderWidth ?? 0}px</label>
+                    <input type="range" min={0} max={12} value={sel.borderWidth ?? 0}
+                      onChange={(e) => updateEl(sel.id, { borderWidth: parseInt(e.target.value, 10) })}
+                      className="w-full accent-[var(--accent)]" />
+                  </div>
                 </div>
               )}
 

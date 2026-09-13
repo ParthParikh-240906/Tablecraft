@@ -54,6 +54,29 @@ export interface HeroBackground {
   opacity: number; // 0-100
   intervalMs: number; // carousel interval, default 4000
   aspectRatio?: number; // width/height of the single background image, filled on upload
+  border_color?: string; // border for image/video backgrounds
+  border_width?: number; // px, 0 = no border
+}
+
+export interface MediaBorderStyle {
+  border_color: string; // default #000000
+  border_width: number; // px, 0 = no border
+}
+
+export interface MenuPageDesign {
+  title_design: TextDesign;
+  subtitle_design: TextDesign;
+  category_design: TextDesign;
+  item_name_design: TextDesign;
+  item_price_design: TextDesign;
+  item_description_design: TextDesign;
+}
+
+export interface ReservePageDesign {
+  title_design: TextDesign;
+  subtitle_design: TextDesign;
+  label_design: TextDesign;
+  button_design: TextDesign;
 }
 
 export interface HeroElement extends Rect, ShapeStyle {
@@ -104,6 +127,8 @@ export interface DesignSettingsV2 {
     opacity: number; // 0-100, marketing page uses ~90
     design: TextDesign; // brand text / nav text
     logo_color: string;
+    logo_border_color: string;
+    logo_border_width: number; // px, 0 = no border
     nav_design: HeaderNavDesign;
     cta_design: HeaderCtaDesign;
   };
@@ -118,6 +143,8 @@ export interface DesignSettingsV2 {
     elements: ContentElement[];
   };
   chatbot?: ChatbotDesign;
+  menu_page?: MenuPageDesign;
+  reserve_page?: ReservePageDesign;
 }
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
@@ -245,19 +272,14 @@ export function newContentElement(kind: ContentElementKind): ContentElement {
   return base;
 }
 
-export function defaultHeaderDesign(): {
-  background_color: string;
-  opacity: number;
-  design: TextDesign;
-  logo_color: string;
-  nav_design: HeaderNavDesign;
-  cta_design: HeaderCtaDesign;
-} {
+export function defaultHeaderDesign(): DesignSettingsV2["header"] {
   return {
     background_color: "#0f0f0f",
     opacity: 90,
     design: { ...DEFAULT_TEXT_DESIGN, fontSize: 18, textAlign: "left", color: "#f5f5f4" },
     logo_color: "#f5f5f4",
+    logo_border_color: "#000000",
+    logo_border_width: 0,
     nav_design: { color: "#f5f5f4", fontFamily: "Inter", fontSize: 14 },
     cta_design: {
       bgColor: "#f97316",
@@ -287,6 +309,26 @@ export function defaultChatbotDesign(): ChatbotDesign {
     text_color: "#ffffff",
     text_size: 14,
     font_family: "Inter",
+  };
+}
+
+export function defaultMenuPageDesign(): MenuPageDesign {
+  return {
+    title_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 30, color: "#1c1917", textAlign: "left" },
+    subtitle_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 14, color: "#57534e", textAlign: "left" },
+    category_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 14, color: "#f97316", textAlign: "left" },
+    item_name_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 16, color: "#1c1917", textAlign: "left" },
+    item_price_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 16, color: "#1c1917", textAlign: "right" },
+    item_description_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 13, color: "#78716c", textAlign: "left" },
+  };
+}
+
+export function defaultReservePageDesign(): ReservePageDesign {
+  return {
+    title_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 30, color: "#1c1917", textAlign: "left" },
+    subtitle_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 14, color: "#57534e", textAlign: "left" },
+    label_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 12, color: "#57534e", textAlign: "left" },
+    button_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 15, color: "#ffffff", textAlign: "center" },
   };
 }
 
@@ -432,6 +474,8 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
       ? { elements: migrateExperimentBlocks(legacy.content.blocks) as ContentElement[] }
       : legacy.content ?? { elements: [] },
     chatbot: legacy.chatbot ?? defaultChatbotDesign(),
+    menu_page: { ...defaultMenuPageDesign(), ...(legacy.menu_page ?? {}) },
+    reserve_page: { ...defaultReservePageDesign(), ...(legacy.reserve_page ?? {}) },
   };
 
   // Legacy page layers / canvas shapes ride along as hero elements

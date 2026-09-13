@@ -81,6 +81,9 @@ function ShapeVisual({ s, image }: { s: ShapeStyle; image: boolean }) {
 }
 
 function BackgroundVisual({ bg }: { bg: HeroBackground }) {
+  const mediaBorder: React.CSSProperties = bg.border_width
+    ? { border: `${bg.border_width}px solid ${bg.border_color ?? "#000000"}`, boxSizing: "border-box" as const }
+    : {};
   if (bg.type === "color") {
     return <div className="w-full h-full" style={{ backgroundColor: bg.color }} />;
   }
@@ -93,17 +96,20 @@ function BackgroundVisual({ bg }: { bg: HeroBackground }) {
         src={bg.image_url}
         alt=""
         draggable={false}
+        style={mediaBorder}
         className={`w-full h-full ${bg.aspectRatio ? "object-cover" : "object-contain"}`}
       />
     ) : null;
   }
   if (bg.type === "images") {
     return bg.image_urls && bg.image_urls.length > 0 ? (
-      <AutoBackgroundCarousel urls={bg.image_urls} intervalMs={bg.intervalMs || 4000} />
+      <div className="w-full h-full" style={mediaBorder}>
+        <AutoBackgroundCarousel urls={bg.image_urls} intervalMs={bg.intervalMs || 4000} />
+      </div>
     ) : null;
   }
   return bg.video_url ? (
-    <video src={bg.video_url} muted autoPlay loop playsInline className="w-full h-full object-cover" />
+    <video src={bg.video_url} muted autoPlay loop playsInline style={mediaBorder} className="w-full h-full object-cover" />
   ) : null;
 }
 
@@ -226,8 +232,11 @@ function ContentVisual({
       );
     }
     if (urls.length === 0) return null;
+    const mediaBorder: React.CSSProperties = el.borderWidth
+      ? { border: `${el.borderWidth}px solid ${el.borderColor ?? "#000000"}`, boxSizing: "border-box" as const }
+      : {};
     return (
-      <div className="w-full h-full">
+      <div className="w-full h-full" style={mediaBorder}>
         {el.kind === "images" ? (
           <RestaurantPhotoCarousel
             photos={urls}
@@ -411,11 +420,12 @@ export function OrgPageView({
         )}
       </section>
 
-      {/* Content section — height = actual content extent (cvH design units) */}
+      {/* Content section — height = content extent + ~2 lines of breathing
+          room so the last line never sits flush against the section edge. */}
       {contentEls.length > 0 && (
         <section
           className="relative w-full"
-          style={{ height: cvH(contentMax), minHeight: 280, zIndex: 5 }}
+          style={{ height: cvH(contentMax + 10), minHeight: 280, zIndex: 5 }}
         >
           {contentEls.map((el) => (
             <div

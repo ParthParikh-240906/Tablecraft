@@ -2,6 +2,47 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 
+export async function DELETE(req: Request) {
+  const admin = createAdminClient();
+  const body = await req.json();
+  const { org_id } = body;
+
+  if (!org_id) {
+    return NextResponse.json({ error: "Missing org_id" }, { status: 400 });
+  }
+
+  // Delete existing logo file
+  const { data: org } = await admin
+    .from("organizations")
+    .select("logo_url")
+    .eq("id", org_id)
+    .single();
+
+  if (org?.logo_url) {
+    try {
+      const url = new URL(org.logo_url);
+      const path = url.pathname.slice(1);
+      await admin.storage.from("org-logos").remove([path]);
+    } catch {
+      // ignore bad URLs
+    }
+  }
+
+  const { error } = await admin
+    .from("organizations")
+    .update({ logo_url: null })
+    .eq("id", org_id);
+
+  if (error) {
+    console.error("clear logo:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  revalidatePath("/");
+  revalidatePath("/" + org_id);
+  return NextResponse.json({ ok: true });
+}
+
 export async function POST(req: Request) {
   const admin = createAdminClient();
   const formData = await req.formData();

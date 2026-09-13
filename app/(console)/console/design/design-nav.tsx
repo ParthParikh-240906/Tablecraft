@@ -7,6 +7,8 @@ const LINKS = [
   { href: "/console/design", label: "Design" },
   { href: "/console/design/hero", label: "Hero" },
   { href: "/console/design/content", label: "Content" },
+  { href: "/console/design/menu", label: "Menu Page" },
+  { href: "/console/design/book_a_table", label: "Book a Table" },
   { href: "/console/design/ai", label: "AI" },
 ];
 

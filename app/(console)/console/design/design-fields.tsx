@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { GOOGLE_FONTS } from "@/lib/design";
 import type { TextDesign } from "@/lib/design";
 
@@ -12,6 +13,22 @@ export function ColorField({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const [hexDraft, setHexDraft] = useState<string | null>(null);
+
+  const commitHex = (raw: string) => {
+    const t = raw.trim();
+    if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(t)) {
+      // Expand 3-digit shorthand (#abc → #aabbcc) for the native picker
+      const full = t.length === 4
+        ? "#" + t.slice(1).split("").map((c) => c + c).join("")
+        : t.toLowerCase();
+      onChange(full);
+      setHexDraft(null);
+    } else if (t === "") {
+      setHexDraft(null);
+    }
+  };
+
   return (
     <div>
       <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-soft)] mb-1">
@@ -22,9 +39,17 @@ export function ColorField({
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-9 h-9 rounded cursor-pointer border-0 bg-transparent"
+          className="w-9 h-9 rounded cursor-pointer border-0 bg-transparent shrink-0"
         />
-        <span className="text-xs font-mono text-[var(--ink-soft)]">{value}</span>
+        <input
+          type="text"
+          value={hexDraft ?? value}
+          onChange={(e) => setHexDraft(e.target.value)}
+          onBlur={(e) => commitHex(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") commitHex((e.target as HTMLInputElement).value); }}
+          placeholder="#000000"
+          className="w-24 bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1 text-xs font-mono text-[var(--ink)]"
+        />
       </div>
     </div>
   );

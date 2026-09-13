@@ -425,3 +425,9 @@ body {
   background-size: 120px 120px;
   opacity: 0.4;
 }
+
+/* Console dark UI: render native number-input spinner arrows in white so
+   they're visible against dark backgrounds. */
+input[type="number"] {
+  color-scheme: dark;
+}

@@ -1,7 +1,22 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrgBySlug, getMenuByOrg } from "@/lib/org";
+import { defaultMenuPageDesign, type MenuPageDesign, type TextDesign } from "@/lib/design";
 import { MenuItems } from "./menu-items";
+
+/** Convert a TextDesign to inline styles (server-rendered, no container queries). */
+function inline(
+  d: { fontFamily: string; fontSize: number; color: string; textAlign: string },
+  extra?: React.CSSProperties,
+): React.CSSProperties {
+  return {
+    fontFamily: d.fontFamily,
+    fontSize: `${d.fontSize}px`,
+    color: d.color,
+    textAlign: d.textAlign as React.CSSProperties["textAlign"],
+    ...extra,
+  };
+}
 
 export default async function MenuPage({
   params,
@@ -16,7 +31,9 @@ export default async function MenuPage({
   }
 
   const menu = await getMenuByOrg(org.id);
-  const highlightColor = org.theme_secondary_color ?? "#f97316";
+  const menuDesign: MenuPageDesign = org.design_settings
+    ? { ...defaultMenuPageDesign(), ...((org.design_settings as Record<string, unknown>)?.menu_page as Partial<MenuPageDesign> ?? {}) }
+    : defaultMenuPageDesign();
   const textColor = org.theme_text_color ?? "#f5f5f4";
   const isCleanSlate = org.theme_color === "#fafaf9";
 
@@ -33,8 +50,8 @@ export default async function MenuPage({
         </Link>
       </div>
 
-      <h1 className="text-3xl font-bold mb-2">Menu</h1>
-      <p className={isCleanSlate ? "text-sm mb-8" : "text-[var(--ink-faint)] mb-8"}>
+      <h1 style={inline(menuDesign.title_design, { fontWeight: 700, marginBottom: "0.5rem" })}>Menu</h1>
+      <p style={inline(menuDesign.subtitle_design, { marginBottom: "2rem" })}>
         Everything we're serving right now at {org.name}.
       </p>
 
@@ -44,7 +61,7 @@ export default async function MenuPage({
           <p className="text-sm mt-1">Check back soon — we're updating our menu.</p>
         </div>
       ) : (
-        <MenuItems grouped={menu} accent={highlightColor} />
+        <MenuItems grouped={menu} menuDesign={menuDesign} />
       )}
     </div>
   );

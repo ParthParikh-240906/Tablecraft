@@ -1,5 +1,7 @@
 "use client";
 
+import type { MenuPageDesign } from "@/lib/design";
+
 interface MenuItem {
   id: string;
   name: string;
@@ -9,20 +11,39 @@ interface MenuItem {
   image_url: string | null;
 }
 
+function inline(
+  d: { fontFamily: string; fontSize: number; color: string; textAlign: string },
+  extra?: React.CSSProperties,
+): React.CSSProperties {
+  return {
+    fontFamily: d.fontFamily,
+    fontSize: `${d.fontSize}px`,
+    color: d.color,
+    textAlign: d.textAlign as React.CSSProperties["textAlign"],
+    ...extra,
+  };
+}
+
 export function MenuItems({
   grouped,
-  accent,
+  menuDesign,
 }: {
   grouped: { category: string; items: MenuItem[] }[];
-  accent: string;
+  menuDesign: MenuPageDesign;
 }) {
   return (
     <div className="space-y-10">
       {grouped.map(({ category, items }) => (
         <section key={category}>
           <h2
-            className="text-sm font-semibold uppercase tracking-wider mb-4"
-            style={{ color: accent }}
+            style={{
+              ...inline(menuDesign.category_design, {
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: "1rem",
+              }),
+            }}
           >
             {category}
           </h2>
@@ -30,16 +51,16 @@ export function MenuItems({
             {items.map((item) => (
               <li key={item.id} className="py-4 flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="font-medium">{item.name}</h3>
+                  <h3 style={{ ...inline(menuDesign.item_name_design, { fontWeight: 500 }) }}>{item.name}</h3>
                   {item.description && (
-                    <p className="text-sm text-gray-600 mt-1">{item.description}</p>
+                    <p style={{ ...inline(menuDesign.item_description_design, { marginTop: "0.25rem" }) }}>
+                      {item.description}
+                    </p>
                   )}
                 </div>
-                <div className="flex items-center gap-3 whitespace-nowrap">
-                  <span className="font-semibold">
-                    AED {Number(item.price).toFixed(2)}
-                  </span>
-                </div>
+                <span style={{ ...inline(menuDesign.item_price_design, { fontWeight: 600, whiteSpace: "nowrap" }) }}>
+                  AED {Number(item.price).toFixed(2)}
+                </span>
               </li>
             ))}
           </ul>

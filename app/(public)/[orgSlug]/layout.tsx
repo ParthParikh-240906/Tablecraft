@@ -64,7 +64,10 @@ export default async function PublicLayout({
 
       <main className="flex-1">{children}</main>
 
-<footer className="border-t border-[var(--rule)] py-6 text-center text-sm text-[var(--ink-faint)]">
+<footer
+  className="border-t py-6 text-center text-sm"
+  style={{ borderColor: "var(--rule)", color: textColor }}
+>
   <Link href="/" className="hover:underline">
     Back to Tablecraft
   </Link>
