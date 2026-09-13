@@ -57,6 +57,7 @@ function ContentOverlay({
           selected={selected === el.id}
           onSelect={() => onSelect(el.id)}
           zIndex={31}
+          maxY={400}
           label={KIND_LABELS[el.kind]}
         />
       ))}

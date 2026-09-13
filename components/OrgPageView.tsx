@@ -409,12 +409,10 @@ export function OrgPageView({
         containerType: "inline-size",
         backgroundColor: colors.bg,
         color: colors.text,
-        // In preview the canvas is a fixed-height coordinate space; the content
-        // section flex-fills the space below the hero so every block can be
-        // dragged anywhere in the extended area.
-        ...(previewHeight && mode === "preview"
-          ? { height: `${previewHeight}px`, display: "flex", flexDirection: "column" as const }
-          : {}),
+        // In preview the canvas is a fixed-height coordinate space; content
+        // blocks are anchored to the design canvas (cvH units), so extending
+        // the preview only adds scroll room below — nothing stretches.
+        ...(previewHeight && mode === "preview" ? { height: `${previewHeight}px` } : {}),
       }}
     >
       {/* Header — sticky, with page-text-colored bottom border */}
@@ -423,7 +421,7 @@ export function OrgPageView({
       {/* Hero section */}
       <section
         className="relative w-full overflow-hidden"
-        style={{ height: heroHeight, minHeight: 300, zIndex: 5, flexShrink: 0 }}
+        style={{ height: heroHeight, minHeight: 300, zIndex: 5 }}
       >
         <div className="absolute inset-0" style={{ opacity: (heroBg.opacity ?? 100) / 100 }}>
           <BackgroundVisual bg={heroBg} />
@@ -488,21 +486,23 @@ export function OrgPageView({
         )}
       </section>
 
-      {/* Content section */}
+      {/* Content section — height = actual content extent (cvH design units) */}
       {contentEls.length > 0 && (
         <section
           className="relative w-full"
-          style={
-            previewHeight && mode === "preview"
-              ? { flex: 1, minHeight: cvH(contentMax), zIndex: 5 }
-              : { height: cvH(contentMax), minHeight: 280, zIndex: 5 }
-          }
+          style={{ height: cvH(contentMax), minHeight: 280, zIndex: 5 }}
         >
           {contentEls.map((el) => (
             <div
               key={el.id}
               className="absolute"
-              style={{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.w}%`, height: `${el.h}%`, zIndex: 6 }}
+              style={{
+                left: `${el.x}%`,
+                top: cvH(el.y),
+                width: `${el.w}%`,
+                height: cvH(el.h),
+                zIndex: 6,
+              }}
             >
               <ContentVisual
                 el={el}
@@ -512,11 +512,12 @@ export function OrgPageView({
               />
             </div>
           ))}
-          {/* Console overlay slot: content element drag/resize boxes */}
+          {/* Console overlay slot: drag/resize boxes. Fixed to the design
+              canvas height (cvH(100)) so box coordinates are design units. */}
           {mode === "preview" && (
             <div
               className="absolute z-30 pointer-events-none"
-              style={{ top: 0, left: 0, width: "100%", height: "100%" }}
+              style={{ top: 0, left: 0, width: "100%", height: cvH(100) }}
               data-panel-overlays="content"
             />
           )}

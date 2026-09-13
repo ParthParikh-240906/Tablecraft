@@ -148,12 +148,12 @@ export function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-export function clampRect(r: Rect, min = 3): Rect {
+export function clampRect(r: Rect, min = 3, maxY = 100): Rect {
   const w = Math.min(100, Math.max(min, r.w));
   const h = Math.min(100, Math.max(min, r.h));
   return {
     x: Math.min(100 - w, Math.max(0, r.x)),
-    y: Math.min(100 - h, Math.max(0, r.y)),
+    y: Math.min(maxY - h, Math.max(0, r.y)),
     w,
     h,
   };

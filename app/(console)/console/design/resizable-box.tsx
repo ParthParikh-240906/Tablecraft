@@ -24,6 +24,7 @@ export function ResizableBox({
   children,
   className = "",
   lockMove = false,
+  maxY = 100,
   positionStyle,
 }: {
   rect: Rect;
@@ -35,6 +36,7 @@ export function ResizableBox({
   children?: ReactNode;
   className?: string;
   lockMove?: boolean;
+  maxY?: number;
   positionStyle?: React.CSSProperties;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
@@ -67,7 +69,7 @@ export function ResizableBox({
       if (mode.includes("n")) { next.y = startRect.y + dy; next.h = startRect.h - dy; }
       if (mode.includes("s")) { next.h = startRect.h + dy; }
     }
-    onChange(clampRect(next));
+    onChange(clampRect(next, 3, maxY));
   };
 
   const onPointerUp = () => {
