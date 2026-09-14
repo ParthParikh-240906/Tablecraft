@@ -22,10 +22,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "description is required" }, { status: 400 });
   }
 
-  const apiKey = process.env.OMNI_API_KEY;
-  const baseUrl = process.env.OMNI_BASE_URL;
-  if (!apiKey || !baseUrl) {
-    return NextResponse.json({ error: "AI service not configured" }, { status: 500 });
+  const apiKey = process.env.AGNES_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json({ error: "AGNES_API_KEY not configured" }, { status: 500 });
   }
 
   const userPrompt = orgName
@@ -33,14 +32,14 @@ export async function POST(request: Request) {
     : `Description: ${description.trim()}`;
 
   try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
+    const res = await fetch("https://apihub.agnes-ai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "Chatbot",
+        model: "agnes-2.5-flash",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userPrompt },

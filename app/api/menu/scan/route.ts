@@ -160,11 +160,10 @@ export async function POST(request: NextRequest) {
 }
 
 async function callLLM(rawText: string): Promise<any> {
-  const apiKey = process.env.OMNI_API_KEY;
-  const baseUrl = process.env.OMNI_BASE_URL;
+  const apiKey = process.env.AGNES_API_KEY;
 
-  if (!apiKey || !baseUrl) {
-    throw new Error("OMNI_API_KEY or OMNI_BASE_URL not configured");
+  if (!apiKey) {
+    throw new Error("AGNES_API_KEY not configured");
   }
 
   const prompt = `You are a restaurant menu parser. Extract ALL menu items from the following text.
@@ -188,14 +187,14 @@ Rules:
 Raw text:
 ${rawText}`;
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
+  const response = await fetch("https://apihub.agnes-ai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "hermes",
+      model: "agnes-2.5-flash",
       messages: [{ role: "user", content: prompt }],
       max_tokens: 2000,
       temperature: 0.1,

@@ -33,6 +33,7 @@ export default function SignupPage() {
   const [redirecting, setRedirecting] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiDescription, setAiDescription] = useState("");
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // Read ?plan= query param on mount
   useEffect(() => {
@@ -57,6 +58,7 @@ export default function SignupPage() {
   async function handleAiGenerate() {
     if (!aiDescription.trim() || aiGenerating) return;
     setAiGenerating(true);
+    setAiError(null);
     try {
       const res = await fetch("/api/content/generate", {
         method: "POST",
@@ -64,10 +66,14 @@ export default function SignupPage() {
         body: JSON.stringify({ description: aiDescription.trim(), orgName: orgName || undefined }),
       });
       const data = await res.json();
+      if (data.error) {
+        setAiError(data.error);
+        return;
+      }
       if (data.tagline) setTagline(data.tagline);
       if (data.about) setAboutText(data.about);
     } catch {
-      // silent fail — user can still type manually
+      setAiError("Failed to generate content — is AGNES_API_KEY configured?");
     } finally {
       setAiGenerating(false);
     }
@@ -506,6 +512,7 @@ export default function SignupPage() {
               >
                 {aiGenerating ? "Generating…" : "Generate content"}
               </button>
+              {aiError && <p className="text-xs text-red-400">{aiError}</p>}
               <p className="text-xs text-[var(--ink-faint)]">
                 Fills in your tagline and about text using AI.
               </p>

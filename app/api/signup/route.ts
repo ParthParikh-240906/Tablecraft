@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
   }
   if (!aboutText || typeof aboutText !== "string" || aboutText.trim().length < 10) {
-    return NextResponse.json({ error: "Please provide a short description of your restaurant" }, { status: 400 });
+    return NextResponse.json({ error: "Please provide a short description of your restaurant (at least 10 characters)" }, { status: 400 });
   }
 
   const admin = createAdminClient();

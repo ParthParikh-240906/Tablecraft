@@ -49,9 +49,7 @@ RULES FOR YOUR REPLY:
 - Do NOT repeat information the user already provided.`;
 
 export async function POST(request: NextRequest) {
-  const apiKey = process.env.OMNI_API_KEY;
-  const baseUrl = process.env.OMNI_BASE_URL || "http://localhost:20128/v1";
-
+  const apiKey = process.env.AGNES_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "AI service not configured" }, { status: 500 });
   }
@@ -76,7 +74,7 @@ export async function POST(request: NextRequest) {
     .join("\n") || "  (none yet)";
 
   const historyState = history
-    .map((m: any) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+    .map((m: any) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content ?? m.text}`)
     .join("\n") || "  (no previous messages)";
 
   // ===================================================================
@@ -84,16 +82,16 @@ export async function POST(request: NextRequest) {
   // ===================================================================
   const messages1 = [
     { role: "system", content: EXTRACTION_PROMPT.replace("{name_state}", collected) },
-    ...history.map((m: any) => ({ role: m.role, content: m.content })),
+    ...history.map((m: any) => ({ role: m.role, content: m.content ?? m.text })),
     { role: "user", content: message },
   ];
 
   let extracted: SlotState & { isComplete?: boolean };
   try {
-    const res1 = await fetch(`${baseUrl}/chat/completions`, {
+    const res1 = await fetch("https://apihub.agnes-ai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: "Chatbot", response_format: { type: "json_object" }, messages: messages1, max_tokens: 200 }),
+      body: JSON.stringify({ model: "agnes-2.5-flash", response_format: { type: "json_object" }, messages: messages1, max_tokens: 200 }),
     });
 
     if (!res1.ok) {
@@ -154,10 +152,10 @@ export async function POST(request: NextRequest) {
 
   let conversationalReply = "Thanks! Let me confirm your details shortly.";
   try {
-    const res2 = await fetch(`${baseUrl}/chat/completions`, {
+    const res2 = await fetch("https://apihub.agnes-ai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: "Chatbot", messages: messages2, max_tokens: 200 }),
+      body: JSON.stringify({ model: "agnes-2.5-flash", messages: messages2, max_tokens: 200 }),
     });
 
     if (res2.ok) {

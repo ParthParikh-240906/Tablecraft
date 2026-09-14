@@ -57,15 +57,13 @@ export async function POST(request: NextRequest) {
     const mimeType = `image/${ext === "jpg" ? "jpeg" : ext}`;
 
     // Call OmniRoute
-    const apiKey = process.env.OMNI_API_KEY;
+    const apiKey = process.env.AGNES_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: "OMNI_API_KEY not configured" },
+        { error: "AGNES_API_KEY not configured" },
         { status: 500 }
       );
     }
-
-    const baseUrl = process.env.OMNI_BASE_URL || "http://localhost:20128/v1";
 
     const prompt = `You are a restaurant menu parser. Extract ALL menu items from this image.
 
@@ -84,14 +82,14 @@ Rules:
 - Extract ALL items visible in the menu
 - Return ONLY JSON, no other text`;
 
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await fetch("https://apihub.agnes-ai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "Menu",
+        model: "agnes-2.5-flash",
         response_format: { type: "json_object" },
         messages: [
           {
