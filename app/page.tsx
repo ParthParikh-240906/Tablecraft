@@ -43,7 +43,7 @@ function Reveal({ children, className = "", delay = 0 }: { children: React.React
       ref={ref}
       className={[
         "transition-all duration-700 ease-out",
-        visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6",
+        visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3",
         className,
       ]
         .filter(Boolean)
@@ -258,26 +258,26 @@ function Hero() {
 
       <div className="relative z-10 px-4 text-center max-w-3xl">
         <Reveal>
-          <p className="label-caps text-[color:var(--accent)] mb-5" style={{ fontSize: "1.625rem", letterSpacing: "0.12em" }}>Tablecraft</p>
+          <p className="label-caps text-[color:var(--accent)] mb-5" style={{ fontSize: "1.3rem", letterSpacing: "0.12em" }}>Tablecraft</p>
         </Reveal>
         <Reveal delay={100}>
-          <h1 className="font-display text-5xl md:text-7xl lg:text-8xl leading-[0.98] tracking-tight mb-6 text-[var(--ink)]">
+          <h1 className="font-display text-4xl md:text-5xl lg:text-6xl leading-[0.98] tracking-tight mb-6 text-[var(--ink)]">
             Your restaurant,
             <br />
             <span className="gradient-text">online</span> in minutes.
           </h1>
         </Reveal>
         <Reveal delay={300}>
-          <p className="text-[var(--ink-soft)] text-lg md:text-xl mb-10 max-w-xl mx-auto leading-relaxed italic opacity-90">
+          <p className="text-[var(--ink-soft)] text-base md:text-lg mb-10 max-w-xl mx-auto leading-relaxed italic opacity-90">
             AI-powered website, console, and staff dashboard — built for restaurants that want to move fast.
           </p>
         </Reveal>
         <Reveal delay={400}>
           <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/signup" className="btn btn-accent text-base px-8 py-3">
+            <Link href="/signup" className="btn btn-accent text-sm px-8 py-3">
               Create your restaurant
             </Link>
-            <a href="#restaurants" className="btn btn-outline text-base px-8 py-3">
+            <a href="#restaurants" className="btn btn-outline text-sm px-8 py-3">
               Demo restaurants
             </a>
           </div>
@@ -285,9 +285,9 @@ function Hero() {
       </div>
 
       {/* Scroll indicator */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-bounce">
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-bounce">
         <span className="label-caps text-[var(--ink-faint)]">Scroll</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-faint)" strokeWidth="2" strokeLinecap="round">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-faint)" strokeWidth="2" strokeLinecap="round">
           <path d="M12 5v14M5 12l7 7 7-7" />
         </svg>
       </div>
@@ -307,23 +307,23 @@ function FeatureCard({ feature, index }: { feature: typeof AI_FEATURES[0]; index
         onMouseLeave={() => setHovered(false)}
       >
         <p className="label-caps text-xs mb-1" style={{ color: feature.color }}>{feature.subtitle}</p>
-        <h3 className="font-display text-xl mb-3 text-[var(--ink)]">{feature.title}</h3>
-        <p className="text-sm text-[var(--ink-soft)] leading-relaxed">{feature.description}</p>
+        <h3 className="font-display text-lg mb-3 text-[var(--ink)]">{feature.title}</h3>
+        <p className="text-xs text-[var(--ink-soft)] leading-relaxed">{feature.description}</p>
         <div
-          className="mt-4 h-px transition-all duration-300"
+          className="mt-3 h-px transition-all duration-300"
           style={{
             width: hovered ? "100%" : "0%",
             backgroundColor: feature.color,
           }}
         />
         <button
-          className="mt-4 flex items-center gap-2 text-sm font-medium transition-colors duration-200"
+          className="mt-3 flex items-center gap-2 text-xs font-medium transition-colors duration-200"
           style={{ color: feature.color }}
           onClick={() => setOpen(!open)}
         >
           {open ? "Show less" : "Show more"}
           <svg
-            className={`w-4 h-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+            className={`w-3 h-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -333,12 +333,12 @@ function FeatureCard({ feature, index }: { feature: typeof AI_FEATURES[0]; index
         </button>
         <div
           className="overflow-auto transition-all duration-300 rounded-sm"
-          style={{ maxHeight: open ? "400px" : "0px", opacity: open ? 1 : 0 }}
+          style={{ maxHeight: open ? "320px" : "0px", opacity: open ? 1 : 0 }}
         >
           <img
             src={feature.image}
             alt={feature.title}
-            className="w-full rounded-sm mt-3 border border-[var(--rule)]"
+            className="w-full rounded-sm mt-2 border border-[var(--rule)]"
           />
         </div>
       </div>
@@ -348,17 +348,17 @@ function FeatureCard({ feature, index }: { feature: typeof AI_FEATURES[0]; index
 
 function FeaturesSection() {
   return (
-    <section id="features" className="max-w-6xl mx-auto px-4 py-[72px]">
+    <section id="features" className="max-w-6xl mx-auto px-4 py-[56px]">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.1em", textDecoration: "underline" }}>AI-Powered</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "0.9rem", letterSpacing: "0.1em", textDecoration: "underline" }}>AI-Powered</p>
       </Reveal>
       <Reveal delay={80}>
-        <h2 className="font-display text-3xl md:text-5xl text-center mb-5 text-[var(--ink)]">
+        <h2 className="font-display text-2xl md:text-4xl text-center mb-4 text-[var(--ink)]">
           Everything runs on AI.
         </h2>
       </Reveal>
       <Reveal delay={160}>
-        <p className="text-center text-[var(--ink-soft)] max-w-lg mx-auto mb-9 text-lg">
+        <p className="text-center text-[var(--ink-soft)] max-w-lg mx-auto mb-7 text-base">
           From booking guests to scanning menus to designing your site — Tablecraft handles the heavy lifting so you can focus on the food.
         </p>
       </Reveal>
@@ -372,16 +372,16 @@ function FeaturesSection() {
 function StepCard({ n, title, body, delay }: { n: number; title: string; body: string; delay: number }) {
   return (
     <Reveal delay={delay}>
-      <div className="flex gap-5 items-start">
+      <div className="flex gap-4 items-start">
         <span
-          className="flex-shrink-0 w-10 h-10 rounded-sm flex items-center justify-center text-base font-bold font-display"
+          className="flex-shrink-0 w-8 h-8 rounded-sm flex items-center justify-center text-sm font-bold font-display"
           style={{ background: "var(--accent)", color: "#ffffff" }}
         >
           {n}
         </span>
         <div>
-          <h3 className="font-display text-xl mb-2 text-[var(--ink)]">{title}</h3>
-          <p className="text-sm text-[var(--ink-soft)] leading-relaxed">{body}</p>
+          <h3 className="font-display text-lg mb-1 text-[var(--ink)]">{title}</h3>
+          <p className="text-xs text-[var(--ink-soft)] leading-relaxed">{body}</p>
         </div>
       </div>
     </Reveal>
@@ -396,21 +396,21 @@ function HowItWorksSection() {
   ];
 
   return (
-    <section id="how-it-works" className="max-w-2xl mx-auto px-4 py-[72px]">
+    <section id="how-it-works" className="max-w-2xl mx-auto px-4 py-[56px]">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.1em", textDecoration: "underline" }}>How it works</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "0.9rem", letterSpacing: "0.1em", textDecoration: "underline" }}>How it works</p>
       </Reveal>
       <Reveal delay={80}>
-        <h2 className="font-display text-3xl md:text-4xl text-center mb-14 text-[var(--ink)]">
+        <h2 className="font-display text-2xl md:text-3xl text-center mb-10 text-[var(--ink)]">
           Three steps. That's it.
         </h2>
       </Reveal>
 
-      <div className="ticket ticket--dark p-8 space-y-8">
+      <div className="ticket ticket--dark p-6 space-y-6">
         {steps.map((s, i) => (
           <div key={s.n}>
             <StepCard {...s} delay={i * 100} />
-            {i < steps.length - 1 && <hr className="rule-dashed mt-8" />}
+            {i < steps.length - 1 && <hr className="rule-dashed mt-6" />}
           </div>
         ))}
       </div>
@@ -427,13 +427,13 @@ function RestaurantCard({ org, index }: { org: Org; index: number }) {
     <Reveal delay={index * 80}>
       <Link
         href={`/${org.slug}`}
-        className="ticket ticket--dark p-5 block group transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+        className="ticket ticket--dark p-4 block group transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-center gap-2 mb-2">
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold font-display text-lg shrink-0 transition-transform duration-300 group-hover:scale-110"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold font-display text-base shrink-0 transition-transform duration-300 group-hover:scale-110"
             style={{ backgroundColor: color }}
           >
             {org.logo_url ? (
@@ -444,13 +444,13 @@ function RestaurantCard({ org, index }: { org: Org; index: number }) {
             )}
           </div>
           <div className="min-w-0">
-            <p className="font-display text-base truncate text-[var(--ink)]">{org.name}</p>
+            <p className="font-display text-sm truncate text-[var(--ink)]">{org.name}</p>
             {org.tagline && (
-              <p className="text-xs text-[var(--ink-faint)] truncate">{org.tagline}</p>
+              <p className="text-[10px] text-[var(--ink-faint)] truncate">{org.tagline}</p>
             )}
           </div>
         </div>
-        <p className="text-xs text-[var(--ink-faint)] mb-3">/{org.slug}</p>
+        <p className="text-[10px] text-[var(--ink-faint)] mb-2">/{org.slug}</p>
         <div
           className="h-px transition-all duration-300"
           style={{ width: hovered ? "100%" : "0%", backgroundColor: color }}
@@ -475,25 +475,25 @@ function RestaurantsSection() {
   }, []);
 
   return (
-    <section id="restaurants" className="max-w-6xl mx-auto px-4 py-[72px]">
+    <section id="restaurants" className="max-w-6xl mx-auto px-4 py-[56px]">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.1em", textDecoration: "underline" }}>Directory</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "0.9rem", letterSpacing: "0.1em", textDecoration: "underline" }}>Directory</p>
       </Reveal>
       <Reveal delay={80}>
-        <h2 className="font-display text-3xl md:text-4xl text-center mb-5 text-[var(--ink)]">
+        <h2 className="font-display text-2xl md:text-3xl text-center mb-4 text-[var(--ink)]">
           Demo restaurants
         </h2>
       </Reveal>
       <Reveal delay={160}>
-        <p className="text-center text-[var(--ink-soft)] max-w-md mx-auto mb-10">
+        <p className="text-center text-[var(--ink-soft)] max-w-md mx-auto mb-8 text-base">
           Preview our demo sites below. Sign in to see and manage your own restaurant.
         </p>
       </Reveal>
 
       {loading ? (
-        <div className="ticket ticket--dark p-10 text-center text-[var(--ink-faint)]">Loading restaurants…</div>
+        <div className="ticket ticket--dark p-8 text-center text-[var(--ink-faint)]">Loading restaurants…</div>
       ) : orgs.length === 0 ? (
-        <div className="ticket ticket--dark p-10 text-center text-[var(--ink-faint)]">No restaurants yet. Be the first.</div>
+        <div className="ticket ticket--dark p-8 text-center text-[var(--ink-faint)]">No restaurants yet. Be the first.</div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-[var(--rule)] border border-[var(--rule)] rounded-sm overflow-hidden">
           {orgs.map((org, i) => (
@@ -503,8 +503,8 @@ function RestaurantsSection() {
       )}
 
       <Reveal delay={200}>
-        <div className="text-center mt-8">
-          <Link href="/restaurants" className="btn btn-outline text-sm">
+        <div className="text-center mt-6">
+          <Link href="/restaurants" className="btn btn-outline text-xs">
             View all restaurants →
           </Link>
         </div>
@@ -553,7 +553,7 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
     <Reveal delay={index * 120}>
       <div
         className={[
-          "ticket ticket--dark p-6 sm:p-8 flex flex-col relative transition-all duration-300 h-full",
+          "ticket ticket--dark p-5 sm:p-6 flex flex-col relative transition-all duration-300 h-full",
           plan.highlighted ? "ring-2 ring-[var(--accent)] shadow-xl" : "",
         ]
           .filter(Boolean)
@@ -562,21 +562,21 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
         onMouseLeave={() => setHovered(false)}
       >
         {plan.highlighted && (
-          <p className="label-caps text-xs mb-3" style={{ color: "var(--accent)" }}>Most popular</p>
+          <p className="label-caps text-[10px] mb-2" style={{ color: "var(--accent)" }}>Most popular</p>
         )}
 
-        <p className="label-caps text-xs mb-1 text-[var(--ink-soft)]">{plan.name}</p>
-        <div className="flex items-baseline gap-1 mb-2">
-          <span className="font-display text-4xl text-[var(--ink)]">{plan.price}</span>
-          <span className="text-sm text-[var(--ink-faint)]">AED</span>
+        <p className="label-caps text-[10px] mb-1 text-[var(--ink-soft)]">{plan.name}</p>
+        <div className="flex items-baseline gap-1 mb-1">
+          <span className="font-display text-3xl text-[var(--ink)]">{plan.price}</span>
+          <span className="text-[10px] text-[var(--ink-faint)]">AED</span>
         </div>
-        <p className="text-xs text-[var(--ink-faint)] mb-4">{plan.period}</p>
-        <p className="text-sm text-[var(--ink-soft)] leading-relaxed mb-6 flex-grow">{plan.description}</p>
+        <p className="text-[10px] text-[var(--ink-faint)] mb-3">{plan.period}</p>
+        <p className="text-xs text-[var(--ink-soft)] leading-relaxed mb-5 flex-grow">{plan.description}</p>
 
-        <ul className="space-y-2 mb-8">
+        <ul className="space-y-1.5 mb-6">
           {plan.features.map((f) => (
-            <li key={f} className="flex items-start gap-2 text-sm text-[var(--ink-soft)]">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" className="flex-shrink-0 mt-0.5">
+            <li key={f} className="flex items-start gap-1.5 text-[10px] text-[var(--ink-soft)]">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" className="flex-shrink-0 mt-0.5">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
               {f}
@@ -623,22 +623,22 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
 
 function PricingSection() {
   return (
-    <section id="pricing" className="max-w-5xl mx-auto px-4 py-[72px]">
+    <section id="pricing" className="max-w-5xl mx-auto px-4 py-[56px]">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.1em", textDecoration: "underline" }}>Pricing</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "0.9rem", letterSpacing: "0.1em", textDecoration: "underline" }}>Pricing</p>
       </Reveal>
       <Reveal delay={80}>
-        <h2 className="font-display text-3xl md:text-4xl text-center mb-5 text-[var(--ink)]">
+        <h2 className="font-display text-2xl md:text-3xl text-center mb-4 text-[var(--ink)]">
           Simple, transparent pricing.
         </h2>
       </Reveal>
       <Reveal delay={160}>
-        <p className="text-center text-[var(--ink-soft)] max-w-md mx-auto mb-12">
+        <p className="text-center text-[var(--ink-soft)] max-w-md mx-auto mb-9 text-base">
           Start free with a mock site. Upgrade when you're ready to go live.
         </p>
       </Reveal>
 
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-3 gap-3">
         {PRICING.map((p, i) => (
           <PricingCard key={p.name} plan={p} index={i} />
         ))}
@@ -681,42 +681,42 @@ function ContactSection() {
   }
 
   return (
-    <section id="contact" className="max-w-2xl mx-auto px-4 py-[72px]">
+    <section id="contact" className="max-w-2xl mx-auto px-4 py-[56px]">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.125rem", letterSpacing: "0.1em", textDecoration: "underline" }}>Get in touch</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "0.9rem", letterSpacing: "0.1em", textDecoration: "underline" }}>Get in touch</p>
       </Reveal>
       <Reveal delay={80}>
-        <h2 className="font-display text-3xl md:text-4xl text-center mb-5 text-[var(--ink)]">
+        <h2 className="font-display text-2xl md:text-3xl text-center mb-4 text-[var(--ink)]">
           Questions? Ideas?
         </h2>
       </Reveal>
       <Reveal delay={160}>
-        <p className="text-center text-[var(--ink-soft)] mb-10 max-w-md mx-auto">
+        <p className="text-center text-[var(--ink-soft)] mb-8 max-w-md mx-auto text-base">
           Whether you're a restaurant owner, a developer, or just curious — we'd love to hear from you.
         </p>
       </Reveal>
 
       <Reveal delay={240}>
-        <div ref={ref} className={`transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
+        <div ref={ref} className={`transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
           {submitted ? (
-            <div className="ticket ticket--dark p-8 text-center">
-              <p className="label-caps text-[color:var(--accent)] mb-2">Message Sent</p>
-              <h3 className="font-display text-2xl text-[var(--ink)] mb-2">Thank you, {name}!</h3>
-              <p className="text-sm text-[var(--ink-soft)] mb-6">
+            <div className="ticket ticket--dark p-6 text-center">
+              <p className="label-caps text-[color:var(--accent)] mb-1">Message Sent</p>
+              <h3 className="font-display text-xl text-[var(--ink)] mb-1">Thank you, {name}!</h3>
+              <p className="text-xs text-[var(--ink-soft)] mb-4">
                 We received your note and will get back to you shortly.
               </p>
               <button
                 type="button"
                 onClick={() => { setSubmitted(false); setName(""); setEmail(""); setMessage(""); }}
-                className="btn btn-outline text-xs"
+                className="btn btn-outline text-[10px]"
               >
                 Send another message
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="ticket ticket--dark p-6 sm:p-8 space-y-4">
+            <form onSubmit={handleSubmit} className="ticket ticket--dark p-5 sm:p-6 space-y-3">
               <div>
-                <label htmlFor="m-name" className="block text-xs uppercase tracking-wider font-semibold mb-1 text-[var(--ink-soft)]">
+                <label htmlFor="m-name" className="block text-[10px] uppercase tracking-wider font-semibold mb-1 text-[var(--ink-soft)]">
                   Your Name
                 </label>
                 <input
@@ -730,7 +730,7 @@ function ContactSection() {
                 />
               </div>
               <div>
-                <label htmlFor="m-email" className="block text-xs uppercase tracking-wider font-semibold mb-1 text-[var(--ink-soft)]">
+                <label htmlFor="m-email" className="block text-[10px] uppercase tracking-wider font-semibold mb-1 text-[var(--ink-soft)]">
                   Email Address
                 </label>
                 <input
@@ -744,12 +744,12 @@ function ContactSection() {
                 />
               </div>
               <div>
-                <label htmlFor="m-message" className="block text-xs uppercase tracking-wider font-semibold mb-1 text-[var(--ink-soft)]">
+                <label htmlFor="m-message" className="block text-[10px] uppercase tracking-wider font-semibold mb-1 text-[var(--ink-soft)]">
                   Message
                 </label>
                 <textarea
                   id="m-message"
-                  rows={4}
+                  rows={3}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Tell us about your restaurant or any questions..."
@@ -758,7 +758,7 @@ function ContactSection() {
                 />
               </div>
               {error && (
-                <p className="text-xs text-red-400 border border-red-800 bg-red-950/40 p-2 rounded-sm">
+                <p className="text-[10px] text-red-400 border border-red-800 bg-red-950/40 p-2 rounded-sm">
                   {error}
                 </p>
               )}

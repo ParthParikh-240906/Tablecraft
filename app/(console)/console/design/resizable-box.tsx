@@ -80,7 +80,7 @@ export function ResizableBox({
       if (mode.includes("n")) { next.y = startRect.y + dy; next.h = startRect.h - dy; }
       if (mode.includes("s")) { next.h = startRect.h + dy; }
     }
-    onChange(clampRect(next, 3, maxY));
+    onChange(clampRect(next, 3));
   };
 
   const onPointerUp = () => {

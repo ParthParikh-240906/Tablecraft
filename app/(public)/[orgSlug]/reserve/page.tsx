@@ -46,7 +46,7 @@ export default async function ReservePage({
       <div className="mb-6">
         <Link
           href={`/${org.slug}`}
-          className={isCleanSlate ? "inline-flex items-center gap-2 text-sm font-medium hover:underline" : "inline-flex items-center gap-2 text-sm font-medium text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors"}
+          className="inline-flex items-center gap-2 text-sm font-medium text-[var(--ink)] underline"
         >
           <span aria-hidden="true">&larr;</span>
           <span>Back to {org.name}</span>
@@ -76,13 +76,20 @@ export default async function ReservePage({
         we will automatically prepare the optimal table for you (2-hour reservation).
       </p>
 
-      <BookingForm orgId={org.id} orgSlug={org.slug} accent={accent} />
+      <BookingForm
+        orgId={org.id}
+        orgSlug={org.slug}
+        accent={accent}
+        inputBg={reserveDesign.input_bg_color}
+        inputText={reserveDesign.input_text_color}
+        inputBorder={reserveDesign.input_border_color}
+      />
 
       {/* Bottom Back Button */}
       <div className="mt-8 pt-6 text-center" style={{ borderTop: `1px solid ${reserveDesign.subtitle_design.color}22` }}>
         <Link
           href={`/${org.slug}`}
-          className="inline-flex items-center gap-2 text-sm font-medium hover:underline"
+          className="inline-flex items-center gap-2 text-sm font-medium text-[var(--ink)] underline"
           style={{ color: accent }}
         >
           <span aria-hidden="true">&larr;</span>

@@ -13,10 +13,16 @@ export function BookingForm({
   orgId,
   orgSlug,
   accent,
+  inputBg,
+  inputText,
+  inputBorder,
 }: {
   orgId: string;
   orgSlug: string;
   accent: string;
+  inputBg: string;
+  inputText: string;
+  inputBorder: string;
 }) {
   const { tables, connected } = useTableRealtime(orgId);
 
@@ -132,30 +138,30 @@ export function BookingForm({
 
   if (confirmedDetails) {
     return (
-      <div className="rounded-2xl border border-[var(--rule)] bg-[var(--paper-raised)] p-8 text-center shadow-sm">
-        <div
-          className="h-12 w-12 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-xl"
-          style={{ backgroundColor: accent }}
-        >
-          ✓
+        <div className="rounded-2xl border border-[var(--rule)] bg-[var(--paper-raised)] p-8 text-center shadow-sm">
+          <div
+            className="h-12 w-12 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-xl"
+            style={{ backgroundColor: accent }}
+          >
+            ✓
+          </div>
+          <h2 className="text-xl font-semibold mb-2" style={{ color: inputText }}>Booking Confirmed!</h2>
+          <p className="font-medium" style={{ color: inputText }}>
+            Your table has been reserved. We look forward to seeing you.
+          </p>
         </div>
-        <h2 className="text-xl font-semibold mb-2" style={{ color: "black" }}>Booking Confirmed!</h2>
-        <p className="text-gray-900 font-medium">
-          Your table has been reserved. We look forward to seeing you.
-        </p>
-      </div>
     );
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* Auto table assignment info badge */}
-      <div className="rounded-xl border border-dashed border-[var(--rule)] bg-[var(--paper-raised)] p-3.5 text-xs text-gray-600 flex items-center justify-between">
+      <div className="rounded-xl border border-dashed border-[var(--rule)] bg-[var(--paper-raised)] p-3.5 text-xs text-[var(--ink-faint)] flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full" style={{ backgroundColor: accent }} />
           <span>Table will be automatically assigned for optimal seating</span>
         </div>
-        <span className="text-[11px] text-gray-400 font-mono">
+        <span className="text-[11px] font-mono text-[var(--ink-faint)]">
           {connected ? "● Live system" : "○ Connecting…"}
         </span>
       </div>
@@ -173,7 +179,8 @@ export function BookingForm({
           required
           minLength={2}
           placeholder="Jane Doe"
-          className="w-full rounded-lg border px-3 py-2.5 text-sm bg-white text-black"
+          className="w-full rounded-lg border px-3 py-2.5 text-sm"
+          style={{ backgroundColor: inputBg, color: inputText, borderColor: inputBorder }}
         />
       </div>
 
@@ -190,7 +197,8 @@ export function BookingForm({
           value={size}
           onChange={(e) => setSize(Number(e.target.value))}
           required
-          className="w-full rounded-lg border px-3 py-2.5 text-sm bg-white text-black"
+          className="w-full rounded-lg border px-3 py-2.5 text-sm"
+          style={{ backgroundColor: inputBg, color: inputText, borderColor: inputBorder }}
         />
       </div>
 
@@ -207,9 +215,10 @@ export function BookingForm({
           placeholder="DD-MM-YYYY"
           required
           pattern="\d{2}-\d{2}-\d{4}"
-          className="w-full rounded-lg border px-3 py-2.5 text-sm bg-white text-black font-mono"
+          className="w-full rounded-lg border px-3 py-2.5 text-sm font-mono"
+          style={{ backgroundColor: inputBg, color: inputText, borderColor: inputBorder }}
         />
-        <p className="text-xs text-gray-400 mt-1">Format: DD-MM-YYYY (e.g. 15-07-2025)</p>
+        <p className="text-xs text-[var(--ink-faint)] mt-1">Format: DD-MM-YYYY (e.g. 15-07-2025)</p>
       </div>
 
       {/* Time */}
@@ -223,9 +232,10 @@ export function BookingForm({
           value={time}
           onChange={(e) => setTime(e.target.value)}
           required
-          className="w-full rounded-lg border px-3 py-2.5 text-sm bg-white text-black"
+          className="w-full rounded-lg border px-3 py-2.5 text-sm"
+          style={{ backgroundColor: inputBg, color: inputText, borderColor: inputBorder }}
         />
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-xs text-[var(--ink-faint)] mt-1">
           Reservations are booked for a 2-hour duration.
         </p>
       </div>
@@ -255,7 +265,7 @@ export function BookingForm({
       )}
 
       {error && (
-        <p className="text-sm text-red-600 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+        <p className="text-sm text-red-600 rounded-lg bg-red-50 border border-red-200 px-3 py-2" style={{ color: inputText }}>
           {error}
         </p>
       )}

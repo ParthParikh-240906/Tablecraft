@@ -66,7 +66,7 @@ export default async function PublicLayout({
 
 <footer
   className="border-t py-6 text-center text-sm"
-  style={{ borderColor: "var(--rule)", color: textColor }}
+  style={{ borderColor: textColor, color: textColor }}
 >
   <Link href="/" className="hover:underline">
     Back to Tablecraft

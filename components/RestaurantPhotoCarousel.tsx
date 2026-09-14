@@ -36,7 +36,7 @@ export function RestaurantPhotoCarousel({
       <img
         src={photos[current]}
         alt={`${name} restaurant photo`}
-        className="rounded-2xl shadow-2xl w-full h-full object-cover"
+        className="w-full h-full object-cover"
       />
       {photos.length > 1 && (
         <>

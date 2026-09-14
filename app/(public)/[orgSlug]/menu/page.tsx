@@ -43,7 +43,7 @@ export default async function MenuPage({
       <div className="mb-6">
         <Link
           href={`/${org.slug}`}
-          className={isCleanSlate ? "inline-flex items-center gap-2 text-sm font-medium hover:underline" : "inline-flex items-center gap-2 text-sm font-medium text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors"}
+          className="inline-flex items-center gap-2 text-sm font-medium text-[var(--ink)] underline"
         >
           <span aria-hidden="true">&larr;</span>
           <span>Back to {org.name}</span>

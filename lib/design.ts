@@ -77,6 +77,9 @@ export interface ReservePageDesign {
   subtitle_design: TextDesign;
   label_design: TextDesign;
   button_design: TextDesign;
+  input_bg_color: string;
+  input_text_color: string;
+  input_border_color: string;
 }
 
 export interface HeroElement extends Rect, ShapeStyle {
@@ -145,6 +148,8 @@ export interface DesignSettingsV2 {
   chatbot?: ChatbotDesign;
   menu_page?: MenuPageDesign;
   reserve_page?: ReservePageDesign;
+  menu_page_shapes?: { id: string; style: ShapeStyle }[];
+  reserve_page_shapes?: { id: string; style: ShapeStyle }[];
 }
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
@@ -189,12 +194,13 @@ export function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-export function clampRect(r: Rect, min = 3, maxY = 100): Rect {
+export function clampRect(r: Rect, min = 3, maxY?: number): Rect {
   const w = Math.min(100, Math.max(min, r.w));
-  const h = Math.min(100, Math.max(min, r.h));
+  const h = Math.max(min, r.h);
+  const yMax = maxY !== undefined ? Math.max(min, maxY) : undefined;
   return {
     x: Math.min(100 - w, Math.max(0, r.x)),
-    y: Math.min(maxY - h, Math.max(0, r.y)),
+    y: yMax !== undefined ? Math.min(yMax - h, Math.max(0, r.y)) : Math.max(0, r.y),
     w,
     h,
   };
@@ -329,6 +335,9 @@ export function defaultReservePageDesign(): ReservePageDesign {
     subtitle_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 14, color: "#57534e", textAlign: "left" },
     label_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 12, color: "#57534e", textAlign: "left" },
     button_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 15, color: "#ffffff", textAlign: "center" },
+    input_bg_color: "#ffffff",
+    input_text_color: "#000000",
+    input_border_color: "#d4d4d4",
   };
 }
 

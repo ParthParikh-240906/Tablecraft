@@ -247,7 +247,7 @@ function ContentVisual({
           />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={urls[0]} alt="" className="w-full h-full object-cover rounded-2xl shadow-2xl" />
+          <img src={urls[0]} alt="" className="w-full h-full object-cover" />
         )}
       </div>
     );
