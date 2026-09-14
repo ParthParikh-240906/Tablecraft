@@ -93,8 +93,7 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <div className="layer2-bg border border-white/20 mx-8 md:mx-16 mt-8 mb-12 rounded-sm">
-        {/* Dark overlay so content stays readable over the leaf pattern */}
+      <div className="border border-white/20 mx-8 md:mx-16 mt-8 mb-12 rounded-sm" style={{ backgroundColor: '#161311' }}>
         <div className="relative">
           <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-12">
 

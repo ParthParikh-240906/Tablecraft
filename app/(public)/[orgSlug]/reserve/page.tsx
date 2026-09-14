@@ -38,7 +38,6 @@ export default async function ReservePage({
   const reserveDesign = org.design_settings
     ? { ...defaultReservePageDesign(), ...((org.design_settings as Record<string, unknown>)?.reserve_page as Record<string, unknown> ?? {}) }
     : defaultReservePageDesign();
-  const reserveShapes = (org.design_settings as Record<string, unknown>)?.reserve_page_shapes as { id: string; style: { color?: string; opacity?: number; borderWidth?: number; borderColor?: string; borderRadius?: number } }[] | undefined;
   const isCleanSlate = org.theme_color === "#fafaf9";
 
   return (
@@ -84,7 +83,6 @@ export default async function ReservePage({
         inputBg={reserveDesign.input_bg_color}
         inputText={reserveDesign.input_text_color}
         inputBorder={reserveDesign.input_border_color}
-        shapes={reserveShapes}
       />
 
       {/* Bottom Back Button */}

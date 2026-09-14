@@ -5,12 +5,6 @@ import { DesignNav } from "../design-nav";
 import { ColorField, DesignField } from "../design-fields";
 import { SiteHeader } from "@/components/SiteHeader";
 import { defaultMenuPageDesign, type DesignSettingsV2, type MenuPageDesign } from "@/lib/design";
-import { ShapeStyle, type ContentElement } from "@/lib/design";
-
-interface ShapeElement {
-  id: string;
-  style: ShapeStyle;
-}
 
 export function MenuPagePanel({
   orgId,
@@ -33,27 +27,6 @@ export function MenuPagePanel({
     updateSettings({ menu_page: { ...menu, ...patch } } as Partial<DesignSettingsV2>);
   };
 
-  const updateShape = (id: string, patch: Partial<ShapeStyle>) => {
-    const shapes = (settings.menu_page_shapes as ShapeElement[] | undefined) ?? [];
-    updateSettings({
-      menu_page_shapes: shapes.map((s) => (s.id === id ? { ...s, style: { ...s.style, ...patch } } : s)),
-    } as Partial<DesignSettingsV2>);
-  };
-
-  const addShape = () => {
-    const shapes = (settings.menu_page_shapes as ShapeElement[] | undefined) ?? [];
-    const newShape: ShapeElement = {
-      id: Math.random().toString(36).slice(2, 10),
-      style: { color: "#1a1a1a", borderWidth: 0, borderColor: undefined, borderRadius: 0, opacity: 80 },
-    };
-    updateSettings({ menu_page_shapes: [...shapes, newShape] } as Partial<DesignSettingsV2>);
-  };
-
-  const removeShape = (id: string) => {
-    const shapes = (settings.menu_page_shapes as ShapeElement[] | undefined) ?? [];
-    updateSettings({ menu_page_shapes: shapes.filter((s) => s.id !== id) } as Partial<DesignSettingsV2>);
-  };
-
   const orgView = {
     name: orgName,
     tagline: null,
@@ -68,7 +41,6 @@ export function MenuPagePanel({
     restaurant_photos: [],
   };
 
-  const shapes = (settings.menu_page_shapes as ShapeElement[] | undefined) ?? [];
   const previewScale = 0.85;
 
   const text = (d: { fontFamily: string; fontSize: number; color: string; textAlign: string }, extra?: React.CSSProperties): React.CSSProperties => ({
@@ -164,44 +136,6 @@ export function MenuPagePanel({
             <DesignField label="" design={menu.item_description_design} onChange={(d) => update({ item_description_design: d })} />
           </section>
 
-          {/* Shapes */}
-          <section className="ticket p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Background Shapes</h3>
-              <button type="button" onClick={addShape} className="btn btn-outline text-xs">+ Add Shape</button>
-            </div>
-            {shapes.length === 0 && (
-              <p className="text-xs text-[var(--ink-faint)]">No shapes. Add one to create a layered background behind the menu.</p>
-            )}
-            {shapes.map((shape) => (
-              <div key={shape.id} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono text-[var(--ink-soft)]">Shape {shapes.indexOf(shape) + 1}</span>
-                  <button type="button" onClick={() => removeShape(shape.id)} className="text-red-500 text-[10px] underline">Remove</button>
-                </div>
-                <ColorField label="Fill color" value={shape.style.color ?? "#1a1a1a"} onChange={(v) => updateShape(shape.id, { color: v })} />
-                <div>
-                  <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Opacity: {shape.style.opacity ?? 100}%</label>
-                  <input type="range" min={0} max={100} value={shape.style.opacity ?? 100}
-                    onChange={(e) => updateShape(shape.id, { opacity: parseInt(e.target.value, 10) })}
-                    className="w-full accent-[var(--accent)]" />
-                </div>
-                <ColorField label="Border color" value={shape.style.borderColor ?? "#ffffff"} onChange={(v) => updateShape(shape.id, { borderColor: v })} />
-                <div>
-                  <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Border width: {shape.style.borderWidth ?? 0}px</label>
-                  <input type="range" min={0} max={12} value={shape.style.borderWidth ?? 0}
-                    onChange={(e) => updateShape(shape.id, { borderWidth: parseInt(e.target.value, 10) })}
-                    className="w-full accent-[var(--accent)]" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Roundness: {shape.style.borderRadius ?? 0}% (50 = circle)</label>
-                  <input type="range" min={0} max={50} value={shape.style.borderRadius ?? 0}
-                    onChange={(e) => updateShape(shape.id, { borderRadius: parseInt(e.target.value, 10) })}
-                    className="w-full accent-[var(--accent)]" />
-                </div>
-              </div>
-            ))}
-          </section>
         </div>
 
         {/* ── Live preview ─────────────────────────────────────── */}
@@ -217,30 +151,14 @@ export function MenuPagePanel({
               style={{ backgroundColor: colors.bg, color: colors.text, containerType: "inline-size" }}
             >
               <SiteHeader org={orgView} settings={settings} colors={colors} mode="preview" />
-              <div className="max-w-3xl mx-auto px-4 py-10 relative">
-                {/* Background shapes (rendered first = behind everything) */}
-                {shapes.map((shape) => (
-                  <div
-                    key={shape.id}
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      backgroundColor: shape.style.color,
-                      opacity: (shape.style.opacity ?? 100) / 100,
-                      border: shape.style.borderWidth
-                        ? `${shape.style.borderWidth}px solid ${shape.style.borderColor ?? "#ffffff"}`
-                        : undefined,
-                      borderRadius: shape.style.borderRadius ? `${shape.style.borderRadius}%` : undefined,
-                    }}
-                  />
-                ))}
-
-                <h1 style={text(menu.title_design, { fontWeight: 700, position: "relative", zIndex: 1 })}>Menu</h1>
-                <p style={text(menu.subtitle_design, { marginBottom: "2rem", position: "relative", zIndex: 1 })}>
+              <div className="max-w-3xl mx-auto px-4 py-10">
+                <h1 style={text(menu.title_design, { fontWeight: 700 })}>Menu</h1>
+                <p style={text(menu.subtitle_design, { marginBottom: "2rem" })}>
                   Everything we're serving right now at {orgName}.
                 </p>
 
                 {/* Sample category + items */}
-                <section className="mb-10" style={{ position: "relative", zIndex: 1 }}>
+                <section className="mb-10">
                   <h2 style={text(menu.category_design, { fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "1rem" })}>
                     Starters
                   </h2>
@@ -263,7 +181,7 @@ export function MenuPagePanel({
                   </ul>
                 </section>
 
-                <section className="mb-10" style={{ position: "relative", zIndex: 1 }}>
+                <section className="mb-10">
                   <h2 style={text(menu.category_design, { fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "1rem" })}>
                     Mains
                   </h2>

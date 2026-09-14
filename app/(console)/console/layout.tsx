@@ -103,7 +103,7 @@ export default async function ConsoleLayout({
           </div>
         </div>
       </header>
-      <div className="bg-[#1a1a1a] border border-white/20 max-w-5xl mx-auto mt-8 mb-12 rounded-sm">
+      <div className="bg-[#161311] border border-white/20 max-w-5xl mx-auto mt-8 mb-12 rounded-sm">
         <main className="px-4 py-6">{children}</main>
       </div>
     </div>
