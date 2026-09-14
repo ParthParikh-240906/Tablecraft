@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const DEFAULT_AGNES_BASE_URL = "https://apihub.agnes-ai.com/v1";
+const DEFAULT_AGNES_IMAGE_URL = "https://apihub.agnes-ai.com/v1/images/generations";
 
 export async function POST(req: Request) {
   const { prompt, imageBase64 } = await req.json();
@@ -10,10 +10,7 @@ export async function POST(req: Request) {
   }
 
   const apiKey = process.env.AGNES_API_KEY;
-  const baseUrl = (process.env.AGNES_BASE_URL?.trim() && !process.env.AGNES_BASE_URL?.includes("undefined"))
-    ? process.env.AGNES_BASE_URL.trim()
-    : DEFAULT_AGNES_BASE_URL;
-  const endpoint = baseUrl.replace(/\/+$/, "") + "/images/generations";
+  const imageUrl = process.env.AGNES_IMAGE_API_URL?.trim() || DEFAULT_AGNES_IMAGE_URL;
 
   if (!apiKey) {
     return NextResponse.json(
@@ -37,7 +34,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const res = await fetch(endpoint, {
+    const res = await fetch(imageUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,

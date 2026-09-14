@@ -46,7 +46,7 @@ RULES:
 - You already know the restaurant is "{org_name}" — do NOT ask about it.
 - Extract ONLY explicit values. Never infer.
 - "tonight", "tomorrow", "today", "in 3 hours", "dinner" → DO NOT convert. Leave null.
-- If the user gives a relative time like "7pm", "7am" → extract as-is.
+- If the user gives a time like "7pm", "7am", "10pm", "2am" → extract it and convert to 24-hour format immediately (e.g. "10pm" → "22:00", "7am" → "07:00", "12pm" → "12:00", "12am" → "00:00"). "10pm" is a valid input, convert it to "22:00".
 - If the user gives a date like "Sept 4" or "4th September 2026", convert to YYYY-MM-DD.
 - isComplete is true ONLY when all 4 fields are non-null.
 - Return ONLY valid JSON, nothing else:
