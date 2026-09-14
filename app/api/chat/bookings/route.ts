@@ -7,6 +7,29 @@ type SlotState = {
   time: string | null;
 };
 
+/**
+ * Normalize time strings to HH:MM 24-hour format.
+ * Handles: "10pm" → "22:00", "7am" → "07:00", "14:00" → "14:00", "2pm" → "14:00"
+ */
+function normalizeTime(raw: string): string {
+  const trimmed = raw.trim().toLowerCase();
+  // Already in HH:MM format
+  if (/^\d{1,2}:\d{2}$/.test(trimmed)) {
+    const [h, m] = trimmed.split(":").map(Number);
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+  // AM/PM format: "10pm", "7am", "12pm"
+  const match = trimmed.match(/^(\d{1,2})(?:\s*(am|pm))$/);
+  if (match) {
+    let hour = parseInt(match[1], 10);
+    const period = match[2];
+    if (period === "pm" && hour < 12) hour += 12;
+    if (period === "am" && hour === 12) hour = 0;
+    return `${String(hour).padStart(2, "0")}:00`;
+  }
+  return trimmed;
+}
+
 const EXTRACTION_PROMPT = `You are a restaurant reservation assistant for {org_name}.
 Your ONLY job is to extract booking fields from the user's message.
 
@@ -92,7 +115,7 @@ export async function POST(request: NextRequest) {
     const res1 = await fetch("https://apihub.agnes-ai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: "agnes-2.5-flash", response_format: { type: "json_object" }, messages: messages1, max_tokens: 200 }),
+      body: JSON.stringify({ model: "agnes-2.5-flash", response_format: { type: "json_object" }, messages: messages1, max_tokens: 750 }),
     });
 
     if (!res1.ok) {
@@ -118,7 +141,7 @@ export async function POST(request: NextRequest) {
     name: typeof extracted.name === "string" ? extracted.name : currentSlots.name,
     party_size: typeof extracted.party_size === "number" ? extracted.party_size : currentSlots.party_size,
     date: typeof extracted.date === "string" ? extracted.date : currentSlots.date,
-    time: typeof extracted.time === "string" ? extracted.time : currentSlots.time,
+    time: typeof extracted.time === "string" ? normalizeTime(extracted.time) : currentSlots.time,
   };
 
   // Validate party_size range
@@ -157,14 +180,20 @@ export async function POST(request: NextRequest) {
     const res2 = await fetch("https://apihub.agnes-ai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: "agnes-2.5-flash", messages: messages2, max_tokens: 200 }),
+      body: JSON.stringify({ model: "agnes-2.5-flash", messages: messages2, max_tokens: 500 }),
     });
 
     if (res2.ok) {
       const data2 = await res2.json();
-      conversationalReply = data2.choices?.[0]?.message?.content?.trim() || conversationalReply;
+      const reply = data2.choices?.[0]?.message?.content?.trim();
+      if (reply) {
+        conversationalReply = reply;
+      } else {
+        console.warn("[CHAT BOOKINGS] Agnes returned empty content — thinking may have consumed all tokens");
+      }
     } else {
-      console.error("[CHAT BOOKINGS] Response call failed:", res2.status);
+      const errText = await res2.text();
+      console.error("[CHAT BOOKINGS] Response call failed:", res2.status, errText);
     }
   } catch (err) {
     console.error("[CHAT BOOKINGS] Response failed:", err);
