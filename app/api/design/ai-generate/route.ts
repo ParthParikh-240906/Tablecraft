@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+const DEFAULT_AGNES_BASE_URL = "https://apihub.agnes-ai.com/v1";
+
 export async function POST(req: Request) {
   const { prompt, imageBase64 } = await req.json();
 
@@ -8,11 +10,14 @@ export async function POST(req: Request) {
   }
 
   const apiKey = process.env.AGNES_API_KEY;
-  const baseUrl = process.env.AGNES_BASE_URL;
+  const baseUrl = (process.env.AGNES_BASE_URL?.trim() && !process.env.AGNES_BASE_URL?.includes("undefined"))
+    ? process.env.AGNES_BASE_URL.trim()
+    : DEFAULT_AGNES_BASE_URL;
+  const endpoint = baseUrl.replace(/\/+$/, "") + "/images/generations";
 
-  if (!apiKey || !baseUrl) {
+  if (!apiKey) {
     return NextResponse.json(
-      { error: "Missing AGNES_API_KEY or AGNES_BASE_URL" },
+      { error: "Missing AGNES_API_KEY" },
       { status: 500 },
     );
   }
@@ -32,7 +37,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const res = await fetch(`${baseUrl}/images/generations`, {
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -54,6 +59,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ url });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: `Image generation failed: ${message}` }, { status: 500 });
   }
 }
+
