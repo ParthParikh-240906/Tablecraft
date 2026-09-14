@@ -425,7 +425,7 @@ export function OrgPageView({
       {contentEls.length > 0 && (
         <section
           className="relative w-full"
-          style={{ height: cvH(contentMax + 10), minHeight: 280, zIndex: 5 }}
+          style={{ height: cvH(contentMax + 5), minHeight: 280, zIndex: 5 }}
         >
           {contentEls.map((el) => (
             <div

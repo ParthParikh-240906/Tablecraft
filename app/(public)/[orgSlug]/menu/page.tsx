@@ -34,6 +34,7 @@ export default async function MenuPage({
   const menuDesign: MenuPageDesign = org.design_settings
     ? { ...defaultMenuPageDesign(), ...((org.design_settings as Record<string, unknown>)?.menu_page as Partial<MenuPageDesign> ?? {}) }
     : defaultMenuPageDesign();
+  const menuShapes = (org.design_settings as Record<string, unknown>)?.menu_page_shapes as { id: string; style: { color?: string; opacity?: number; borderWidth?: number; borderColor?: string; borderRadius?: number } }[] | undefined;
   const textColor = org.theme_text_color ?? "#f5f5f4";
   const isCleanSlate = org.theme_color === "#fafaf9";
 
@@ -61,7 +62,7 @@ export default async function MenuPage({
           <p className="text-sm mt-1">Check back soon — we're updating our menu.</p>
         </div>
       ) : (
-        <MenuItems grouped={menu} menuDesign={menuDesign} />
+        <MenuItems grouped={menu} menuDesign={menuDesign} shapes={menuShapes} />
       )}
     </div>
   );

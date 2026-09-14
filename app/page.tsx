@@ -137,39 +137,39 @@ function Navbar() {
       }`}
     >
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {user ? (
-            <button type="button" onClick={handleSignOut} className="btn btn-outline text-xs">
+            <button type="button" onClick={handleSignOut} className="btn btn-outline text-[10px] px-2.5 py-1.5">
               Sign out
             </button>
           ) : (
-            <Link href="/signin?next=/dashboard" className="btn btn-outline text-xs">
+            <Link href="/signin?next=/dashboard" className="btn btn-outline text-[10px] px-2.5 py-1.5">
               Sign in
             </Link>
           )}
-          <Link href="/" className="font-display text-xl tracking-tight text-[var(--ink)]">
+          <Link href="/" className="font-display text-lg tracking-tight text-[var(--ink)]">
             Tablecraft
           </Link>
         </div>
 
         {/* Desktop links */}
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden md:flex items-center gap-6">
           {navLinks.map((l) => (
             <a
               key={l.href}
               href={l.href}
-              className="text-sm text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors"
+              className="text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors"
             >
               {l.label}
             </a>
           ))}
           <Link
             href={user ? "/dashboard" : "/signin?next=/dashboard"}
-            className="btn btn-ink text-xs"
+            className="btn btn-ink text-[10px] px-2.5 py-1.5"
           >
             Dashboard
           </Link>
-          <Link href="/console/login" className="btn btn-outline text-xs">
+          <Link href="/console/login" className="btn btn-outline text-[10px] px-2.5 py-1.5">
             Sign in to console
           </Link>
         </div>

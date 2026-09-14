@@ -124,12 +124,10 @@ body {
   background: var(--accent);
   color: #ffffff;
   border: 1px solid transparent;
-  box-shadow: 0 0 20px var(--accent-glow);
-  transition: opacity 120ms ease, background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+  transition: opacity 120ms ease, background-color 120ms ease, border-color 120ms ease;
 }
 .btn-accent:hover {
   background: #c44a00;
-  box-shadow: 0 0 32px var(--accent-glow);
 }
 .btn-ink {
   background: var(--paper-raised);

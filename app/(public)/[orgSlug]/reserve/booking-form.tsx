@@ -16,6 +16,7 @@ export function BookingForm({
   inputBg,
   inputText,
   inputBorder,
+  shapes,
 }: {
   orgId: string;
   orgSlug: string;
@@ -23,6 +24,7 @@ export function BookingForm({
   inputBg: string;
   inputText: string;
   inputBorder: string;
+  shapes?: { id: string; style: { color?: string; opacity?: number; borderWidth?: number; borderColor?: string; borderRadius?: number } }[];
 }) {
   const { tables, connected } = useTableRealtime(orgId);
 
@@ -154,7 +156,24 @@ export function BookingForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <div className="relative">
+      {/* Background shapes (rendered first = behind everything) */}
+      {shapes?.map((shape) => (
+        <div
+          key={shape.id}
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundColor: shape.style.color,
+            opacity: (shape.style.opacity ?? 100) / 100,
+            border: shape.style.borderWidth
+              ? `${shape.style.borderWidth}px solid ${shape.style.borderColor ?? "#ffffff"}`
+              : undefined,
+            borderRadius: shape.style.borderRadius ? `${shape.style.borderRadius}%` : undefined,
+          }}
+        />
+      ))}
+
+    <form onSubmit={handleSubmit} className="space-y-5" style={{ position: "relative", zIndex: 1 }}>
       {/* Auto table assignment info badge */}
       <div className="rounded-xl border border-dashed border-[var(--rule)] bg-[var(--paper-raised)] p-3.5 text-xs text-[var(--ink-faint)] flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -279,5 +298,6 @@ export function BookingForm({
         {submitting ? "Reserving table…" : "Confirm booking"}
       </button>
     </form>
+    </div>
   );
 }
