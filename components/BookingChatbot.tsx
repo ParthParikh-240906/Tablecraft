@@ -120,7 +120,7 @@ export function BookingChatbot({
       const res = await fetch("/api/chat/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, slots, history: messages }),
+        body: JSON.stringify({ message: text, slots, history: messages, orgName }),
       });
 
       const data = await res.json();

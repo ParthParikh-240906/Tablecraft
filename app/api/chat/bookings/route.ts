@@ -7,11 +7,10 @@ type SlotState = {
   time: string | null;
 };
 
-const EXTRACTION_PROMPT = `You are a restaurant reservation assistant. Your ONLY job is to extract booking fields from the user's message.
+const EXTRACTION_PROMPT = `You are a restaurant reservation assistant for {org_name}.
+Your ONLY job is to extract booking fields from the user's message.
 
-COLLECTION ORDER: name → party_size → date → time.
-
-CURRENT STATE — what has already been collected:
+CURRENT COLLECTED DETAILS:
 {name_state}
 
 Extract these fields ONLY if the user explicitly stated them:
@@ -21,15 +20,16 @@ Extract these fields ONLY if the user explicitly stated them:
 - time: HH:MM 24-hour format, or null
 
 RULES:
+- You already know the restaurant is "{org_name}" — do NOT ask about it.
 - Extract ONLY explicit values. Never infer.
 - "tonight", "tomorrow", "today", "in 3 hours", "dinner" → DO NOT convert. Leave null.
-- If the user gives a relative time like "7pm", "7am" → extract as-is. Leave null only for truly ambiguous terms like "tonight", "dinner", "in 3 hours".
+- If the user gives a relative time like "7pm", "7am" → extract as-is.
 - If the user gives a date like "Sept 4" or "4th September 2026", convert to YYYY-MM-DD.
 - isComplete is true ONLY when all 4 fields are non-null.
 - Return ONLY valid JSON, nothing else:
 {"name": null/"string", "party_size": null/number, "date": null/"YYYY-MM-DD", "time": null/"HH:MM", "isComplete": false}`;
 
-const RESPONSE_PROMPT = `You are a friendly restaurant reservation assistant.
+const RESPONSE_PROMPT = `You are a friendly reservation assistant for {org_name}.
 
 CURRENT COLLECTED DETAILS:
 {name_state}
@@ -40,6 +40,7 @@ CONVERSATION HISTORY:
 USER'S LAST MESSAGE: {last_message}
 
 RULES FOR YOUR REPLY:
+- You already know the restaurant is "{org_name}" — never ask which restaurant.
 - Be warm, conversational, and brief (1-2 sentences max).
 - Ask for the NEXT missing field in this exact order: name → party size → date → time.
 - If the user mentioned a relative date like "today", "tomorrow", "tonight", "in 3 hours", reply: "Could you please give me the exact date? For example: 4th September 2026."
@@ -54,14 +55,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "AI service not configured" }, { status: 500 });
   }
 
-  let body: { message?: string; slots?: SlotState; history?: Array<{ role: string; content: string }> };
+  let body: { message?: string; slots?: SlotState; history?: Array<{ role: string; content: string }>; orgName?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { message, slots: currentSlots = { name: null, party_size: null, date: null, time: null }, history = [] } = body ?? {};
+  const { message, slots: currentSlots = { name: null, party_size: null, date: null, time: null }, history = [], orgName } = body ?? {};
 
   if (!message || typeof message !== "string" || !message.trim()) {
     return NextResponse.json({ error: "message is required" }, { status: 400 });
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
   // Call 1: Extract slots from user message
   // ===================================================================
   const messages1 = [
-    { role: "system", content: EXTRACTION_PROMPT.replace("{name_state}", collected) },
+    { role: "system", content: EXTRACTION_PROMPT.replace("{name_state}", collected).replace("{org_name}", orgName ?? "this restaurant") },
     ...history.map((m: any) => ({ role: m.role, content: m.content ?? m.text })),
     { role: "user", content: message },
   ];
@@ -146,6 +147,7 @@ export async function POST(request: NextRequest) {
       .replace("{name_state}", updatedCollected)
       .replace("{history_state}", historyState)
       .replace("{last_message}", message)
+      .replace("{org_name}", orgName ?? "this restaurant")
     },
     { role: "user", content: message },
   ];
