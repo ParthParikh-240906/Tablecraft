@@ -79,14 +79,22 @@ export default async function ReservePage({
         we will automatically prepare the optimal table for you (2-hour reservation).
       </p>
 
-      <BookingForm
-        orgId={org.id}
-        orgSlug={org.slug}
-        accent={accent}
-        inputBg={reserveDesign.input_bg_color}
-        inputText={reserveDesign.input_text_color}
-        inputBorder={reserveDesign.input_border_color}
-      />
+      <div
+        className="rounded-lg p-5"
+        style={{
+          backgroundColor: "#ffffff",
+          border: `${reserveDesign.border_width}px solid ${reserveDesign.border_color}`,
+        }}
+      >
+        <BookingForm
+          orgId={org.id}
+          orgSlug={org.slug}
+          accent={accent}
+          inputBg={reserveDesign.input_bg_color}
+          inputText={reserveDesign.input_text_color}
+          inputBorder={reserveDesign.input_border_color}
+        />
+      </div>
 
       {/* Bottom Back Button */}
       <div className="mt-8 pt-6 text-center" style={{ borderTop: `1px solid ${reserveDesign.subtitle_design.color}22` }}>

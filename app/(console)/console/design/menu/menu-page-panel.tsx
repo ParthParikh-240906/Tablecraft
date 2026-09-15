@@ -136,6 +136,18 @@ export function MenuPagePanel({
             <DesignField label="" design={menu.item_description_design} onChange={(d) => update({ item_description_design: d })} />
           </section>
 
+          {/* Item box border */}
+          <section className="ticket p-5 space-y-3">
+            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Menu Item Box Border</h3>
+            <ColorField label="Border color" value={menu.border_color} onChange={(v) => update({ border_color: v })} />
+            <div>
+              <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Border width: {menu.border_width}px</label>
+              <input type="range" min={0} max={8} value={menu.border_width}
+                onChange={(e) => update({ border_width: parseInt(e.target.value, 10) })}
+                className="w-full accent-[var(--accent)]" />
+            </div>
+          </section>
+
         </div>
 
         {/* ── Live preview ─────────────────────────────────────── */}
@@ -158,50 +170,64 @@ export function MenuPagePanel({
                 </p>
 
                 {/* Sample category + items */}
-                <section className="mb-10">
-                  <h2 style={text(menu.category_design, { fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "1rem" })}>
-                    Starters
-                  </h2>
-                  <ul className="divide-y" style={{ borderColor: "var(--rule)" }}>
-                    {[
-                      { name: "Samosa Chaat", desc: "Crisp pastry, chickpeas, tamarind, yogurt", price: "12.00" },
-                      { name: "Paneer Tikka", desc: "Charred cottage cheese, mint chutney", price: "16.00" },
-                      { name: "Onion Bhaji", desc: "Crispy fritters, raita", price: "10.00" },
-                    ].map((item) => (
-                      <li key={item.name} className="py-4 flex items-start justify-between gap-4">
-                        <div>
-                          <h3 style={text(menu.item_name_design, { fontWeight: 500 })}>{item.name}</h3>
-                          <p style={text(menu.item_description_design, { marginTop: "0.25rem" })}>{item.desc}</p>
-                        </div>
-                        <span style={text(menu.item_price_design, { fontWeight: 600, whiteSpace: "nowrap" })}>
-                          AED {item.price}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
+                <div className="space-y-8">
+                  <section
+                    className="rounded-lg p-5"
+                    style={{
+                      backgroundColor: "#ffffff",
+                      border: `${menu.border_width}px solid ${menu.border_color}`,
+                    }}
+                  >
+                    <h2 style={text(menu.category_design, { fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "1rem" })}>
+                      Starters
+                    </h2>
+                    <ul className="divide-y" style={{ borderColor: "var(--rule)" }}>
+                      {[
+                        { name: "Samosa Chaat", desc: "Crisp pastry, chickpeas, tamarind, yogurt", price: "12.00" },
+                        { name: "Paneer Tikka", desc: "Charred cottage cheese, mint chutney", price: "16.00" },
+                        { name: "Onion Bhaji", desc: "Crispy fritters, raita", price: "10.00" },
+                      ].map((item) => (
+                        <li key={item.name} className="py-4 flex items-start justify-between gap-4">
+                          <div>
+                            <h3 style={text(menu.item_name_design, { fontWeight: 500 })}>{item.name}</h3>
+                            <p style={text(menu.item_description_design, { marginTop: "0.25rem" })}>{item.desc}</p>
+                          </div>
+                          <span style={text(menu.item_price_design, { fontWeight: 600, whiteSpace: "nowrap" })}>
+                            AED {item.price}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
 
-                <section className="mb-10">
-                  <h2 style={text(menu.category_design, { fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "1rem" })}>
-                    Mains
-                  </h2>
-                  <ul className="divide-y" style={{ borderColor: "var(--rule)" }}>
-                    {[
-                      { name: "Butter Chicken", desc: "Slow-cooked tomato gravy, cream, naan", price: "24.00" },
-                      { name: "Lamb Rogan Josh", desc: "Aromatic Kashmiri curry, basmati rice", price: "28.00" },
-                    ].map((item) => (
-                      <li key={item.name} className="py-4 flex items-start justify-between gap-4">
-                        <div>
-                          <h3 style={text(menu.item_name_design, { fontWeight: 500 })}>{item.name}</h3>
-                          <p style={text(menu.item_description_design, { marginTop: "0.25rem" })}>{item.desc}</p>
-                        </div>
-                        <span style={text(menu.item_price_design, { fontWeight: 600, whiteSpace: "nowrap" })}>
-                          AED {item.price}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
+                  <section
+                    className="rounded-lg p-5"
+                    style={{
+                      backgroundColor: "#ffffff",
+                      border: `${menu.border_width}px solid ${menu.border_color}`,
+                    }}
+                  >
+                    <h2 style={text(menu.category_design, { fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "1rem" })}>
+                      Mains
+                    </h2>
+                    <ul className="divide-y" style={{ borderColor: "var(--rule)" }}>
+                      {[
+                        { name: "Butter Chicken", desc: "Slow-cooked tomato gravy, cream, naan", price: "24.00" },
+                        { name: "Lamb Rogan Josh", desc: "Aromatic Kashmiri curry, basmati rice", price: "28.00" },
+                      ].map((item) => (
+                        <li key={item.name} className="py-4 flex items-start justify-between gap-4">
+                          <div>
+                            <h3 style={text(menu.item_name_design, { fontWeight: 500 })}>{item.name}</h3>
+                            <p style={text(menu.item_description_design, { marginTop: "0.25rem" })}>{item.desc}</p>
+                          </div>
+                          <span style={text(menu.item_price_design, { fontWeight: 600, whiteSpace: "nowrap" })}>
+                            AED {item.price}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                </div>
               </div>
             </div>
           </div>

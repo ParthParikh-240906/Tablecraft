@@ -120,6 +120,18 @@ export function BookATablePanel({
             <ColorField label="Input border" value={reserve.input_border_color} onChange={(v) => update({ input_border_color: v })} />
           </section>
 
+          {/* Form box border */}
+          <section className="ticket p-5 space-y-3">
+            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Booking Form Box Border</h3>
+            <ColorField label="Border color" value={reserve.border_color} onChange={(v) => update({ border_color: v })} />
+            <div>
+              <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Border width: {reserve.border_width}px</label>
+              <input type="range" min={0} max={8} value={reserve.border_width}
+                onChange={(e) => update({ border_width: parseInt(e.target.value, 10) })}
+                className="w-full accent-[var(--accent)]" />
+            </div>
+          </section>
+
         </div>
 
         {/* ── Live preview ─────────────────────────────────────── */}
@@ -143,7 +155,13 @@ export function BookATablePanel({
                 </p>
 
                 {/* Sample booking form */}
-                <div className="space-y-4">
+                <div
+                  className="rounded-lg p-5 space-y-4"
+                  style={{
+                    backgroundColor: "#ffffff",
+                    border: `${reserve.border_width}px solid ${reserve.border_color}`,
+                  }}
+                >
                   <div>
                     <label style={text(reserve.label_design, { display: "block", marginBottom: "0.25rem", fontWeight: 600 })}>
                       Your Name

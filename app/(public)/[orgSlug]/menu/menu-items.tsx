@@ -64,7 +64,14 @@ export function MenuItems({
 
       <div className="space-y-10" style={{ position: "relative", zIndex: 1 }}>
         {grouped.map(({ category, items }) => (
-          <section key={category}>
+          <section
+            key={category}
+            className="rounded-lg p-5"
+            style={{
+              backgroundColor: "#ffffff",
+              border: `${menuDesign.border_width}px solid ${menuDesign.border_color}`,
+            }}
+          >
             <h2
               style={{
                 ...inline(menuDesign.category_design, {
