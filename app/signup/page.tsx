@@ -158,11 +158,11 @@ export default function SignupPage() {
         return;
       }
 
-      // Success: if a paid plan was selected, redirect to one-time setup fee checkout
+      // Success: if a paid plan was selected, redirect to monthly subscription checkout
       if (selectedPlan) {
         setRedirecting(true);
         try {
-          const res = await fetch("/api/checkout/one-time", {
+          const res = await fetch("/api/checkout/subscribe", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ plan: selectedPlan, email, orgSlug: data.org.slug }),

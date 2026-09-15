@@ -523,7 +523,7 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
     }
     setLoading(true);
     try {
-      const res = await fetch("/api/checkout/one-time", {
+      const res = await fetch("/api/checkout/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plan: plan.planKey }),
@@ -562,9 +562,9 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
         <p className="label-caps text-xs mb-2 text-[var(--ink-soft)]">{plan.name}</p>
         <div className="flex items-baseline gap-1 mb-2">
           <span className="font-display text-4xl text-[var(--ink)]">{plan.price}</span>
-          <span className="text-sm text-[var(--ink-faint)]">AED</span>
+          <span className="text-sm text-[var(--ink-faint)]">AED/month</span>
         </div>
-        <p className="text-sm text-[var(--ink-faint)] mb-4">{plan.period}</p>
+        {plan.period && <p className="text-sm text-[var(--ink-faint)] mb-4">{plan.period}</p>}
         <p className="text-base text-[var(--ink-soft)] leading-relaxed mb-6 flex-grow">{plan.description}</p>
 
         <ul className="space-y-2 mb-8">

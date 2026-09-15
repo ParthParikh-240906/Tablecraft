@@ -5,18 +5,20 @@ import { getMonthlyPriceId, type PlanKey } from "@/lib/pricing";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * GET /api/checkout/subscribe?plan=pro&email=...&orgSlug=...&orgId=...
+ * POST /api/checkout/subscribe
  *
- * Bridge endpoint: called after the one-time setup fee succeeds.
  * Creates a Stripe Checkout Session for the monthly subscription.
+ * Called directly after signup or from pricing cards — no one-time fee required.
  */
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const plan = searchParams.get("plan") as PlanKey | null;
-    const email = searchParams.get("email") || undefined;
-    const orgSlug = searchParams.get("orgSlug") || undefined;
-    const orgId = searchParams.get("orgId") || undefined;
+    const body = await request.json();
+    const { plan, email, orgSlug, orgId } = body as {
+      plan: PlanKey;
+      email?: string;
+      orgSlug?: string;
+      orgId?: string;
+    };
 
     if (plan !== "pro" && plan !== "max") {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
@@ -107,10 +109,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ url: session.url, sessionId: session.id });
   } catch (err: any) {
-    console.error("Subscription checkout creation failed:", err);
-    return NextResponse.json(
-      { error: err.message || "Failed to create subscription checkout" },
-      { status: 500 },
-    );
+    console.error("[CHECKOUT SUBSCRIBE] Error:", err);
+    return NextResponse.json({ error: err.message || "Checkout failed" }, { status: 500 });
   }
 }

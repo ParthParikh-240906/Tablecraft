@@ -46,7 +46,7 @@ export default async function SetupGuidePage() {
       num: "5",
       title: "Make payment and go live",
       lines: [
-        "Pay the one-time setup fee plus a monthly subscription to unlock your real hosted website with a custom domain.",
+        "Pay the monthly subscription to unlock your real hosted website with a custom domain.",
         "Share your live link, start taking bookings, and your restaurant is officially online.",
       ],
     },

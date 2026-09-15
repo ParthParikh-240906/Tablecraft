@@ -36,8 +36,8 @@ export const MARKETING_PLANS: MarketingPlan[] = [
   },
   {
     name: "Pro",
-    price: "1,500",
-    period: "AED + 350 AED/month recurring",
+    price: "500",
+    period: "",
     description: "Real hosted website + console. Everything you need to get your restaurant online.",
     cta: "Go Pro",
     ctaLink: "/signup?plan=pro",
@@ -55,8 +55,8 @@ export const MARKETING_PLANS: MarketingPlan[] = [
   },
   {
     name: "Max",
-    price: "3,500",
-    period: "AED + 500 AED/month recurring",
+    price: "850",
+    period: "",
     description: "Higher limits plus dedicated senior frontend support for ongoing changes.",
     cta: "Go Max",
     ctaLink: "/signup?plan=max",
