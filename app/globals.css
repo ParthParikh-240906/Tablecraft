@@ -200,12 +200,22 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-/* Layer 2 background — raised dark surface with subtle dot pattern */
+/* Layer 2 background — top_layer.jpg texture */
 .layer2-bg {
   background-color: var(--paper-raised);
-  background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
-  background-size: 20px 20px;
+  background-image: url('/top_layer.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
+
+/* Force dark text for content inside .layer2-bg (texture can be busy) */
+.layer2-invert {
+  color: var(--ink);
+}
+.layer2-invert .text-\[var\(--ink\)\]        { color: var(--ink); }
+.layer2-invert .text-\[var\(--ink-soft\)\]  { color: var(--ink-soft); }
+.layer2-invert .text-\[var\(--ink-faint\)\] { color: var(--ink-faint); }
 
 /* Small caps label utility. */
 .small-caps {

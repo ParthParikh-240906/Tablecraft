@@ -132,14 +132,14 @@ function Navbar() {
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b border-white/20 ${
-        scrolled ? "bg-[var(--paper)]/90 backdrop-blur-md border-b border-[var(--rule)] shadow-lg" : ""
-      }`}
+    className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b border-white/20 ${
+      scrolled ? "bg-[var(--paper)]/90 backdrop-blur-md border-b border-[var(--rule)] shadow-lg" : ""
+    }`}     
     >
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {user ? (
-            <button type="button" onClick={handleSignOut} className="btn btn-outline text-[10px] px-2.5 py-1.5">
+            <button type="button" onClick={handleSignOut} className="btn btn-accent text-[10px] px-2.5 py-1.5">
               Sign out
             </button>
           ) : (
@@ -196,7 +196,7 @@ function Navbar() {
             <button
               type="button"
               onClick={() => { handleSignOut(); setMobileOpen(false); }}
-              className="btn btn-outline text-xs w-full"
+              className="btn btn-accent text-xs w-full"
             >
               Sign out
             </button>
@@ -803,7 +803,7 @@ export default function MarketingHomePage() {
     <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)]">
       <Navbar />
       <Hero />
-      <div className="layer2-bg border border-white/20 mx-8 md:mx-16 mt-8 mb-12 rounded-sm">
+      <div className="layer2-bg border-2 border-white/50 mx-8 md:mx-16 mt-8 mb-12 rounded-sm layer2-invert">
         <FeaturesSection />
         <HowItWorksSection />
         <RestaurantsSection />
