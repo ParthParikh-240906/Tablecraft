@@ -24,11 +24,14 @@ export default async function ConsoleLayout({
   }
 
   // Look up the staff row for this auth user to resolve their org.
-  const { data: staff } = await supabase
+  // Use .select() instead of .maybeSingle() — after dropping the unique
+  // constraint on auth_user_id (migration 0019), a user can own multiple
+  // restaurants and .maybeSingle() returns null when >1 row exists.
+  const { data: staffRows } = await supabase
     .from("staff_users")
     .select("org_id, role, email, organizations(name, slug, theme_color)")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
+    .eq("auth_user_id", user.id);
+  const staff = staffRows?.[0] ?? null;
 
   if (!staff) {
     return (

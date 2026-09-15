@@ -8,11 +8,11 @@ export default async function BookingsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: staff } = await supabase
+  const { data: staffRows } = await supabase
     .from("staff_users")
     .select("org_id")
-    .eq("auth_user_id", user?.id ?? "")
-    .maybeSingle();
+    .eq("auth_user_id", user?.id ?? "");
+  const staff = staffRows?.[0] ?? null;
 
   const orgId = staff?.org_id ?? "";
 

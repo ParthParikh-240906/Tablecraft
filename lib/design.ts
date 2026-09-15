@@ -470,13 +470,6 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
       elements: [
         {
           id: uid(),
-          kind: "logo",
-          ref: { org: "logo_url" },
-          design: { ...DEFAULT_TEXT_DESIGN },
-          x: 42, y: 4, w: 16, h: 18,
-        },
-        {
-          id: uid(),
           kind: "title",
           ref: { org: "name" },
           design: name_design,

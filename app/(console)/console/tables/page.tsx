@@ -10,11 +10,11 @@ export default async function TablesPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/console/login");
 
-  const { data: staff } = await supabase
+  const { data: staffRows } = await supabase
     .from("staff_users")
     .select("org_id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
+    .eq("auth_user_id", user.id);
+  const staff = staffRows?.[0] ?? null;
 
   if (!staff) redirect("/console/login");
 

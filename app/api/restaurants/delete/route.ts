@@ -34,12 +34,12 @@ export async function POST(req: Request) {
 
   // 2. Must own this restaurant (staff_users row for this org + this user)
   const admin = createAdminClient();
-  const { data: staff, error: staffError } = await admin
+  const { data: staffRows, error: staffError } = await admin
     .from("staff_users")
     .select("role")
     .eq("org_id", orgId)
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
+    .eq("auth_user_id", user.id);
+  const staff = staffRows?.[0] ?? null;
 
   if (staffError || !staff) {
     return NextResponse.json({ error: "You don't own this restaurant" }, { status: 403 });

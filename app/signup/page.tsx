@@ -235,7 +235,7 @@ export default function SignupPage() {
 
           <div>
             <label htmlFor="tagline" className="block text-sm font-medium mb-1.5">
-              Tagline
+              Tagline <span className="text-[var(--ink-faint)]">(optional)</span>
             </label>
             <input
               id="tagline"
@@ -243,7 +243,6 @@ export default function SignupPage() {
               value={tagline}
               onChange={(e) => setTagline(e.target.value)}
               maxLength={120}
-              required
               placeholder="Fresh food, warm welcome."
               className="input placeholder:text-[var(--ink-faint)]"
             />

@@ -15,11 +15,11 @@ export async function POST(request: Request) {
     const { data: { user } } = await authClient.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { data: staff } = await supabase
+    const { data: staffRows } = await supabase
       .from("staff_users")
       .select("org_id")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
+      .eq("auth_user_id", user.id);
+    const staff = staffRows?.[0] ?? null;
     if (!staff) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const body = await request.json();
