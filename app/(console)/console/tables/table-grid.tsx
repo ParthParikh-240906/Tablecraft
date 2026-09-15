@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useTableRealtime, type TableStatus } from "@/lib/realtime";
+import { useTableRealtime, type TableStatus, type TableRow } from "@/lib/realtime";
 import { createClient } from "@/lib/supabase/client";
 
 const STATUS_BADGE: Record<TableStatus, { label: string; style: string }> = {
@@ -20,7 +20,7 @@ const STATUS_BADGE: Record<TableStatus, { label: string; style: string }> = {
 };
 
 export function TableGrid({ orgId }: { orgId: string }) {
-  const { tables, connected } = useTableRealtime(orgId);
+  const { tables, connected, setTablesState, connectError } = useTableRealtime(orgId);
   const [updating, setUpdating] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newLabel, setNewLabel] = useState("");
@@ -96,18 +96,28 @@ export function TableGrid({ orgId }: { orgId: string }) {
     }
 
     setAdding(true);
-    const { error: insertError } = await supabase.from("tables").insert({
-      org_id: orgId,
-      label: newLabel.trim(),
-      capacity: capacityNum,
-      status: "open",
-      table_type: newTableType,
-    });
+    const { data: inserted, error: insertError } = await supabase
+      .from("tables")
+      .insert({
+        org_id: orgId,
+        label: newLabel.trim(),
+        capacity: capacityNum,
+        status: "open",
+        table_type: newTableType,
+      })
+      .select()
+      .single();
 
     if (insertError) {
       setError(insertError.message);
       setAdding(false);
       return;
+    }
+
+    // Optimistic: push the new row into local state immediately
+    // so the user sees the new table without waiting for realtime.
+    if (inserted) {
+      setTablesState((prev) => [...prev, inserted as TableRow]);
     }
 
     setNewLabel("");
@@ -118,7 +128,15 @@ export function TableGrid({ orgId }: { orgId: string }) {
   }
 
   async function setTableStatus(tableId: string, status: TableStatus) {
+    const prevStatus = tables.find((t) => t.id === tableId)?.status;
+    if (!prevStatus || prevStatus === status) return;
+
+    // Optimistic update: flip the badge instantly so the UI never feels stuck.
     setUpdating(tableId);
+    setTablesState((prev) =>
+      prev.map((t) => (t.id === tableId ? { ...t, status } : t)),
+    );
+
     const { error } = await supabase
       .from("tables")
       .update({ status })
@@ -126,16 +144,24 @@ export function TableGrid({ orgId }: { orgId: string }) {
 
     if (error) {
       console.error("setTableStatus failed:", error);
+      // Revert to previous status on failure so the badge reflects reality.
+      setTablesState((prev) =>
+        prev.map((t) => (t.id === tableId ? { ...t, status: prevStatus } : t)),
+      );
     }
     setUpdating(null);
   }
 
   async function handleDeleteTable(tableId: string, label: string) {
-    if (!confirm(`Are you sure you want to delete ${label}?`)) {
+    if (!confirm(`Are you sure you want to delete ${label}? This cannot be undone.`)) {
       return;
     }
 
+    // Optimistic: remove from UI immediately, revert on failure.
     setUpdating(tableId);
+    const prevTables = tables;
+    setTablesState((prev) => prev.filter((t) => t.id !== tableId));
+
     const { error } = await supabase
       .from("tables")
       .delete()
@@ -143,6 +169,7 @@ export function TableGrid({ orgId }: { orgId: string }) {
 
     if (error) {
       console.error("handleDeleteTable failed:", error);
+      setTablesState(() => prevTables);
     }
     setUpdating(null);
   }
@@ -168,8 +195,24 @@ export function TableGrid({ orgId }: { orgId: string }) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-[var(--ink-faint)]">
-            {connected ? "● Live" : "○ Connecting…"}
+          <span
+            className="text-xs text-[var(--ink-faint)]"
+            title={
+              connectError
+                ? connectError +
+                  "\n\nFix: go to Supabase Dashboard → Database → Replication and verify 'tables' is toggled ON."
+                : connected
+                ? "Live sync via Supabase Realtime"
+                : "Connected to Supabase; live sync unavailable — enable Realtime for the tables table in Supabase → Database → Replication"
+            }
+          >
+            {tables.length === 0 && !connected
+              ? "○ Loading…"
+              : connected
+              ? "● Live"
+              : connectError
+              ? "● Polling (5s)"
+              : "● Loaded (live sync off)"}
           </span>
           <button
             type="button"
