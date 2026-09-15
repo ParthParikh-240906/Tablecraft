@@ -15,7 +15,7 @@ import bcrypt from "bcryptjs";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password } = body as { email?: string; password?: string };
+    const { email, password, orgSlug } = body as { email?: string; password?: string; orgSlug?: string };
 
     if (!email || typeof email !== "string" || !email.includes("@")) {
       return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       type: "magiclink",
       email: authEmail,
       options: {
-        redirectTo: `${origin}/auth/verify?redirect_to=/console`,
+        redirectTo: `${origin}/auth/verify?redirect_to=${encodeURIComponent(`/console${orgSlug ? `?org=${orgSlug}` : ""}`)}`,
       },
     });
 

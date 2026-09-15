@@ -9,7 +9,11 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orgSlug = searchParams.get("org");
-  const next = searchParams.get("next") ?? "/console";
+  const rawNext = searchParams.get("next") ?? "/console";
+  // Preserve the org context so middleware sets the selected_org cookie on redirect.
+  const next = orgSlug
+    ? `${rawNext.startsWith("/") ? rawNext : "/"}${rawNext.includes("?") ? "&" : "?"}org=${orgSlug}`
+    : rawNext;
 
   const [email, setEmail] = useState(orgSlug === "rasam" ? "owner@rasam.test" : orgSlug === "demo-diner" ? "owner@demodiner.test" : "");
   const [password, setPassword] = useState("");
@@ -34,7 +38,7 @@ function LoginForm() {
         const res = await fetch("/api/console/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email.trim(), password }),
+          body: JSON.stringify({ email: email.trim(), password, orgSlug }),
         });
         const data = await res.json();
         if (res.ok && data.url) {
