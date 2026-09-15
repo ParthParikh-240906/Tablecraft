@@ -200,13 +200,11 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-/* Layer 2 background texture — subtle cream motif on dark base */
+/* Layer 2 background — raised dark surface with subtle dot pattern */
 .layer2-bg {
-  background-color: var(--layer2);
-  background-image: url('/top_layer.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background-color: var(--paper-raised);
+  background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
 /* Small caps label utility. */
@@ -260,10 +258,8 @@ body {
 }
 
 /* =============================================================================
-   Hero 3D background — marketing homepage only.
-   Pure CSS perspective floor plan: a rotated grid plane (the dining floor)
-   with thin rounded-rect table outlines catching a faint orange glow.
-   Recedes behind hero text; dark tones, accent used sparingly.
+   Hero background — Premium restaurant ambiance
+   Full-bleed image with cinematic dark overlay and accent glow.
    ============================================================================= */
 
 .hero-bg {
@@ -272,103 +268,57 @@ body {
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
-  /* Fade the scene out toward the bottom so it melts into the page. */
-  -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
-  mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
 }
 
-/* Soft orange bloom behind the floor — the only saturated element. */
+.hero-bg__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.5;
+}
+
+.hero-bg__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(6, 5, 4, 0.65) 0%,
+    rgba(6, 5, 4, 0.4) 40%,
+    rgba(6, 5, 4, 0.85) 100%
+  );
+}
+
 .hero-bg__glow {
   position: absolute;
   left: 50%;
-  top: 50%;
-  width: 720px;
-  height: 420px;
+  top: 45%;
+  width: 1000px;
+  height: 700px;
   transform: translate(-50%, -50%);
   background: radial-gradient(
     ellipse at center,
-    rgba(212, 82, 0, 0.22) 0%,
-    rgba(212, 82, 0, 0.1) 45%,
+    rgba(212, 82, 0, 0.15) 0%,
+    rgba(212, 82, 0, 0.06) 40%,
     transparent 70%
   );
-  filter: blur(28px);
-  /* No animation — static glow. */
+  filter: blur(50px);
 }
 
-/* Dark scrim directly behind the hero text block — keeps the headline
-   readable while the scene behind it gets brighter. */
 .hero-bg__scrim {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: min(760px, 90vw);
-  height: 420px;
+  width: min(1000px, 95vw);
+  height: 550px;
   transform: translate(-50%, -50%);
   background: radial-gradient(
     ellipse at center,
-    rgba(12, 10, 9, 0.72) 0%,
-    rgba(12, 10, 9, 0.45) 55%,
-    transparent 78%
+    rgba(6, 5, 4, 0.55) 0%,
+    rgba(6, 5, 4, 0.3) 50%,
+    transparent 75%
   );
-}
-
-/* The dining floor: perspective grid plane. */
-.hero-bg__floor {
-  position: absolute;
-  left: 50%;
-  top: 55%;
-  width: 160vmax;
-  height: 160vmax;
-  transform: translate(-50%, -50%) rotateX(70deg);
-  transform-style: preserve-3d;
-  /* Grid lines — near-black, hairline, receding. */
-  background-image:
-    linear-gradient(rgba(245, 245, 244, 0.14) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(245, 245, 244, 0.14) 1px, transparent 1px);
-  background-size: 72px 72px;
-  -webkit-mask-image: radial-gradient(
-    ellipse at center,
-    black 0%,
-    rgba(0, 0, 0, 0.6) 45%,
-    transparent 72%
-  );
-  mask-image: radial-gradient(
-    ellipse at center,
-    black 0%,
-    rgba(0, 0, 0, 0.6) 45%,
-    transparent 72%
-  );
-  /* No animation — static grid. */
-}
-
-/* Table outlines — thin rounded rects, near-black fill, orange edge glow. */
-.hero-bg__table {
-  position: absolute;
-  border: 1px solid rgba(212, 82, 0, 0.45);
-  border-radius: 6px;
-  background: rgba(6, 5, 4, 0.4);
-  box-shadow: 0 0 20px rgba(212, 82, 0, 0.2), inset 0 0 8px rgba(212, 82, 0, 0.06);
-  /* No animation — static opacity. */
-}
-
-.hero-bg__table--1 { left: 18%; top: 20%; width: 9%; height: 5.5%; }
-.hero-bg__table--2 { left: 42%; top: 12%; width: 7%; height: 4.5%; }
-.hero-bg__table--3 { left: 66%; top: 24%; width: 10%; height: 6%; }
-.hero-bg__table--4 { left: 28%; top: 48%; width: 8%; height: 5%; }
-.hero-bg__table--5 { left: 55%; top: 42%; width: 6%; height: 4%; }
-.hero-bg__table--6 { left: 74%; top: 55%; width: 9%; height: 5.5%; }
-
-/* Animations removed — hero is now fully static. */
-
-/* Mobile / low-end: simplified static scene — grid + glow only, no tables.
-   Keeps paint cost low on phones; the flat dark background still shows. */
-@media (max-width: 640px) {
-  .hero-bg__table {
-    display: none;
-  }
-  .hero-bg__floor {
-    background-size: 56px 56px;
-  }
 }
 
 /* =============================================================================

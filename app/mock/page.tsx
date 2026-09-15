@@ -349,21 +349,21 @@ function Navbar() {
   );
 }
 
-// ─── Hero (3D perspective dining floor) ───────────────────────────────────────
+// ─── Hero (premium restaurant ambiance) ──────────────────────────────────────
 function Hero() {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
-      {/* 3D floor background */}
+      {/* Premium restaurant background image */}
       <div className="hero-bg">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/hero.jpg"
+          alt="Elegant restaurant ambiance"
+          className="hero-bg__image"
+        />
+        <div className="hero-bg__overlay" />
         <div className="hero-bg__glow" />
         <div className="hero-bg__scrim" />
-        <div className="hero-bg__floor" />
-        <div className="hero-bg__table hero-bg__table--1" />
-        <div className="hero-bg__table hero-bg__table--2" />
-        <div className="hero-bg__table hero-bg__table--3" />
-        <div className="hero-bg__table hero-bg__table--4" />
-        <div className="hero-bg__table hero-bg__table--5" />
-        <div className="hero-bg__table hero-bg__table--6" />
       </div>
 
       <div className="relative z-10 px-4 text-center max-w-3xl">

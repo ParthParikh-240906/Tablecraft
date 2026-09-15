@@ -143,7 +143,7 @@ function Navbar() {
               Sign out
             </button>
           ) : (
-            <Link href="/signin?next=/dashboard" className="btn btn-outline text-[10px] px-2.5 py-1.5">
+            <Link href="/signin?next=/dashboard" className="btn btn-accent text-[10px] px-2.5 py-1.5">
               Sign in
             </Link>
           )}
@@ -165,12 +165,12 @@ function Navbar() {
           ))}
           <Link
             href={user ? "/dashboard" : "/signin?next=/dashboard"}
-            className="btn btn-ink text-[10px] px-2.5 py-1.5"
+            className="btn btn-outline text-[10px] px-2.5 py-1.5"
           >
             Dashboard
           </Link>
           <Link href="/console/login" className="btn btn-outline text-[10px] px-2.5 py-1.5">
-            Sign in to console
+            Console
           </Link>
         </div>
 
@@ -204,7 +204,7 @@ function Navbar() {
             <Link
               href="/signin?next=/dashboard"
               onClick={() => setMobileOpen(false)}
-              className="btn btn-outline text-xs w-full"
+              className="btn btn-accent text-xs w-full"
             >
               Sign in
             </Link>
@@ -222,7 +222,7 @@ function Navbar() {
           <Link
             href={user ? "/dashboard" : "/signin?next=/dashboard"}
             onClick={() => setMobileOpen(false)}
-            className="btn btn-ink text-xs w-full"
+            className="btn btn-outline text-xs w-full"
           >
             Dashboard
           </Link>
@@ -231,7 +231,7 @@ function Navbar() {
             onClick={() => setMobileOpen(false)}
             className="btn btn-outline text-xs w-full"
           >
-            Sign in to console
+            Console
           </Link>
         </div>
       )}
@@ -243,41 +243,41 @@ function Navbar() {
 function Hero() {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
-      {/* 3D floor background (reuses existing hero-bg CSS) */}
+      {/* Premium restaurant background image */}
       <div className="hero-bg">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/hero.jpg"
+          alt="Elegant restaurant ambiance"
+          className="hero-bg__image"
+        />
+        <div className="hero-bg__overlay" />
         <div className="hero-bg__glow" />
         <div className="hero-bg__scrim" />
-        <div className="hero-bg__floor" />
-        <div className="hero-bg__table hero-bg__table--1" />
-        <div className="hero-bg__table hero-bg__table--2" />
-        <div className="hero-bg__table hero-bg__table--3" />
-        <div className="hero-bg__table hero-bg__table--4" />
-        <div className="hero-bg__table hero-bg__table--5" />
-        <div className="hero-bg__table hero-bg__table--6" />
       </div>
 
-      <div className="relative z-10 px-4 text-center max-w-3xl">
+      <div className="relative z-10 px-4 text-center max-w-4xl">
         <Reveal>
-          <p className="label-caps text-[color:var(--accent)] mb-5" style={{ fontSize: "1.3rem", letterSpacing: "0.12em" }}>Tablecraft</p>
+          <p className="label-caps text-[color:var(--accent)] mb-6" style={{ fontSize: "1.5rem", letterSpacing: "0.15em" }}>Tablecraft</p>
         </Reveal>
         <Reveal delay={100}>
-          <h1 className="font-display text-4xl md:text-5xl lg:text-6xl leading-[0.98] tracking-tight mb-6 text-[var(--ink)]">
+          <h1 className="font-display text-5xl md:text-6xl lg:text-7xl xl:text-8xl leading-[1.05] tracking-tight mb-8 text-[var(--ink)]">
             Your restaurant,
             <br />
             <span className="gradient-text">online</span> in minutes.
           </h1>
         </Reveal>
         <Reveal delay={300}>
-          <p className="text-[var(--ink-soft)] text-base md:text-lg mb-10 max-w-xl mx-auto leading-relaxed italic opacity-90">
+          <p className="text-[var(--ink-soft)] text-lg md:text-xl lg:text-2xl mb-12 max-w-2xl mx-auto leading-relaxed opacity-95">
             AI-powered website, console, and staff dashboard — built for restaurants that want to move fast.
           </p>
         </Reveal>
         <Reveal delay={400}>
-          <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/signup" className="btn btn-accent text-sm px-8 py-3">
+          <div className="flex flex-wrap justify-center gap-4">
+            <Link href="/signup" className="btn btn-accent text-base px-10 py-4">
               Create your restaurant
             </Link>
-            <a href="#restaurants" className="btn btn-outline text-sm px-8 py-3">
+            <a href="#restaurants" className="btn btn-outline text-base px-10 py-4">
               Demo restaurants
             </a>
           </div>
@@ -285,9 +285,9 @@ function Hero() {
       </div>
 
       {/* Scroll indicator */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-bounce">
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-bounce">
         <span className="label-caps text-[var(--ink-faint)]">Scroll</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-faint)" strokeWidth="2" strokeLinecap="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-faint)" strokeWidth="2" strokeLinecap="round">
           <path d="M12 5v14M5 12l7 7 7-7" />
         </svg>
       </div>
@@ -306,11 +306,11 @@ function FeatureCard({ feature, index }: { feature: typeof AI_FEATURES[0]; index
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <p className="label-caps text-xs mb-1" style={{ color: feature.color }}>{feature.subtitle}</p>
-        <h3 className="font-display text-lg mb-3 text-[var(--ink)]">{feature.title}</h3>
-        <p className="text-xs text-[var(--ink-soft)] leading-relaxed">{feature.description}</p>
+        <p className="label-caps text-sm mb-2" style={{ color: feature.color }}>{feature.subtitle}</p>
+        <h3 className="font-display text-xl mb-4 text-[var(--ink)]">{feature.title}</h3>
+        <p className="text-sm text-[var(--ink-soft)] leading-relaxed">{feature.description}</p>
         <div
-          className="mt-3 h-px transition-all duration-300"
+          className="mt-4 h-px transition-all duration-300"
           style={{
             width: hovered ? "100%" : "0%",
             backgroundColor: feature.color,
@@ -372,16 +372,16 @@ function FeaturesSection() {
 function StepCard({ n, title, body, delay }: { n: number; title: string; body: string; delay: number }) {
   return (
     <Reveal delay={delay}>
-      <div className="flex gap-4 items-start">
+      <div className="flex gap-5 items-start">
         <span
-          className="flex-shrink-0 w-8 h-8 rounded-sm flex items-center justify-center text-sm font-bold font-display"
+          className="flex-shrink-0 w-10 h-10 rounded-sm flex items-center justify-center text-base font-bold font-display"
           style={{ background: "var(--accent)", color: "#ffffff" }}
         >
           {n}
         </span>
         <div>
-          <h3 className="font-display text-lg mb-1 text-[var(--ink)]">{title}</h3>
-          <p className="text-xs text-[var(--ink-soft)] leading-relaxed">{body}</p>
+          <h3 className="font-display text-xl mb-2 text-[var(--ink)]">{title}</h3>
+          <p className="text-sm text-[var(--ink-soft)] leading-relaxed">{body}</p>
         </div>
       </div>
     </Reveal>
@@ -390,23 +390,23 @@ function StepCard({ n, title, body, delay }: { n: number; title: string; body: s
 
 function HowItWorksSection() {
   const steps = [
-    { n: 1, title: "Create your restaurant & design", body: "Sign up, pick a name, and claim your public URL, and create your design ." },
-    { n: 2, title: "Set up your menu & tables", body: "Scan your printed menu with AI, setup tables " },
-    { n: 3, title: "Go live", body: "Make the payment and go live, guests can find you, book tables via the AI chatbot, and order online." },
+    { n: 1, title: "Create your restaurant & design", body: "Sign up, pick a name, claim your public URL, and create your design." },
+    { n: 2, title: "Set up your menu & tables", body: "Scan your printed menu with AI and set up your tables." },
+    { n: 3, title: "Go live", body: "Make the payment and go live — guests can find you, book tables via the AI chatbot, and order online." },
   ];
 
   return (
-    <section id="how-it-works" className="max-w-2xl mx-auto px-4 py-[56px]">
+    <section id="how-it-works" className="max-w-2xl mx-auto px-4 py-20">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "0.9rem", letterSpacing: "0.1em", textDecoration: "underline" }}>How it works</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.1rem", letterSpacing: "0.12em" }}>How it works</p>
       </Reveal>
       <Reveal delay={80}>
-        <h2 className="font-display text-2xl md:text-3xl text-center mb-10 text-[var(--ink)]">
+        <h2 className="font-display text-3xl md:text-4xl text-center mb-12 text-[var(--ink)]">
           Three steps. That's it.
         </h2>
       </Reveal>
 
-      <div className="ticket ticket--dark p-6 space-y-6">
+      <div className="ticket ticket--dark p-6 sm:p-8 space-y-6">
         {steps.map((s, i) => (
           <div key={s.n}>
             <StepCard {...s} delay={i * 100} />
@@ -475,17 +475,17 @@ function RestaurantsSection() {
   }, []);
 
   return (
-    <section id="restaurants" className="max-w-6xl mx-auto px-4 py-[56px]">
+    <section id="restaurants" className="max-w-6xl mx-auto px-4 py-20">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "0.9rem", letterSpacing: "0.1em", textDecoration: "underline" }}>Directory</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.1rem", letterSpacing: "0.12em" }}>Directory</p>
       </Reveal>
       <Reveal delay={80}>
-        <h2 className="font-display text-2xl md:text-3xl text-center mb-4 text-[var(--ink)]">
+        <h2 className="font-display text-3xl md:text-4xl text-center mb-6 text-[var(--ink)]">
           Demo restaurants
         </h2>
       </Reveal>
       <Reveal delay={160}>
-        <p className="text-center text-[var(--ink-soft)] max-w-md mx-auto mb-8 text-base">
+        <p className="text-center text-[var(--ink-soft)] max-w-lg mx-auto mb-10 text-lg leading-relaxed">
           Preview our demo sites below. Sign in to see and manage your own restaurant.
         </p>
       </Reveal>
@@ -623,22 +623,22 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
 
 function PricingSection() {
   return (
-    <section id="pricing" className="max-w-5xl mx-auto px-4 py-[56px]">
+    <section id="pricing" className="max-w-5xl mx-auto px-4 py-20">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "0.9rem", letterSpacing: "0.1em", textDecoration: "underline" }}>Pricing</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.1rem", letterSpacing: "0.12em" }}>Pricing</p>
       </Reveal>
       <Reveal delay={80}>
-        <h2 className="font-display text-2xl md:text-3xl text-center mb-4 text-[var(--ink)]">
+        <h2 className="font-display text-3xl md:text-4xl text-center mb-6 text-[var(--ink)]">
           Simple, transparent pricing.
         </h2>
       </Reveal>
       <Reveal delay={160}>
-        <p className="text-center text-[var(--ink-soft)] max-w-md mx-auto mb-9 text-base">
+        <p className="text-center text-[var(--ink-soft)] max-w-lg mx-auto mb-11 text-lg leading-relaxed">
           Start free with a mock site. Upgrade when you're ready to go live.
         </p>
       </Reveal>
 
-      <div className="grid md:grid-cols-3 gap-3">
+      <div className="grid md:grid-cols-3 gap-4">
         {PRICING.map((p, i) => (
           <PricingCard key={p.name} plan={p} index={i} />
         ))}
