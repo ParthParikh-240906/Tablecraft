@@ -165,29 +165,15 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        {/* ─── AI-Powered Tools ─────────────────────────────────────────────── */}
-        <section>
-          <h2 className="font-display text-lg mb-4">AI-Powered Tools</h2>
-          <div className="grid sm:grid-cols-2 gap-4">
-            {[
-              { icon: "💬", title: "AI Booking Chatbot", desc: "Guests chat naturally to book tables. The AI handles dates, party sizes, and availability." },
-              { icon: "📸", title: "AI Menu Scanner", desc: "Snap a photo of your printed menu. Our OCR extracts dishes, allergens, and prices instantly." },
-              { icon: "✨", title: "AI Content Generator", desc: "Generate website paragraphs, taglines, and descriptions from a short description of your restaurant." },
-              { icon: "🎨", title: "AI Image Generator", desc: "Create dish shots, interiors, and hero images from a text prompt — no photographer needed." },
-            ].map((tool) => (
-              <div key={tool.title} className="ticket p-5">
-                <span className="text-2xl mb-2 block">{tool.icon}</span>
-                <p className="text-sm font-semibold mb-1">{tool.title}</p>
-                <p className="text-xs text-[var(--ink-soft)] leading-relaxed">{tool.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
         {/* ─── Getting Started Checklist ────────────────────────────────────── */}
         {hasRestaurants && (
           <section>
-            <h2 className="font-display text-lg mb-4">Getting Started</h2>
+            <div className="flex items-center gap-3 mb-4">
+              <h2 className="font-display text-lg">Getting Started</h2>
+              <Link href="/setup-guide" className="btn btn-outline-strong text-[10px] px-2.5 py-1">
+                Setup guide
+              </Link>
+            </div>
             <div className="ticket p-5 space-y-2">
               {[
                 { label: "Create a restaurant" },

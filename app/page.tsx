@@ -254,6 +254,7 @@ function Hero() {
           src="/hero.jpg"
           alt=""
           aria-hidden="true"
+          fetchPriority="high"
           className="hero-bg__image"
         />
         <div className="hero-bg__overlay" />
@@ -262,31 +263,23 @@ function Hero() {
       </div>
 
       <div className="relative z-10 px-4 text-center max-w-4xl">
-        <Reveal>
-          <p className="label-caps text-[color:var(--accent)] mb-6" style={{ fontSize: "1.5rem", letterSpacing: "0.15em" }}>Tablecraft</p>
-        </Reveal>
-        <Reveal delay={100}>
-          <h1 className="font-display text-5xl md:text-6xl lg:text-7xl xl:text-8xl leading-[1.05] tracking-tight mb-8 text-[var(--ink)]">
-            Your restaurant,
-            <br />
-            <span className="gradient-text">online</span> in minutes.
-          </h1>
-        </Reveal>
-        <Reveal delay={300}>
-          <p className="text-[var(--ink-soft)] text-lg md:text-xl lg:text-2xl mb-12 max-w-2xl mx-auto leading-relaxed opacity-95">
-            AI-powered website, console, and staff dashboard — built for restaurants that want to move fast.
-          </p>
-        </Reveal>
-        <Reveal delay={400}>
-          <div className="flex flex-wrap justify-center gap-4">
-            <Link href="/signup" className="btn btn-accent text-base px-10 py-4">
-              Create your restaurant
-            </Link>
-            <a href="#restaurants" className="btn btn-outline text-base px-10 py-4">
-              Demo restaurants
-            </a>
-          </div>
-        </Reveal>
+        <p className="label-caps text-[color:var(--accent)] mb-6" style={{ fontSize: "1.5rem", letterSpacing: "0.15em" }}>Tablecraft</p>
+        <h1 className="font-display text-5xl md:text-6xl lg:text-7xl xl:text-8xl leading-[1.05] tracking-tight mb-8 text-[var(--ink)]">
+          Your restaurant,
+          <br />
+          <span className="gradient-text">online</span> in minutes.
+        </h1>
+        <p className="text-[var(--ink-soft)] text-lg md:text-xl lg:text-2xl mb-12 max-w-2xl mx-auto leading-relaxed opacity-95">
+          AI-powered website, console, and staff dashboard — built for restaurants that want to move fast.
+        </p>
+        <div className="flex flex-wrap justify-center gap-4">
+          <Link href="/signup" className="btn btn-accent text-base px-10 py-4">
+            Create your restaurant
+          </Link>
+          <a href="#restaurants" className="btn btn-outline text-base px-10 py-4">
+            Demo restaurants
+          </a>
+        </div>
       </div>
 
       {/* Scroll indicator — hidden for reduced-motion users */}
@@ -554,7 +547,7 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
     <Reveal delay={index * 120}>
       <div
         className={[
-          "ticket ticket--dark p-5 sm:p-6 flex flex-col relative transition-all duration-300 h-full",
+          "ticket ticket--dark p-8 sm:p-10 flex flex-col relative transition-all duration-300 h-full",
           plan.highlighted ? "ring-2 ring-[var(--accent)] shadow-xl" : "",
         ]
           .filter(Boolean)
@@ -563,21 +556,21 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
         onMouseLeave={() => setHovered(false)}
       >
         {plan.highlighted && (
-          <p className="label-caps text-[10px] mb-2" style={{ color: "var(--accent)" }}>Most popular</p>
+          <p className="label-caps text-xs mb-3" style={{ color: "var(--accent)" }}>Most popular</p>
         )}
 
-        <p className="label-caps text-[10px] mb-1 text-[var(--ink-soft)]">{plan.name}</p>
-        <div className="flex items-baseline gap-1 mb-1">
-          <span className="font-display text-3xl text-[var(--ink)]">{plan.price}</span>
-          <span className="text-[10px] text-[var(--ink-faint)]">AED</span>
+        <p className="label-caps text-xs mb-2 text-[var(--ink-soft)]">{plan.name}</p>
+        <div className="flex items-baseline gap-1 mb-2">
+          <span className="font-display text-4xl text-[var(--ink)]">{plan.price}</span>
+          <span className="text-sm text-[var(--ink-faint)]">AED</span>
         </div>
-        <p className="text-[10px] text-[var(--ink-faint)] mb-3">{plan.period}</p>
-        <p className="text-xs text-[var(--ink-soft)] leading-relaxed mb-5 flex-grow">{plan.description}</p>
+        <p className="text-sm text-[var(--ink-faint)] mb-4">{plan.period}</p>
+        <p className="text-base text-[var(--ink-soft)] leading-relaxed mb-6 flex-grow">{plan.description}</p>
 
-        <ul className="space-y-1.5 mb-6">
+        <ul className="space-y-2 mb-8">
           {plan.features.map((f) => (
-            <li key={f} className="flex items-start gap-1.5 text-[10px] text-[var(--ink-soft)]">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" className="flex-shrink-0 mt-0.5">
+            <li key={f} className="flex items-start gap-2 text-sm text-[var(--ink-soft)]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" className="flex-shrink-0 mt-0.5">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
               {f}

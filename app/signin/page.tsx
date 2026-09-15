@@ -61,7 +61,7 @@ function SignInForm() {
         </div>
 
         {/* Mini rectangle with leaf background texture */}
-        <div className="layer2-bg border-2 border-white/50 rounded-sm overflow-hidden" id="signin-form">
+        <div className="layer2-bg border border-white rounded-sm overflow-hidden" id="signin-form">
           {/* Dark overlay to keep form readable over the pattern */}
           <div className="relative">
             <div className="ticket ticket--dark p-8 space-y-6">

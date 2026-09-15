@@ -63,7 +63,7 @@ function PricingCard({ plan, index }: { plan: typeof MARKETING_PLANS[0]; index: 
     <Reveal delay={index * 120}>
       <div
         className={[
-          "ticket ticket--dark p-5 sm:p-6 flex flex-col relative transition-all duration-300 h-full",
+          "ticket ticket--dark p-8 sm:p-10 flex flex-col relative transition-all duration-300 h-full",
           plan.highlighted ? "ring-2 ring-[var(--accent)] shadow-xl" : "",
         ]
           .filter(Boolean)
@@ -72,21 +72,21 @@ function PricingCard({ plan, index }: { plan: typeof MARKETING_PLANS[0]; index: 
         onMouseLeave={() => setHovered(false)}
       >
         {plan.highlighted && (
-          <p className="label-caps text-[10px] mb-2" style={{ color: "var(--accent)" }}>Most popular</p>
+          <p className="label-caps text-xs mb-3" style={{ color: "var(--accent)" }}>Most popular</p>
         )}
 
-        <p className="label-caps text-[10px] mb-1 text-[var(--ink-soft)]">{plan.name}</p>
-        <div className="flex items-baseline gap-1 mb-1">
-          <span className="font-display text-3xl text-[var(--ink)]">{plan.price}</span>
-          <span className="text-[10px] text-[var(--ink-faint)]">AED</span>
+        <p className="label-caps text-xs mb-2 text-[var(--ink-soft)]">{plan.name}</p>
+        <div className="flex items-baseline gap-1 mb-2">
+          <span className="font-display text-4xl text-[var(--ink)]">{plan.price}</span>
+          <span className="text-sm text-[var(--ink-faint)]">AED</span>
         </div>
-        <p className="text-[10px] text-[var(--ink-faint)] mb-3">{plan.period}</p>
-        <p className="text-xs text-[var(--ink-soft)] leading-relaxed mb-5 flex-grow">{plan.description}</p>
+        <p className="text-sm text-[var(--ink-faint)] mb-4">{plan.period}</p>
+        <p className="text-base text-[var(--ink-soft)] leading-relaxed mb-6 flex-grow">{plan.description}</p>
 
-        <ul className="space-y-1.5 mb-6">
+        <ul className="space-y-2 mb-8">
           {plan.features.map((f) => (
-            <li key={f} className="flex items-start gap-1.5 text-[10px] text-[var(--ink-soft)]">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" className="flex-shrink-0 mt-0.5">
+            <li key={f} className="flex items-start gap-2 text-sm text-[var(--ink-soft)]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" className="flex-shrink-0 mt-0.5">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
               {f}

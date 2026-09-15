@@ -55,107 +55,109 @@ function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="ticket p-6 space-y-5">
-      {orgSlug && (
-        <div className="bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded-sm px-3 py-2 text-xs">
-          <p className="font-semibold text-[var(--accent)]">
-            Logging in for: {orgSlug}
-          </p>
+    <div className="layer2-bg border border-white rounded-sm overflow-hidden">
+      <form onSubmit={handleSubmit} className="ticket ticket--dark p-6 space-y-5">
+        {orgSlug && (
+          <div className="bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded-sm px-3 py-2 text-xs">
+            <p className="font-semibold text-[var(--accent)]">
+              Logging in for: {orgSlug}
+            </p>
+          </div>
+        )}
+
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium mb-1.5">
+            Email
+          </label>
+          <input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="you@restaurant.com"
+            className="input placeholder:text-[var(--ink-faint)]"
+          />
         </div>
-      )}
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium mb-1.5">
+            Password
+          </label>
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            placeholder="••••••••"
+            className="input placeholder:text-[var(--ink-faint)]"
+          />
+        </div>
 
-      <div>
-        <label htmlFor="email" className="block text-sm font-medium mb-1.5">
-          Email
-        </label>
-        <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          placeholder="you@restaurant.com"
-          className="input placeholder:text-[var(--ink-faint)]"
-        />
-      </div>
-      <div>
-        <label htmlFor="password" className="block text-sm font-medium mb-1.5">
-          Password
-        </label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          placeholder="••••••••"
-          className="input placeholder:text-[var(--ink-faint)]"
-        />
-      </div>
+        {error && (
+          <p className="text-sm text-red-400 rounded-sm bg-red-900/40 px-3 py-2">
+            {error}
+          </p>
+        )}
 
-      {error && (
-        <p className="text-sm text-red-400 rounded-sm bg-red-900/40 px-3 py-2">
-          {error}
+        <button
+          type="submit"
+          disabled={submitting}
+          className="btn btn-accent w-full"
+        >
+          {submitting ? "Signing in…" : "Sign in with Email"}
+        </button>
+
+        <div className="relative flex py-2 items-center">
+          <div className="flex-grow border-t border-[var(--rule)]"></div>
+          <span className="flex-shrink mx-3 text-[11px] text-[var(--ink-faint)] uppercase tracking-wider">
+            Or
+          </span>
+          <div className="flex-grow border-t border-[var(--rule)]"></div>
+        </div>
+
+        <button
+          type="button"
+          onClick={async () => {
+            const supabase = createClient();
+            await supabase.auth.signInWithOAuth({
+              provider: "google",
+              options: {
+                redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+              },
+            });
+          }}
+          className="btn btn-outline w-full flex items-center justify-center gap-2 text-xs font-medium"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24">
+            <path
+              fill="#EA4335"
+              d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"
+            />
+            <path
+              fill="#4285F4"
+              d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3 0-.8.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15.2s.7 5.5 1.9 7.9l3.7-2.9z"
+            />
+            <path
+              fill="#34A853"
+              d="M12 23.5c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16.5C3.7 20.2 7.5 23.5 12 23.5z"
+            />
+          </svg>
+          Continue with Google
+        </button>
+
+        <p className="text-xs text-center text-[var(--ink-faint)] pt-1">
+          New restaurant?{" "}
+          <Link href="/signup" className="underline text-[var(--ink)]">
+            Create your account
+          </Link>
         </p>
-      )}
-
-      <button
-        type="submit"
-        disabled={submitting}
-        className="btn btn-accent w-full"
-      >
-        {submitting ? "Signing in…" : "Sign in with Email"}
-      </button>
-
-      <div className="relative flex py-2 items-center">
-        <div className="flex-grow border-t border-[var(--rule)]"></div>
-        <span className="flex-shrink mx-3 text-[11px] text-[var(--ink-faint)] uppercase tracking-wider">
-          Or
-        </span>
-        <div className="flex-grow border-t border-[var(--rule)]"></div>
-      </div>
-
-      <button
-        type="button"
-        onClick={async () => {
-          const supabase = createClient();
-          await supabase.auth.signInWithOAuth({
-            provider: "google",
-            options: {
-              redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-            },
-          });
-        }}
-        className="btn btn-outline w-full flex items-center justify-center gap-2 text-xs font-medium"
-      >
-        <svg className="w-4 h-4" viewBox="0 0 24 24">
-          <path
-            fill="#EA4335"
-            d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"
-          />
-          <path
-            fill="#4285F4"
-            d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"
-          />
-          <path
-            fill="#FBBC05"
-            d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3 0-.8.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15.2s.7 5.5 1.9 7.9l3.7-2.9z"
-          />
-          <path
-            fill="#34A853"
-            d="M12 23.5c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16.5C3.7 20.2 7.5 23.5 12 23.5z"
-          />
-        </svg>
-        Continue with Google
-      </button>
-
-      <p className="text-xs text-center text-[var(--ink-faint)] pt-1">
-        New restaurant?{" "}
-        <Link href="/signup" className="underline text-[var(--ink)]">
-          Create your account
-        </Link>
-      </p>
-    </form>
+      </form>
+    </div>
   );
 }
 
