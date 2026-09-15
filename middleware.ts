@@ -39,11 +39,13 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // If user is already logged in and visits the login page, redirect to console tables
+  // If user is already logged in and visits the login page, redirect to console
+  // preserving any ?org= param so the selected_org cookie gets set correctly.
   if (user && isLoginPage) {
     const consoleUrl = request.nextUrl.clone();
     consoleUrl.pathname = "/console";
-    consoleUrl.search = "";
+    // Keep the ?org= param (or whatever other query params were present)
+    consoleUrl.search = request.nextUrl.search;
     return NextResponse.redirect(consoleUrl);
   }
 

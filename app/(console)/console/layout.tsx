@@ -1,7 +1,8 @@
+import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveStaffRow } from "@/lib/org";
+import { getActiveStaffRow, getOrgBySlug } from "@/lib/org";
 import { LogoutButton } from "./logout-button";
 
 /**
@@ -28,7 +29,32 @@ export default async function ConsoleLayout({
     redirect("/console/login");
   }
 
-  const result = await getActiveStaffRow(user.id);
+  // Read ?org= from the request URL so each tab can independently select
+  // its org, even when the shared cookie has a stale value from another tab.
+  // We read it from the Referer header (set by the previous navigation)
+  // since server components don't have direct access to the current URL.
+  const { headers: getHeaders } = await import("next/headers");
+  const headerList = await getHeaders();
+  const referer = headerList.get("referer") || "";
+  let urlOrgParam: string | null = null;
+  try {
+    const url = new URL(referer);
+    urlOrgParam = url.searchParams.get("org");
+  } catch {}
+
+  let resolvedOrgId: string | undefined;
+  if (urlOrgParam) {
+    // Check if it's a UUID (org id) or a slug
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(urlOrgParam);
+    if (isUUID) {
+      resolvedOrgId = urlOrgParam;
+    } else {
+      const org = await getOrgBySlug(urlOrgParam);
+      resolvedOrgId = org?.id;
+    }
+  }
+
+  const result = await getActiveStaffRow(user.id, resolvedOrgId);
 
   if (!result) {
     return (

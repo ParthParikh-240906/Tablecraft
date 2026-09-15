@@ -21,7 +21,10 @@ export interface ActiveStaffResult {
   isMultiOrg: boolean;
 }
 
-export async function getActiveStaffRow(userId: string): Promise<ActiveStaffResult | null> {
+export async function getActiveStaffRow(
+  userId: string,
+  urlOrgId?: string,
+): Promise<ActiveStaffResult | null> {
   const supabase = await createClient();
   const { data: staffRows } = await supabase
     .from("staff_users")
@@ -31,13 +34,15 @@ export async function getActiveStaffRow(userId: string): Promise<ActiveStaffResu
   const rows = staffRows ?? [];
   if (rows.length === 0) return null;
 
-  // Read the cookie store upfront so we can check it for both selection and return value
+  // URL param takes priority over the cookie — this lets each tab
+  // independently select its org even when the cookie is shared across tabs.
   const cookieStore = await cookies();
-  const selectedOrgId = cookieStore.get("selected_org")?.value;
+  const cookieOrgId = cookieStore.get("selected_org")?.value;
+  const selectedOrgId = urlOrgId ?? cookieOrgId;
 
   let selected: any = rows[0];
 
-  // Multiple orgs — check for a persisted selection cookie
+  // Multiple orgs — check for a persisted selection (URL param or cookie)
   if (rows.length > 1 && selectedOrgId) {
     const matched = rows.find((r: any) => {
       const orgId = r.org_id ?? (Array.isArray(r.organizations) ? (r.organizations as any[])[0]?.id : r.organizations?.id);
