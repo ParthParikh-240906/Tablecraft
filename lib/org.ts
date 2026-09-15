@@ -45,8 +45,9 @@ export async function getActiveStaffRow(
   // Multiple orgs — check for a persisted selection (URL param or cookie)
   if (rows.length > 1 && selectedOrgId) {
     const matched = rows.find((r: any) => {
-      const orgId = r.org_id ?? (Array.isArray(r.organizations) ? (r.organizations as any[])[0]?.id : r.organizations?.id);
-      return orgId === selectedOrgId;
+      const orgData = Array.isArray(r.organizations) ? (r.organizations as any[])[0] : r.organizations;
+      const orgId = r.org_id ?? orgData?.id;
+      return orgId === selectedOrgId || orgData?.slug === selectedOrgId;
     });
     if (matched) selected = matched;
   }
