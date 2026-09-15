@@ -71,7 +71,7 @@ export default async function DashboardPage() {
     <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)]">
       <a href="#main-content" className="skip-link">Skip to content</a>
       {/* ─── Header ─────────────────────────────────────────────────────────── */}
-      <header className="border-b border-[var(--rule)]">
+      <header className="border-b border-white/30">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl tracking-tight">
@@ -80,13 +80,13 @@ export default async function DashboardPage() {
             <p className="text-sm text-[var(--ink-soft)] mt-0.5">{user.email}</p>
           </div>
           <div className="flex items-center gap-3">
-            <a href="#pricing" className="btn btn-outline text-xs">
+            <a href="#pricing" className="btn btn-outline-strong text-xs">
               Pricing
             </a>
             <Link href="/setup-guide" className="btn btn-outline-accent text-xs">
               Setup guide
             </Link>
-            <Link href="/" className="btn btn-outline text-xs">
+            <Link href="/" className="btn btn-outline-strong text-xs">
               ← Marketing site
             </Link>
             <SignOutButton />

@@ -162,18 +162,18 @@ function Navbar() {
             <a
               key={l.href}
               href={l.href}
-              className="text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors"
+              className="text-sm text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors"
             >
               {l.label}
             </a>
           ))}
           <Link
             href={user ? "/dashboard" : "/signin?next=/dashboard"}
-            className="btn btn-outline text-[10px] px-2.5 py-1.5"
+            className="btn btn-outline-strong text-[10px] px-2.5 py-1.5"
           >
             Dashboard
           </Link>
-          <Link href="/console/login" className="btn btn-outline text-[10px] px-2.5 py-1.5">
+          <Link href="/console/login" className="btn btn-outline-strong text-[10px] px-2.5 py-1.5">
             Console
           </Link>
         </div>
@@ -787,7 +787,7 @@ function ContactSection() {
 // ─── Footer ───────────────────────────────────────────────────────────────────
 function Footer() {
   return (
-    <footer className="border-t border-[var(--rule)] py-10 px-4 text-center space-y-4">
+    <footer className="border-t border-white/30 py-10 px-4 text-center space-y-4">
       <div className="flex flex-wrap justify-center gap-6 mb-4">
         <Link href="/dashboard" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Back to dashboard</Link>
         <a href="#pricing" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Pricing</a>
