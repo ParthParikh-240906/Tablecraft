@@ -42,6 +42,8 @@ export function BookingChatbot({
     text_color?: string;
     text_size?: number;
     font_family?: string;
+    border_color?: string;
+    border_width?: number;
   };
 }) {
   const chatColor = chatbot?.color ?? accent;
@@ -49,6 +51,8 @@ export function BookingChatbot({
   const chatTextSize = chatbot?.text_size ?? 14;
   const chatFontFamily = chatbot?.font_family ?? "Inter";
   const chatLogo = chatbot?.logo_url ?? null;
+  const chatBorderColor = chatbot?.border_color ?? "transparent";
+  const chatBorderWidth = chatbot?.border_width ?? 0;
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [slots, setSlots] = useState<SlotState>({ name: null, party_size: null, date: null, time: null });
@@ -267,12 +271,15 @@ export function BookingChatbot({
       <button
         onClick={() => setOpen(true)}
         className="fixed bottom-5 right-5 z-50 h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
-        style={{ backgroundColor: chatColor }}
+        style={{
+          backgroundColor: chatColor,
+          ...(chatBorderWidth > 0 ? { border: `${chatBorderWidth}px solid ${chatBorderColor}` } : {}),
+        }}
         aria-label="Open booking assistant"
       >
         {chatLogo ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={chatLogo} alt="" className="h-8 w-8 rounded-full object-cover" />
+          <img src={chatLogo} alt="" className="h-full w-full rounded-full object-cover" />
         ) : (
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="11" width="18" height="10" rx="2" />

@@ -95,6 +95,8 @@ export function AiPanel({
     text_color: "#ffffff",
     text_size: 14,
     font_family: "Inter",
+    border_color: "transparent",
+    border_width: 0,
   };
 
   const updateChatbot = (patch: Partial<typeof chatbot>) => {
@@ -297,6 +299,26 @@ export function AiPanel({
                 ))}
               </select>
             </div>
+
+            <div>
+              <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+                Border Width: {chatbot.border_width ?? 0}px
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={8}
+                value={chatbot.border_width ?? 0}
+                onChange={(e) => updateChatbot({ border_width: parseInt(e.target.value, 10) })}
+                className="w-full accent-[var(--accent)]"
+              />
+            </div>
+
+            <ColorField
+              label="Border Color"
+              value={chatbot.border_color ?? "transparent"}
+              onChange={(v) => updateChatbot({ border_color: v })}
+            />
           </section>
         </div>
 

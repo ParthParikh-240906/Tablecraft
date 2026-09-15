@@ -109,6 +109,8 @@ export interface ChatbotDesign {
   text_color: string;
   text_size: number;
   font_family: string;
+  border_color: string;
+  border_width: number;
 }
 
 export interface DesignSettingsV2 {
@@ -315,6 +317,8 @@ export function defaultChatbotDesign(): ChatbotDesign {
     text_color: "#ffffff",
     text_size: 14,
     font_family: "Inter",
+    border_color: "transparent",
+    border_width: 0,
   };
 }
 
