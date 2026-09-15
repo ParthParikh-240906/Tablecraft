@@ -170,7 +170,7 @@ export default async function DashboardPage() {
           <section>
             <div className="flex items-center gap-3 mb-4">
               <h2 className="font-display text-lg">Getting Started</h2>
-              <Link href="/setup-guide" className="btn btn-outline-strong text-[10px] px-2.5 py-1">
+              <Link href="/setup-guide" className="btn btn-accent text-[10px] px-2.5 py-1">
                 Setup guide
               </Link>
             </div>

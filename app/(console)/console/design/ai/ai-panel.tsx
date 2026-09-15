@@ -229,11 +229,11 @@ export function AiPanel({
               <div className="flex items-center gap-2">
                 {chatbot.logo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={chatbot.logo_url} alt="Chatbot logo" className="h-8 w-8 rounded-full object-cover" />
+                  <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-black">
+                    <img src={chatbot.logo_url} alt="Chatbot logo" className="h-full w-full object-cover" />
+                  </div>
                 ) : (
-                  <span className="h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ backgroundColor: chatbot.color, color: chatbot.text_color }}>
-                    {orgName.charAt(0).toUpperCase()}
-                  </span>
+                  <div className="h-20 w-20 rounded-full border-2 border-black" />
                 )}
                 <label className="btn btn-outline text-xs cursor-pointer inline-block">
                   {chatbot.logo_url ? "Replace" : "Upload"}
