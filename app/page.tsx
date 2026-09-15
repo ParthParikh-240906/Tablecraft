@@ -18,6 +18,10 @@ interface Org {
 }
 
 // ─── Scroll Reveal Hook ──────────────────────────────────────────────────────
+const prefersReducedMotion = typeof window !== "undefined"
+  ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  : false;
+
 function useReveal(threshold = 0.12) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -42,13 +46,13 @@ function Reveal({ children, className = "", delay = 0 }: { children: React.React
     <div
       ref={ref}
       className={[
-        "transition-all duration-700 ease-out",
-        visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3",
+        prefersReducedMotion ? "" : "transition-all duration-700 ease-out",
+        visible ? "opacity-100 translate-y-0" : prefersReducedMotion ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
-      style={{ transitionDelay: `${delay}ms` }}
+      style={prefersReducedMotion ? {} : { transitionDelay: `${delay}ms` }}
     >
       {children}
     </div>
@@ -189,14 +193,14 @@ function Navbar() {
         </button>
       </div>
 
-      {/* Mobile menu */}
+        {/* Mobile menu */}
       {mobileOpen && (
         <div className="md:hidden bg-[var(--paper-raised)] border-b border-[var(--rule)] px-6 py-4 space-y-3">
           {user ? (
             <button
               type="button"
               onClick={() => { handleSignOut(); setMobileOpen(false); }}
-              className="btn btn-accent text-xs w-full"
+              className="btn btn-accent text-xs w-full min-h-[44px]"
             >
               Sign out
             </button>
@@ -204,7 +208,7 @@ function Navbar() {
             <Link
               href="/signin?next=/dashboard"
               onClick={() => setMobileOpen(false)}
-              className="btn btn-accent text-xs w-full"
+              className="btn btn-accent text-xs w-full min-h-[44px]"
             >
               Sign in
             </Link>
@@ -214,7 +218,7 @@ function Navbar() {
               key={l.href}
               href={l.href}
               onClick={() => setMobileOpen(false)}
-              className="block text-sm text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors"
+              className="block text-sm text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors py-2.5"
             >
               {l.label}
             </a>
@@ -222,14 +226,14 @@ function Navbar() {
           <Link
             href={user ? "/dashboard" : "/signin?next=/dashboard"}
             onClick={() => setMobileOpen(false)}
-            className="btn btn-outline text-xs w-full"
+            className="btn btn-outline text-xs w-full min-h-[44px]"
           >
             Dashboard
           </Link>
           <Link
             href="/console/login"
             onClick={() => setMobileOpen(false)}
-            className="btn btn-outline text-xs w-full"
+            className="btn btn-outline text-xs w-full min-h-[44px]"
           >
             Console
           </Link>
@@ -248,7 +252,8 @@ function Hero() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/hero.jpg"
-          alt="Elegant restaurant ambiance"
+          alt=""
+          aria-hidden="true"
           className="hero-bg__image"
         />
         <div className="hero-bg__overlay" />
@@ -284,42 +289,38 @@ function Hero() {
         </Reveal>
       </div>
 
-      {/* Scroll indicator */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-bounce">
-        <span className="label-caps text-[var(--ink-faint)]">Scroll</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-faint)" strokeWidth="2" strokeLinecap="round">
-          <path d="M12 5v14M5 12l7 7 7-7" />
-        </svg>
-      </div>
+      {/* Scroll indicator — hidden for reduced-motion users */}
+      {!prefersReducedMotion && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-bounce">
+          <span className="label-caps text-[var(--ink-faint)]">Scroll</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-faint)" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M12 5v14M5 12l7 7 7-7" />
+          </svg>
+        </div>
+      )}
     </section>
   );
 }
 
 // ─── AI Features ──────────────────────────────────────────────────────────────
 function FeatureCard({ feature, index }: { feature: typeof AI_FEATURES[0]; index: number }) {
-  const [hovered, setHovered] = useState(false);
   const [open, setOpen] = useState(false);
   return (
     <Reveal delay={index * 100}>
       <div
         className="ticket ticket--dark p-6 sm:p-8 group cursor-default transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
       >
         <p className="label-caps text-sm mb-2" style={{ color: feature.color }}>{feature.subtitle}</p>
         <h3 className="font-display text-xl mb-4 text-[var(--ink)]">{feature.title}</h3>
         <p className="text-sm text-[var(--ink-soft)] leading-relaxed">{feature.description}</p>
         <div
-          className="mt-4 h-px transition-all duration-300"
-          style={{
-            width: hovered ? "100%" : "0%",
-            backgroundColor: feature.color,
-          }}
+          className="mt-4 h-px bg-[var(--accent)]/40 group-hover:bg-[var(--accent)] transition-colors duration-300"
         />
         <button
-          className="mt-3 flex items-center gap-2 text-xs font-medium transition-colors duration-200"
+          className="mt-3 flex items-center gap-2 text-xs font-medium transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{ color: feature.color }}
           onClick={() => setOpen(!open)}
+          aria-expanded={open}
         >
           {open ? "Show less" : "Show more"}
           <svg
@@ -348,12 +349,12 @@ function FeatureCard({ feature, index }: { feature: typeof AI_FEATURES[0]; index
 
 function FeaturesSection() {
   return (
-    <section id="features" className="max-w-6xl mx-auto px-4 py-[56px]">
+    <section id="features" className="max-w-6xl mx-auto px-4 py-20">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "0.9rem", letterSpacing: "0.1em", textDecoration: "underline" }}>AI-Powered</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "0.875rem", letterSpacing: "0.1em" }}>AI-Powered</p>
       </Reveal>
       <Reveal delay={80}>
-        <h2 className="font-display text-2xl md:text-4xl text-center mb-4 text-[var(--ink)]">
+        <h2 className="font-display text-3xl md:text-4xl text-center mb-4 text-[var(--ink)]">
           Everything runs on AI.
         </h2>
       </Reveal>
@@ -398,7 +399,7 @@ function HowItWorksSection() {
   return (
     <section id="how-it-works" className="max-w-2xl mx-auto px-4 py-20">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.1rem", letterSpacing: "0.12em" }}>How it works</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "0.875rem", letterSpacing: "0.1em" }}>How it works</p>
       </Reveal>
       <Reveal delay={80}>
         <h2 className="font-display text-3xl md:text-4xl text-center mb-12 text-[var(--ink)]">
@@ -477,7 +478,7 @@ function RestaurantsSection() {
   return (
     <section id="restaurants" className="max-w-6xl mx-auto px-4 py-20">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.1rem", letterSpacing: "0.12em" }}>Directory</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "0.875rem", letterSpacing: "0.1em" }}>Directory</p>
       </Reveal>
       <Reveal delay={80}>
         <h2 className="font-display text-3xl md:text-4xl text-center mb-6 text-[var(--ink)]">
@@ -625,7 +626,7 @@ function PricingSection() {
   return (
     <section id="pricing" className="max-w-5xl mx-auto px-4 py-20">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "1.1rem", letterSpacing: "0.12em" }}>Pricing</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "0.875rem", letterSpacing: "0.1em" }}>Pricing</p>
       </Reveal>
       <Reveal delay={80}>
         <h2 className="font-display text-3xl md:text-4xl text-center mb-6 text-[var(--ink)]">
@@ -638,7 +639,7 @@ function PricingSection() {
         </p>
       </Reveal>
 
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-3 gap-6">
         {PRICING.map((p, i) => (
           <PricingCard key={p.name} plan={p} index={i} />
         ))}
@@ -681,9 +682,9 @@ function ContactSection() {
   }
 
   return (
-    <section id="contact" className="max-w-2xl mx-auto px-4 py-[56px]">
+    <section id="contact" className="max-w-2xl mx-auto px-4 py-20">
       <Reveal>
-        <p className="label-caps text-center text-[var(--accent)] mb-3" style={{ fontSize: "0.9rem", letterSpacing: "0.1em", textDecoration: "underline" }}>Get in touch</p>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "0.875rem", letterSpacing: "0.1em" }}>Get in touch</p>
       </Reveal>
       <Reveal delay={80}>
         <h2 className="font-display text-2xl md:text-3xl text-center mb-4 text-[var(--ink)]">
@@ -758,15 +759,21 @@ function ContactSection() {
                 />
               </div>
               {error && (
-                <p className="text-[10px] text-red-400 border border-red-800 bg-red-950/40 p-2 rounded-sm">
+                <p className="text-[10px] text-red-400 border border-red-800 bg-red-950/40 p-2 rounded-sm" role="alert">
                   {error}
                 </p>
               )}
               <button
                 type="submit"
                 disabled={submitting}
-                className="btn btn-accent w-full"
+                className="btn btn-accent w-full flex items-center justify-center gap-2"
               >
+                {submitting && (
+                  <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                )}
                 {submitting ? "Sending…" : "Send message"}
               </button>
             </form>
@@ -801,14 +808,17 @@ function Footer() {
 export default function MarketingHomePage() {
   return (
     <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)]">
+      <a href="#features" className="skip-link">Skip to content</a>
       <Navbar />
       <Hero />
       <div className="layer2-bg border-2 border-white/50 mx-8 md:mx-16 mt-8 mb-12 rounded-sm layer2-invert">
-        <FeaturesSection />
-        <HowItWorksSection />
-        <RestaurantsSection />
-        <PricingSection />
-        <ContactSection />
+        <div className="max-w-6xl mx-auto">
+          <FeaturesSection />
+          <HowItWorksSection />
+          <RestaurantsSection />
+          <PricingSection />
+          <ContactSection />
+        </div>
       </div>
       <Footer />
     </div>
