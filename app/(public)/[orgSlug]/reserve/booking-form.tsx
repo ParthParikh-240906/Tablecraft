@@ -16,6 +16,7 @@ export function BookingForm({
   inputBg,
   inputText,
   inputBorder,
+  labelColor = "#000000",
 }: {
   orgId: string;
   orgSlug: string;
@@ -23,6 +24,7 @@ export function BookingForm({
   inputBg: string;
   inputText: string;
   inputBorder: string;
+  labelColor?: string;
 }) {
   const { tables, connected } = useTableRealtime(orgId);
 
@@ -158,7 +160,7 @@ export function BookingForm({
 
       {/* Name */}
       <div>
-        <label htmlFor="name" className="block text-sm font-medium mb-1.5">
+        <label htmlFor="name" className="block text-sm font-medium mb-1.5" style={{ color: labelColor }}>
           Your name
         </label>
         <input
@@ -176,7 +178,7 @@ export function BookingForm({
 
       {/* Size */}
       <div>
-        <label htmlFor="size" className="block text-sm font-medium mb-1.5">
+        <label htmlFor="size" className="block text-sm font-medium mb-1.5" style={{ color: labelColor }}>
           Party Size (Guests)
         </label>
         <input
@@ -194,7 +196,7 @@ export function BookingForm({
 
       {/* Date */}
       <div>
-        <label htmlFor="date" className="block text-sm font-medium mb-1.5">
+        <label htmlFor="date" className="block text-sm font-medium mb-1.5" style={{ color: labelColor }}>
           Date
         </label>
         <input
@@ -213,7 +215,7 @@ export function BookingForm({
 
       {/* Time */}
       <div>
-        <label htmlFor="time" className="block text-sm font-medium mb-1.5">
+        <label htmlFor="time" className="block text-sm font-medium mb-1.5" style={{ color: labelColor }}>
           Time
         </label>
         <input

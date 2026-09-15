@@ -328,7 +328,7 @@ export function defaultChatbotDesign(): ChatbotDesign {
 
 export function defaultMenuPageDesign(): MenuPageDesign {
   return {
-    title_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 30, color: "#1c1917", textAlign: "left" },
+    title_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 30, color: "#ffffff", textAlign: "left" },
     subtitle_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 14, color: "#57534e", textAlign: "left" },
     category_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 14, color: "#f97316", textAlign: "left" },
     item_name_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 16, color: "#1c1917", textAlign: "left" },
@@ -341,9 +341,9 @@ export function defaultMenuPageDesign(): MenuPageDesign {
 
 export function defaultReservePageDesign(): ReservePageDesign {
   return {
-    title_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 30, color: "#1c1917", textAlign: "left" },
+    title_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 30, color: "#ffffff", textAlign: "left" },
     subtitle_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 14, color: "#57534e", textAlign: "left" },
-    label_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 12, color: "#57534e", textAlign: "left" },
+    label_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 12, color: "#000000", textAlign: "left" },
     button_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 15, color: "#ffffff", textAlign: "center" },
     input_bg_color: "#ffffff",
     input_text_color: "#000000",

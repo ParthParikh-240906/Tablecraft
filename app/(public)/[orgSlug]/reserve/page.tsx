@@ -49,7 +49,7 @@ export default async function ReservePage({
       <div className="mb-6">
         <Link
           href={`/${org.slug}`}
-          className="inline-flex items-center gap-2 text-sm font-medium text-[var(--ink)] underline"
+          className="inline-flex items-center gap-2 text-sm font-medium text-white underline"
         >
           <span aria-hidden="true">&larr;</span>
           <span>Back to {org.name}</span>
@@ -93,6 +93,7 @@ export default async function ReservePage({
           inputBg={reserveDesign.input_bg_color}
           inputText={reserveDesign.input_text_color}
           inputBorder={reserveDesign.input_border_color}
+          labelColor={reserveDesign.label_design.color}
         />
       </div>
 
@@ -100,7 +101,7 @@ export default async function ReservePage({
       <div className="mt-8 pt-6 text-center" style={{ borderTop: `1px solid ${reserveDesign.subtitle_design.color}22` }}>
         <Link
           href={`/${org.slug}`}
-          className="inline-flex items-center gap-2 text-sm font-medium text-[var(--ink)] underline"
+          className="inline-flex items-center gap-2 text-sm font-medium text-white underline"
           style={{ color: accent }}
         >
           <span aria-hidden="true">&larr;</span>
