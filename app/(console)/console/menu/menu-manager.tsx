@@ -102,12 +102,10 @@ export function MenuManager({ orgId }: { orgId: string }) {
           .update(payload)
           .eq("id", editingId)
           .select()
-          .single()
       : await supabase
           .from("menu_items")
           .insert({ ...payload, org_id: orgId, available: true })
-          .select()
-          .single();
+          .select();
 
     if (saveError) {
       setError(saveError.message);
@@ -115,7 +113,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
       return;
     }
 
-    const saved = data as MenuItem;
+    const saved = Array.isArray(data) ? data[0] : (data as MenuItem);
     setItems((prev) =>
       editingId
         ? prev.map((i) => (i.id === saved.id ? saved : i))
@@ -130,14 +128,13 @@ export function MenuManager({ orgId }: { orgId: string }) {
       .from("menu_items")
       .update({ available: !item.available })
       .eq("id", item.id)
-      .select()
-      .single();
+      .select();
 
     if (updateError) {
       console.error("toggle failed:", updateError);
       return;
     }
-    const updated = data as MenuItem;
+    const updated = Array.isArray(data) ? data[0] : (data as MenuItem);
     setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
   }
 
