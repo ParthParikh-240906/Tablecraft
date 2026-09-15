@@ -1,6 +1,23 @@
 import { createClient } from "@/lib/supabase/server";
 import { hydrateSettings } from "@/lib/design";
 
+// ─── Module-level request cache (dedupes identical queries within one request) ───
+interface CacheEntry<T> {
+  value: T;
+  expires: number;
+}
+const _cache = new Map<string, CacheEntry<any>>();
+const CACHE_TTL = 15_000; // 15s — short enough to stay fresh, long enough to dedupe
+
+function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const entry = _cache.get(key);
+  if (entry && entry.expires > Date.now()) return Promise.resolve(entry.value);
+  return fn().then((value) => {
+    _cache.set(key, { value, expires: Date.now() + CACHE_TTL });
+    return value;
+  });
+}
+
 /**
  * Fetch organization + paragraphs for the design console, and hydrate the
  * design settings (v1 → v2) so every subpage renders immediately.
@@ -57,20 +74,26 @@ export async function getOrgById(orgId: string) {
 }
 
 export async function getOrgBySlug(slug: string) {
-  const supabase = await createClient();
+  return cached(`org:${slug}`, async () => {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("organizations")
+      .select("id, name, slug, logo_url, theme_color, theme_text_color, theme_secondary_color, theme_font_pair, theme_motif, tagline, about_text, about_title, contact_heading, location, restaurant_image_url, branches, contact_phone, contact_email, contact_address, design_settings, restaurant_photos, background_image_url")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (error) { console.error("getOrgBySlug:", error); return null; }
+    return data;
+  });
+}
 
-  const { data, error } = await supabase
-    .from("organizations")
-    .select("id, name, slug, logo_url, theme_color, theme_text_color, theme_secondary_color, theme_font_pair, theme_motif, tagline, about_text, about_title, contact_heading, location, restaurant_image_url, branches, contact_phone, contact_email, contact_address, design_settings, restaurant_photos, background_image_url")
-    .eq("slug", slug)
-    .maybeSingle();
-
-  if (error) {
-    console.error("getOrgBySlug:", error);
-    return null;
-  }
-
-  return data;
+/**
+ * Fetch org + paragraphs in parallel — replaces two sequential queries.
+ */
+export async function getOrgAndParagraphs(slug: string) {
+  const org = await getOrgBySlug(slug);
+  if (!org) return { org: null, paragraphs: [] as any[] };
+  const paragraphs = (await getParagraphsByOrg(org.id)) ?? [];
+  return { org, paragraphs };
 }
 
 /**

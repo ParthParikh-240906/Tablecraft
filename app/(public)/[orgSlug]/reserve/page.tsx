@@ -4,6 +4,9 @@ import { getOrgBySlug } from "@/lib/org";
 import { defaultReservePageDesign, type ReservePageDesign } from "@/lib/design";
 import { BookingForm } from "./booking-form";
 
+// Cache for 60s — booking page content is mostly static per visit
+export const revalidate = 60;
+
 /** Convert a TextDesign to inline styles (server-rendered). */
 function inline(
   d: { fontFamily: string; fontSize: number; color: string; textAlign: string },

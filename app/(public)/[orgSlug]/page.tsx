@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
-import { getOrgBySlug, getParagraphsByOrg } from "@/lib/org";
+import { getOrgAndParagraphs } from "@/lib/org";
 import { buildDefaultContentElements, hydrateSettings, type DesignSettingsV2 } from "@/lib/design";
 import { GOOGLE_FONTS_CSS, OrgPageView } from "@/components/OrgPageView";
 import type { Metadata } from "next";
 
-export const dynamic = "force-dynamic";
+// Revalidate every 60s so repeated visits hit the cache instead of a cold Supabase fetch
+export const revalidate = 60;
 
 // ─── Metadata ─────────────────────────────────────────────────────────────────
 
@@ -14,7 +15,7 @@ export async function generateMetadata({
   params: Promise<{ orgSlug: string }>;
 }): Promise<Metadata> {
   const { orgSlug } = await params;
-  const org = await getOrgBySlug(orgSlug);
+  const { org } = await getOrgAndParagraphs(orgSlug);
 
   if (!org) {
     return { title: "Restaurant Not Found" };
@@ -36,13 +37,11 @@ export default async function OrgLandingPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const org = await getOrgBySlug(orgSlug);
+  const { org, paragraphs } = await getOrgAndParagraphs(orgSlug);
 
   if (!org) {
     notFound();
   }
-
-  const paragraphs = (await getParagraphsByOrg(org.id)) ?? [];
   const design: DesignSettingsV2 = hydrateSettings(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB row, loosely typed by supabase
     org.design_settings as Record<string, any> | null | undefined,
