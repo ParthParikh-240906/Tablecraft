@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getActiveOrgId } from "@/lib/org";
 import { BookingActionsList } from "./booking-actions";
 
 export default async function BookingsPage() {
@@ -8,13 +9,7 @@ export default async function BookingsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: staffRows } = await supabase
-    .from("staff_users")
-    .select("org_id")
-    .eq("auth_user_id", user?.id ?? "");
-  const staff = staffRows?.[0] ?? null;
-
-  const orgId = staff?.org_id ?? "";
+  const orgId = await getActiveOrgId(user!.id) ?? "";
 
   const { data: tables } = await supabase
     .from("tables")

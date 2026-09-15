@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveOrgId } from "@/lib/org";
 import { TableGrid } from "./table-grid";
 
 export default async function TablesPage() {
@@ -10,13 +11,9 @@ export default async function TablesPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/console/login");
 
-  const { data: staffRows } = await supabase
-    .from("staff_users")
-    .select("org_id")
-    .eq("auth_user_id", user.id);
-  const staff = staffRows?.[0] ?? null;
+  const orgId = await getActiveOrgId(user!.id) ?? "";
 
-  if (!staff) redirect("/console/login");
+  if (!orgId) redirect("/console/login");
 
-  return <TableGrid orgId={staff.org_id} />;
+  return <TableGrid orgId={orgId} />;
 }

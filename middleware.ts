@@ -47,6 +47,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(consoleUrl);
   }
 
+  // Set selected_org cookie when ?org= param is present on console routes.
+  // This lets users with multiple restaurants persist their choice across
+  // navigation within the console without relying on URL params.
+  const orgParam = request.nextUrl.searchParams.get("org");
+  if (isConsole && !isLoginPage && orgParam) {
+    const response = NextResponse.next({ request });
+    response.cookies.set("selected_org", orgParam, {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+    });
+    return response;
+  }
+
   // If unauthenticated user tries to access protected console paths
   if (!user && isConsole && !isLoginPage) {
     const loginUrl = request.nextUrl.clone();

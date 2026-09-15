@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getActiveOrgId } from "@/lib/org";
 import { BookingActionsList } from "./bookings/booking-actions";
 import { ConsoleOrdersSection } from "./console-orders-section";
 import { TableGrid } from "./tables/table-grid";
@@ -15,14 +16,8 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: staffRows } = await supabase
-    .from("staff_users")
-    .select("org_id, organizations(name)")
-    .eq("auth_user_id", user?.id ?? "");
-  const staff = staffRows?.[0] ?? null;
-
-  const orgId = staff?.org_id ?? "";
-  const orgName = (staff as any)?.organizations?.name ?? "Restaurant";
+  const orgId = await getActiveOrgId(user!.id) ?? "";
+  const orgName = orgId ? "Restaurant" : "";
 
   // --- "Today" in local time (matches existing app convention) ---
   const now = new Date();

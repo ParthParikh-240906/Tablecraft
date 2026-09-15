@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getActiveOrgId } from "@/lib/org";
 import { KitchenQueue } from "./kitchen-queue";
 
 interface KitchenOrder {
@@ -14,12 +15,7 @@ export default async function KitchenPage() {
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
-  const { data: staffRows } = await supabase
-    .from("staff_users")
-    .select("org_id")
-    .eq("auth_user_id", user?.id ?? "");
-  const staff = staffRows?.[0] ?? null;
-  const orgId = staff?.org_id ?? "";
+  const orgId = await getActiveOrgId(user!.id) ?? "";
 
   // Auto-delete cancelled/failed orders older than 1 hour
   await supabase

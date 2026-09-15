@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { buildDefaultContentElements } from "@/lib/design";
 import { ContentPanel } from "./content-panel";
@@ -10,15 +11,12 @@ export default async function ConsoleDesignContentPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: staffRows } = await supabase
-    .from("staff_users")
-    .select("org_id")
-    .eq("auth_user_id", user?.id ?? "");
-  const staff = staffRows?.[0] ?? null;
+  
 
-  if (!staff?.org_id) return null;
+  const orgId = await getActiveOrgId(user!.id) ?? "";
+  if (!orgId) return null;
 
-  const data = await getDesignData(staff.org_id);
+  const data = await getDesignData(orgId);
   if (!data) return null;
 
   const org = data.org;
@@ -49,7 +47,7 @@ export default async function ConsoleDesignContentPage() {
         About us, paragraphs, location and contact.
       </p>
       <ContentPanel
-        orgId={staff.org_id}
+        orgId={orgId}
         orgName={data.orgName}
         initialSettings={settings}
         orgContent={{

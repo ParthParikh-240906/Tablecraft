@@ -1,5 +1,68 @@
 import { createClient } from "@/lib/supabase/server";
 import { hydrateSettings } from "@/lib/design";
+import { cookies } from "next/headers";
+
+/**
+ * Resolve the active staff row for a user, respecting the selected-org cookie.
+ *
+ * When a user owns multiple restaurants, the console layout stores the
+ * chosen restaurant in a `selected_org` cookie (set by middleware when
+ * ?org=<id> is present). This helper reads that cookie and returns the
+ * matching staff row, falling back to the first row if no selection exists.
+ */
+/**
+ * Result of resolving the active staff row for a user.
+ * `isMultiOrg` is true when the user has multiple restaurants and no
+ * `selected_org` cookie is set — the caller should redirect to /console/select.
+ */
+export interface ActiveStaffResult {
+  staff: any;
+  count: number;
+  isMultiOrg: boolean;
+}
+
+export async function getActiveStaffRow(userId: string): Promise<ActiveStaffResult | null> {
+  const supabase = await createClient();
+  const { data: staffRows } = await supabase
+    .from("staff_users")
+    .select("org_id, role, email, organizations(name, slug, theme_color)")
+    .eq("auth_user_id", userId);
+
+  const rows = staffRows ?? [];
+  if (rows.length === 0) return null;
+
+  // Read the cookie store upfront so we can check it for both selection and return value
+  const cookieStore = await cookies();
+  const selectedOrgId = cookieStore.get("selected_org")?.value;
+
+  let selected: any = rows[0];
+
+  // Multiple orgs — check for a persisted selection cookie
+  if (rows.length > 1 && selectedOrgId) {
+    const matched = rows.find((r: any) => {
+      const orgId = r.org_id ?? (Array.isArray(r.organizations) ? (r.organizations as any[])[0]?.id : r.organizations?.id);
+      return orgId === selectedOrgId;
+    });
+    if (matched) selected = matched;
+  }
+
+  return {
+    staff: selected,
+    count: rows.length,
+    isMultiOrg: rows.length > 1 && !selectedOrgId,
+  };
+}
+
+/**
+ * Resolve the active org ID for a user.
+ * Respects the `selected_org` cookie; falls back to the first org.
+ * Returns null if the user has no staff rows.
+ */
+export async function getActiveOrgId(userId: string): Promise<string | null> {
+  const result = await getActiveStaffRow(userId);
+  if (!result) return null;
+  return result.staff.org_id ?? null;
+}
 
 // ─── Module-level request cache (dedupes identical queries within one request) ───
 interface CacheEntry<T> {

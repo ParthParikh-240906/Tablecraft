@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { AiPanel } from "./ai-panel";
 
@@ -9,15 +10,11 @@ export default async function ConsoleDesignAiPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: staffRows } = await supabase
-    .from("staff_users")
-    .select("org_id")
-    .eq("auth_user_id", user?.id ?? "");
-  const staff = staffRows?.[0] ?? null;
+  const orgId = await getActiveOrgId(user!.id) ?? "";
 
-  if (!staff?.org_id) return null;
+  if (!orgId) return null;
 
-  const data = await getDesignData(staff.org_id);
+  const data = await getDesignData(orgId);
   if (!data) return null;
 
   return (
@@ -29,7 +26,7 @@ export default async function ConsoleDesignAiPage() {
         Generate AI images and configure the AI chatbot for your restaurant site.
       </p>
       <AiPanel
-        orgId={staff.org_id}
+        orgId={orgId}
         initialSettings={data.settings}
         orgName={data.orgName}
       />

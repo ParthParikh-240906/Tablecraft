@@ -142,7 +142,7 @@ export default async function DashboardPage() {
                       View site
                     </Link>
                     <Link
-                      href="/console"
+                      href={`/console?org=${org.id}`}
                       className="inline-flex items-center justify-center text-xs font-semibold h-8 w-[4.5rem] rounded-sm bg-[var(--accent)] text-white hover:opacity-90"
                     >
                       Console
