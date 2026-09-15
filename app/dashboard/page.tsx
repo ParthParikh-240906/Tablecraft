@@ -3,9 +3,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PLAN_LABELS } from "@/lib/pricing";
-import { MARKETING_PLANS } from "@/lib/marketing-plans";
 import { SignOutButton } from "./sign-out-button";
 import { DeleteRestaurantButton } from "./delete-restaurant-button";
+import { DashboardPricingSection } from "./pricing-section";
 
 /**
  * Post-sign-in dashboard.
@@ -69,6 +69,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)]">
+      <a href="#main-content" className="skip-link">Skip to content</a>
       {/* ─── Header ─────────────────────────────────────────────────────────── */}
       <header className="border-b border-[var(--rule)]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between">
@@ -88,14 +89,14 @@ export default async function DashboardPage() {
             <Link href="/" className="btn btn-outline text-xs">
               ← Marketing site
             </Link>
-            <SignOutButton className="btn btn-outline text-xs" />
+            <SignOutButton />
           </div>
         </div>
       </header>
 
-      <div className="border border-white/20 mx-8 md:mx-16 mt-8 mb-12 rounded-sm" style={{ backgroundColor: '#161311' }}>
-        <div className="relative">
-          <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-12">
+      <div className="layer2-bg border-2 border-white/50 mx-8 md:mx-16 mt-8 mb-12 rounded-sm">
+        <div className="relative max-w-6xl mx-auto">
+          <main id="main-content" className="px-4 sm:px-6 py-10 space-y-12">
 
         {/* ─── My Restaurants (row table) ───────────────────────────────────── */}
         <section>
@@ -204,56 +205,8 @@ export default async function DashboardPage() {
           </section>
         )}
 
-        {/* ─── Pricing (same as marketing page) ─────────────────────────────── */}
-        <section id="pricing">
-          <h2 className="font-display text-lg mb-1">Pricing</h2>
-          <p className="text-sm text-[var(--ink-soft)] mb-6">Upgrade when you&apos;re ready to go live.</p>
-
-          <div className="grid md:grid-cols-3 gap-4">
-            {MARKETING_PLANS.map((plan) => (
-              <div
-                key={plan.name}
-                className={[
-                  "ticket p-6 sm:p-8 flex flex-col",
-                  plan.highlighted ? "ring-2 ring-[var(--accent)] shadow-xl" : "",
-                ].filter(Boolean).join(" ")}
-              >
-                {plan.highlighted && (
-                  <p className="label-caps text-xs mb-3" style={{ color: "var(--accent)" }}>Most popular</p>
-                )}
-
-                <p className="label-caps text-xs mb-1 text-[var(--ink-soft)]">{plan.name}</p>
-                <div className="flex items-baseline gap-1 mb-2">
-                  <span className="font-display text-4xl text-[var(--ink)]">{plan.price}</span>
-                  <span className="text-sm text-[var(--ink-faint)]">AED</span>
-                </div>
-                <p className="text-xs text-[var(--ink-faint)] mb-4">{plan.period}</p>
-                <p className="text-sm text-[var(--ink-soft)] leading-relaxed mb-6 flex-grow">{plan.description}</p>
-
-                <ul className="space-y-2 mb-8">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-sm text-[var(--ink-soft)]">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" className="flex-shrink-0 mt-0.5">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-
-                <Link
-                  href={plan.ctaLink}
-                  className={[
-                    "btn w-full text-center",
-                    plan.planKey ? "btn-accent" : "btn-outline-accent",
-                  ].join(" ")}
-                >
-                  {plan.cta}
-                </Link>
-              </div>
-            ))}
-          </div>
-        </section>
+        {/* ─── Pricing (marketing-style cards) ──────────────────────────────── */}
+        <DashboardPricingSection />
       </main>
         </div>
       </div>

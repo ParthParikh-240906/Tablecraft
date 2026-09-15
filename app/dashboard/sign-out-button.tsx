@@ -17,7 +17,7 @@ export function SignOutButton({ className }: { className?: string }) {
     <button
       type="button"
       onClick={handleSignOut}
-      className={className ?? "btn btn-outline text-xs"}
+      className={className ?? "btn btn-accent text-xs"}
     >
       Sign out
     </button>

@@ -52,6 +52,7 @@ function SignInForm() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-[var(--paper)] text-[var(--ink)]">
+      <a href="#signin-form" className="skip-link">Skip to sign in</a>
       <div className="w-full max-w-md space-y-6">
         <div className="text-center mb-2">
           <Link href="/" className="font-display text-2xl tracking-tight text-[var(--ink)]">
@@ -60,7 +61,7 @@ function SignInForm() {
         </div>
 
         {/* Mini rectangle with leaf background texture */}
-        <div className="layer2-bg border border-white/20 rounded-sm overflow-hidden">
+        <div className="layer2-bg border-2 border-white/50 rounded-sm overflow-hidden" id="signin-form">
           {/* Dark overlay to keep form readable over the pattern */}
           <div className="relative">
             <div className="ticket ticket--dark p-8 space-y-6">
@@ -124,7 +125,7 @@ function SignInForm() {
                 </div>
 
                 {error && (
-                  <p className="text-sm text-red-400 rounded-sm bg-red-900/40 px-3 py-2">
+                  <p className="text-sm text-red-400 rounded-sm bg-red-900/40 px-3 py-2" role="alert">
                     {error}
                   </p>
                 )}
