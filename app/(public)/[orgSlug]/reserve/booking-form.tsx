@@ -155,16 +155,6 @@ export function BookingForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Auto table assignment info badge */}
-      <div className="rounded-xl border border-dashed border-[var(--rule)] bg-[var(--paper-raised)] p-3.5 text-xs text-[var(--ink-faint)] flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: accent }} />
-          <span>Table will be automatically assigned for optimal seating</span>
-        </div>
-        <span className="text-[11px] font-mono text-[var(--ink-faint)]">
-          {connected ? "● Live system" : "○ Connecting…"}
-        </span>
-      </div>
 
       {/* Name */}
       <div>
