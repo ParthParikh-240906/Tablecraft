@@ -124,7 +124,7 @@ function LoginForm() {
               provider: "google",
               options: {
                 redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-              },
+                              },
             });
           }}
           className="btn btn-outline w-full flex items-center justify-center gap-2 text-xs font-medium"

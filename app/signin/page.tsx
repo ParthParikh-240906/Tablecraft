@@ -42,7 +42,7 @@ function SignInForm() {
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-      },
+              },
     });
 
     if (error) {

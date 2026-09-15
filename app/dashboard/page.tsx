@@ -166,14 +166,13 @@ export default async function DashboardPage() {
         </section>
 
         {/* ─── Getting Started Checklist ────────────────────────────────────── */}
-        {hasRestaurants && (
-          <section>
-            <div className="flex items-center gap-3 mb-4">
-              <h2 className="font-display text-lg">Getting Started</h2>
-              <Link href="/setup-guide" className="btn btn-accent text-[10px] px-2.5 py-1">
-                Setup guide
-              </Link>
-            </div>
+        <section>
+          <div className="flex items-center gap-3 mb-4">
+            <h2 className="font-display text-lg">Getting Started</h2>
+            <Link href="/setup-guide" className="btn btn-accent text-[10px] px-2.5 py-1">
+              Setup guide
+            </Link>
+          </div>
             <div className="ticket p-5 space-y-2">
               {[
                 { label: "Create a restaurant" },
@@ -189,7 +188,6 @@ export default async function DashboardPage() {
               ))}
             </div>
           </section>
-        )}
 
         {/* ─── Pricing (marketing-style cards) ──────────────────────────────── */}
         <DashboardPricingSection />
