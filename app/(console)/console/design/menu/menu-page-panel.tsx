@@ -65,6 +65,11 @@ export function MenuPagePanel({
           </div>
 
           <section className="ticket p-5 space-y-3">
+            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Back Button ("Back to {orgName}")</h3>
+            <ColorField label="Color" value={menu.back_button_color ?? "#ffffff"} onChange={(v) => update({ back_button_color: v })} />
+          </section>
+
+          <section className="ticket p-5 space-y-3">
             <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Page Title ("Menu")</h3>
             <ColorField label="Color" value={menu.title_design.color} onChange={(v) => update({ title_design: { ...menu.title_design, color: v } })} />
             <div>
@@ -164,6 +169,15 @@ export function MenuPagePanel({
             >
               <SiteHeader org={orgView} settings={settings} colors={colors} mode="preview" />
               <div className="max-w-3xl mx-auto px-4 py-10">
+                <div className="mb-6">
+                  <span
+                    className="inline-flex items-center gap-2 text-sm font-medium underline"
+                    style={{ color: menu.back_button_color ?? "#ffffff" }}
+                  >
+                    <span aria-hidden="true">&larr;</span>
+                    <span>Back to {orgName}</span>
+                  </span>
+                </div>
                 <h1 style={text(menu.title_design, { fontWeight: 700 })}>Menu</h1>
                 <p style={text(menu.subtitle_design, { marginBottom: "2rem" })}>
                   Everything we're serving right now at {orgName}.

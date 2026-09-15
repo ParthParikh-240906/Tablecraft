@@ -72,6 +72,7 @@ export interface MenuPageDesign {
   item_description_design: TextDesign;
   border_color: string;
   border_width: number; // px
+  back_button_color?: string;
 }
 
 export interface ReservePageDesign {
@@ -84,6 +85,7 @@ export interface ReservePageDesign {
   input_border_color: string;
   border_color: string;
   border_width: number; // px
+  back_button_color?: string;
 }
 
 export interface HeroElement extends Rect, ShapeStyle {
@@ -336,6 +338,7 @@ export function defaultMenuPageDesign(): MenuPageDesign {
     item_description_design: { ...DEFAULT_TEXT_DESIGN, fontSize: 13, color: "#78716c", textAlign: "left" },
     border_color: "#000000",
     border_width: 1,
+    back_button_color: "#ffffff",
   };
 }
 
@@ -350,6 +353,7 @@ export function defaultReservePageDesign(): ReservePageDesign {
     input_border_color: "#d4d4d4",
     border_color: "#000000",
     border_width: 1,
+    back_button_color: "#ffffff",
   };
 }
 

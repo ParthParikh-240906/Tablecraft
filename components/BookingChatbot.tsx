@@ -161,7 +161,8 @@ export function BookingChatbot({
   async function submitComboBooking(combo: ComboDetails) {
     setStatus("submitting");
     const { name, party_size, date, time } = slots;
-    const datetime = `${date}T${time}`;
+    const localDate = new Date(`${date}T${time}:00`);
+    const datetime = isNaN(localDate.getTime()) ? `${date}T${time}` : localDate.toISOString();
     try {
       const res = await fetch("/api/bookings", {
         method: "POST",
@@ -192,7 +193,8 @@ export function BookingChatbot({
     setError(null);
 
     const { name, party_size, date, time } = slots;
-    const datetime = `${date}T${time}`;
+    const localDate = new Date(`${date}T${time}:00`);
+    const datetime = isNaN(localDate.getTime()) ? `${date}T${time}` : localDate.toISOString();
 
     try {
       const res = await fetch("/api/bookings", {

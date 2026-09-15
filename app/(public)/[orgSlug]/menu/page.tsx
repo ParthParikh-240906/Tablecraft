@@ -47,7 +47,8 @@ export default async function MenuPage({
       <div className="mb-6">
         <Link
           href={`/${org.slug}`}
-          className="inline-flex items-center gap-2 text-sm font-medium text-white underline"
+          className="inline-flex items-center gap-2 text-sm font-medium underline"
+          style={{ color: menuDesign.back_button_color ?? "#ffffff" }}
         >
           <span aria-hidden="true">&larr;</span>
           <span>Back to {org.name}</span>
