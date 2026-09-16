@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 interface BookingTable {
@@ -40,6 +40,41 @@ export function BookingActionsList({
   const [upcoming, setUpcoming] = useState<Booking[]>(initialBookings);
   const [past, setPast] = useState<Booking[]>(pastBookings);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const supabase = createClient();
+
+  // Refresh bookings from server (for realtime updates)
+  const refreshBookings = useCallback(async () => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+    const { data: bookings } = await supabase
+      .from("bookings")
+      .select("id, customer_name, party_size, datetime, status, table_id")
+      .eq("org_id", orgId)
+      .order("datetime", { ascending: true });
+
+    const allBookings = (bookings ?? []) as any[];
+    const upcomingFromDb = allBookings.filter((b) => new Date(b.datetime) >= now);
+    const pastFromDb = allBookings.filter((b) => new Date(b.datetime) < now);
+
+    setUpcoming(upcomingFromDb as Booking[]);
+    setPast(pastFromDb as Booking[]);
+  }, [orgId, supabase]);
+
+  // Realtime subscription for bookings changes
+  useEffect(() => {
+    const channel = supabase
+      .channel(`bookings-list-${orgId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings", filter: `org_id=eq.${orgId}` },
+        refreshBookings,
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [orgId, supabase, refreshBookings]);
 
   // Search filter states
   const [searchName, setSearchName] = useState("");
@@ -60,8 +95,6 @@ export function BookingActionsList({
     message: string;
     tables: { id: string; label: string; capacity: number }[];
   } | null>(null);
-
-  const supabase = createClient();
 
   /**
    * Effective capacity for booking logic:

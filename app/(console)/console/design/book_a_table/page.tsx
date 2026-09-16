@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
@@ -10,7 +11,8 @@ export default async function ConsoleDesignBookATablePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const orgId = await getActiveOrgId(user!.id) ?? "";
+  if (!user) redirect("/console/login");
+  const orgId = await getActiveOrgId(user.id) ?? "";
 
   if (!orgId) return null;
 

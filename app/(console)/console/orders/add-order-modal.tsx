@@ -108,6 +108,7 @@ export function AddOrderModal({ orgId, onOrderCreated, onClose }: AddOrderModalP
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          orgId,
           tableIds: selectedTables,
           items: items.map((i) => ({ id: i.menuItemId, quantity: i.quantity })),
         }),

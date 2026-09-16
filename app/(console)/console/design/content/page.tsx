@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
@@ -10,6 +11,7 @@ export default async function ConsoleDesignContentPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) redirect("/console/login");
 
   
 

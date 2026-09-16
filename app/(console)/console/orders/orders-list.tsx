@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { AddOrderModal } from "./add-order-modal";
 import { EditOrderModal } from "./edit-order-modal";
@@ -49,6 +49,31 @@ export function OrdersList({
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<OrderRecord | null>(null);
 
+  const supabase = createClient();
+
+  // Realtime subscription to keep orders list in sync across all clients
+  useEffect(() => {
+    const channel = supabase
+      .channel(`orders-list-${orgId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders", filter: `org_id=eq.${orgId}` },
+        () => {
+          supabase
+            .from("orders")
+            .select("id, customer_name, total, status, created_at, stripe_session_id, items")
+            .eq("org_id", orgId)
+            .order("created_at", { ascending: false })
+            .then(({ data }) => setOrders(data ?? []));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orgId, supabase]);
+
   async function updateStatus(orderId: string, newStatus: string) {
     setUpdatingId(orderId);
     try {
@@ -95,14 +120,13 @@ export function OrdersList({
   }
 
   const refreshOrders = useCallback(async () => {
-    const supabase = createClient();
     const { data } = await supabase
       .from("orders")
       .select("id, customer_name, total, status, created_at, stripe_session_id, items")
       .eq("org_id", orgId)
       .order("created_at", { ascending: false });
-    setOrders((data ?? []) as OrderRecord[]);
-  }, [orgId]);
+    setOrders(data ?? []);
+  }, [orgId, supabase]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {

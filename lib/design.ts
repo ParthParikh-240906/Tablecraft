@@ -88,6 +88,20 @@ export interface ReservePageDesign {
   back_button_color?: string;
 }
 
+export interface BookingConfigDesign {
+  buffer_before_minutes: number; // minutes before booking when table is marked reserved (default: 120)
+  duration_minutes: number; // reservation duration in minutes (default: 120)
+  no_time_limit: boolean; // if true, reservation has no duration cap
+}
+
+export function defaultBookingConfig(): BookingConfigDesign {
+  return {
+    buffer_before_minutes: 120,
+    duration_minutes: 120,
+    no_time_limit: false,
+  };
+}
+
 export interface HeroElement extends Rect, ShapeStyle {
   id: string;
   kind: HeroElementKind;
@@ -156,6 +170,7 @@ export interface DesignSettingsV2 {
   chatbot?: ChatbotDesign;
   menu_page?: MenuPageDesign;
   reserve_page?: ReservePageDesign;
+  booking_config?: BookingConfigDesign;
   menu_page_shapes?: { id: string; style: ShapeStyle }[];
   reserve_page_shapes?: { id: string; style: ShapeStyle }[];
 }
@@ -494,6 +509,7 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
     chatbot: legacy.chatbot ?? defaultChatbotDesign(),
     menu_page: { ...defaultMenuPageDesign(), ...(legacy.menu_page ?? {}) },
     reserve_page: { ...defaultReservePageDesign(), ...(legacy.reserve_page ?? {}) },
+    booking_config: { ...defaultBookingConfig(), ...(legacy.booking_config ?? {}) },
   };
 
   // Legacy page layers / canvas shapes ride along as hero elements

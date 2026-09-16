@@ -43,6 +43,17 @@ export default async function ReservePage({
     : defaultReservePageDesign();
   const isCleanSlate = org.theme_color === "#fafaf9";
 
+  const bookingConfig = (org.design_settings as Record<string, unknown> | null)?.booking_config as {
+    buffer_before_minutes?: number;
+    duration_minutes?: number;
+    no_time_limit?: boolean;
+  } | undefined;
+  const noTimeLimit = Boolean(bookingConfig?.no_time_limit);
+  const durationMinutes = typeof bookingConfig?.duration_minutes === "number" ? bookingConfig.duration_minutes : 120;
+  const durationText = noTimeLimit
+    ? "no time limit"
+    : `${durationMinutes >= 60 ? `${Math.floor(durationMinutes / 60)}h ` : ""}${durationMinutes % 60 ? `${durationMinutes % 60}m` : ""}`.trim() + " reservation";
+
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
       {/* Top Back Navigation Button */}
@@ -77,7 +88,7 @@ export default async function ReservePage({
         }}
       >
         Reserve your spot at {org.name}. Choose your party size, tell us when, and
-        we will automatically prepare the optimal table for you (2-hour reservation).
+        we will automatically prepare the optimal table for you ({durationText}).
       </p>
 
       <div

@@ -20,6 +20,20 @@ export async function DELETE(request: Request) {
       .eq("id", orderId)
       .maybeSingle();
 
+    if (!order) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    const { data: staffRows } = await supabase
+      .from("staff_users")
+      .select("org_id")
+      .eq("auth_user_id", user.id);
+
+    const isStaffOfOrg = (staffRows ?? []).some((s) => s.org_id === order.org_id);
+    if (!isStaffOfOrg) {
+      return NextResponse.json({ error: "Forbidden: Not a staff member of this restaurant" }, { status: 403 });
+    }
+
     if (order && order.customer_name && order.customer_name.startsWith("Table ")) {
       const labelsStr = order.customer_name.slice("Table ".length);
       const tableLabels: string[] = labelsStr

@@ -20,18 +20,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: staffRows } = await supabase
-      .from("staff_users")
-      .select("org_id")
-      .eq("auth_user_id", user.id);
-    const staff = (staffRows ?? [])[0] ?? null;
-
-    if (!staff) {
-      return NextResponse.json({ error: "Forbidden: Not a staff member" }, { status: 403 });
-    }
-
     const body = await request.json();
-    const { tableIds, items } = body as { tableIds: string[]; items: OrderItemInput[] };
+    const { tableIds, items, orgId } = body as {
+      tableIds: string[];
+      items: OrderItemInput[];
+      orgId?: string;
+    };
 
     if (!tableIds || !Array.isArray(tableIds) || tableIds.length === 0) {
       return NextResponse.json(
@@ -46,12 +40,24 @@ export async function POST(request: Request) {
       );
     }
 
+    const { data: staffRows } = await supabase
+      .from("staff_users")
+      .select("org_id")
+      .eq("auth_user_id", user.id);
+
+    if (!staffRows || staffRows.length === 0) {
+      return NextResponse.json({ error: "Forbidden: Not a staff member" }, { status: 403 });
+    }
+
+    const userOrgIds = new Set(staffRows.map((s) => s.org_id));
+    const targetOrgId = orgId && userOrgIds.has(orgId) ? orgId : staffRows[0].org_id;
+
     // Fetch all table labels in one query
     const { data: tables, error: tableError } = await supabase
       .from("tables")
       .select("id, label")
       .in("id", tableIds)
-      .eq("org_id", staff.org_id);
+      .eq("org_id", targetOrgId);
 
     if (tableError || !tables || tables.length !== tableIds.length) {
       return NextResponse.json({ error: "One or more tables not found" }, { status: 404 });
@@ -62,7 +68,7 @@ export async function POST(request: Request) {
     const { data: dbItems, error: itemsError } = await supabase
       .from("menu_items")
       .select("id, name, price")
-      .eq("org_id", staff.org_id)
+      .eq("org_id", targetOrgId)
       .in("id", itemIds);
 
     if (itemsError || !dbItems || dbItems.length !== itemIds.length) {
@@ -94,7 +100,7 @@ export async function POST(request: Request) {
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .insert({
-        org_id: staff.org_id,
+        org_id: targetOrgId,
         customer_name: customerName,
         items: validatedItems,
         total: calculatedTotal,
@@ -113,7 +119,7 @@ export async function POST(request: Request) {
       .from("tables")
       .update({ status: "occupied" })
       .in("id", tableIds)
-      .eq("org_id", staff.org_id);
+      .eq("org_id", targetOrgId);
 
     return NextResponse.json({ orderId: order.id });
   } catch (err: any) {

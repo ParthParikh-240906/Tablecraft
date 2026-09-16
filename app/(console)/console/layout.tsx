@@ -2,8 +2,11 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveStaffRow, getOrgBySlug } from "@/lib/org";
 import { LogoutButton } from "./logout-button";
+import { ConsoleThemeWrapper } from "./theme-wrapper";
+import { ConsoleSidebar } from "./sidebar";
 
 /**
  * Console layout: resolves the logged-in staff member's organization.
@@ -84,14 +87,28 @@ export default async function ConsoleLayout({
     ? staffRow.organizations[0]
     : staffRow.organizations;
 
+  // Fetch all orgs linked to this user for the restaurant switcher
+  const admin = createAdminClient();
+  const { data: allStaffRows } = await admin
+    .from("staff_users")
+    .select("org_id, role, organizations(id, name, slug, logo_url, theme_color)")
+    .eq("auth_user_id", user.id);
+
+  const userOrgs = (allStaffRows ?? [])
+    .map((r: any) => {
+      const o = Array.isArray(r.organizations) ? r.organizations[0] : r.organizations;
+      return o ? { id: o.id, name: o.name, slug: o.slug, logo_url: o.logo_url } : null;
+    })
+    .filter(Boolean);
+
   // Build the ?org= param to attach to every internal link so the
   // selected_org cookie stays in sync when navigating between pages.
   const orgParam = staffRow.org_id ? `?org=${staffRow.org_id}` : "";
 
   return (
-    <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)]">
+    <ConsoleThemeWrapper>
       <header className="border-b border-[var(--rule)] bg-[var(--paper)]">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="label-caps text-[color:var(--accent)]">
               Operator Console
@@ -140,9 +157,20 @@ export default async function ConsoleLayout({
           </div>
         </div>
       </header>
-      <div className="bg-[#161311] border border-white/20 max-w-5xl mx-auto mt-8 mb-12 rounded-sm">
-        <main className="px-4 py-6">{children}</main>
+
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
+          <ConsoleSidebar
+            orgParam={orgParam}
+            staffEmail={staffRow.email}
+            staffRole={staffRow.role}
+            userOrgs={userOrgs as any}
+          />
+          <div className="ticket flex-1 w-full rounded-sm border border-[var(--rule)] bg-[var(--paper-raised)] overflow-hidden">
+            <main className="px-4 sm:px-6 py-6">{children}</main>
+          </div>
+        </div>
       </div>
-    </div>
+    </ConsoleThemeWrapper>
   );
 }
