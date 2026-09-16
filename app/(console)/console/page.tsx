@@ -17,7 +17,23 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/console/login");
-  const orgId = await getActiveOrgId(user.id) ?? "";
+
+  // Read selected org from header (set by middleware) or cookie,
+  // falling back to the default active org. Using a dedicated header
+  // instead of referer because referer points to the page navigated FROM,
+  // not the current URL — causing stale data when switching restaurants.
+  const { headers: getHeaders } = await import("next/headers");
+  const headerList = await getHeaders();
+  const headerOrg = headerList.get("x-console-selected-org") || null;
+  const { cookies: getCookieStore } = await import("next/headers");
+  const cookieStore = await getCookieStore();
+  const cookieOrg = cookieStore.get("selected_org")?.value || null;
+  const isUUID = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+  const orgId = (
+    (isUUID(headerOrg ?? "") && headerOrg) ||
+    (isUUID(cookieOrg ?? "") && cookieOrg) ||
+    (await getActiveOrgId(user.id))
+  ) ?? "";
   const orgName = orgId ? "Restaurant" : "";
 
   // --- "Today" in local time (matches existing app convention) ---
@@ -95,6 +111,7 @@ export default async function DashboardPage() {
 
   return (
     <DashboardClient
+      key={orgId}
       orgId={orgId}
       orgName={orgName}
       todayDate={todayDateStr}

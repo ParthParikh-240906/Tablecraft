@@ -32,18 +32,21 @@ export default async function ConsoleLayout({
     redirect("/console/login");
   }
 
-  // Read ?org= from the request URL so each tab can independently select
-  // its org, even when the shared cookie has a stale value from another tab.
-  // We read it from the Referer header (set by the previous navigation)
-  // since server components don't have direct access to the current URL.
+  // Read selected org from header (set by middleware) or cookie,
+  // falling back to no selection. Using a dedicated header instead of
+  // referer because referer points to the page navigated FROM, not the
+  // current URL — causing stale data when switching restaurants.
   const { headers: getHeaders } = await import("next/headers");
   const headerList = await getHeaders();
-  const referer = headerList.get("referer") || "";
+  const headerOrg = headerList.get("x-console-selected-org") || null;
   let urlOrgParam: string | null = null;
-  try {
-    const url = new URL(referer);
-    urlOrgParam = url.searchParams.get("org");
-  } catch {}
+  if (headerOrg && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(headerOrg)) {
+    urlOrgParam = headerOrg;
+  }
+  if (!urlOrgParam) {
+    const cookieStore = await (await import("next/headers")).cookies();
+    urlOrgParam = cookieStore.get("selected_org")?.value || null;
+  }
 
   let resolvedOrgId: string | undefined;
   if (urlOrgParam) {

@@ -168,19 +168,20 @@ export default function DashboardClient({
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "orders", filter: `org_id=eq.${orgId}` },
-        () => {
-          supabase
-            .from("orders")
-            .select("id, customer_name, total, status, created_at, stripe_session_id, items")
-            .eq("org_id", orgId)
-            .not("status", "eq", "paid")
-            .not("status", "eq", "cancelled")
-            .order("created_at", { ascending: false })
-            .then(({ data }) => {
-              const freshOrders = data ?? [];
-              setOrders(freshOrders);
-              setStats((prev) => ({ ...prev, liveOrderCount: freshOrders.length }));
-            });
+        (payload) => {
+          const row = payload.new as OrderRecord | null;
+          if (!row) return;
+          setOrders((prev) => {
+            // Remove completed/paid/cancelled orders from dashboard view
+            if (row.status === "paid" || row.status === "cancelled" || row.status === "completed") {
+              return prev.filter((o) => o.id !== row.id);
+            }
+            const exists = prev.some((o) => o.id === row.id);
+            if (exists) {
+              return prev.map((o) => (o.id === row.id ? row : o));
+            }
+            return [...prev, row].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          });
         },
       )
       .subscribe();
