@@ -30,7 +30,7 @@ export function useOrdersRealtime(orgId: string | null, initialOrders: OrderReco
     async function refresh() {
       const { data } = await supabase
         .from("orders")
-        .select("id, customer_name, total, status, created_at, stripe_session_id, items")
+        .select("id, customer_name, total, status, created_at, stripe_session_id, items, parent_order_id")
         .eq("org_id", orgId)
         .order("created_at", { ascending: false });
       if (!active) return;
@@ -86,7 +86,7 @@ export function useOrdersRealtime(orgId: string | null, initialOrders: OrderReco
       pollRef.current = setInterval(async () => {
         const { data } = await supabase
           .from("orders")
-          .select("id, customer_name, total, status, created_at, stripe_session_id, items")
+          .select("id, customer_name, total, status, created_at, stripe_session_id, items, parent_order_id")
           .eq("org_id", orgId)
           .order("created_at", { ascending: false });
         if (data) setOrders(data as OrderRecord[]);

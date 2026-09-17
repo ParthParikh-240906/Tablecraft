@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     // Look up order to discover its org_id
     const { data: order, error: orderLookupErr } = await adminSupabase
       .from("orders")
-      .select("id, org_id, customer_name")
+      .select("id, org_id, customer_name, parent_order_id")
       .eq("id", orderId)
       .maybeSingle();
 
@@ -59,11 +59,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
+    // Cascade: original paid → all extras get paid
+    if (status === "paid" && !order.parent_order_id) {
+      await adminSupabase
+        .from("orders")
+        .update({ status: "paid" })
+        .eq("parent_order_id", order.id);
+    }
+
     // Free tables when order is paid or cancelled
     if (status === "paid" || status === "cancelled") {
-      if (order && order.customer_name && order.customer_name.startsWith("Table ")) {
+      const rawName = (order?.customer_name ?? "").replace(/\s+Edit$/, "");
+      if (rawName && rawName.startsWith("Table ")) {
         // Parse table labels from customer_name: "Table 1, 2, 3" or "Table 7"
-        const labelsStr = order.customer_name.slice("Table ".length);
+        const labelsStr = rawName.slice("Table ".length);
         const tableLabels: string[] = labelsStr
           .split(",")
           .map((s: string) => s.trim())

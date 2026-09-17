@@ -16,39 +16,46 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
-    const { orderId, items } = body as { orderId: string; items: OrderItemInput[] };
+    const { parentId, tableLabel, items, orgId } = body as {
+      parentId: string;
+      tableLabel: string;
+      items: OrderItemInput[];
+      orgId?: string;
+    };
 
-    if (!orderId || !items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: "Missing orderId or items" }, { status: 400 });
+    if (!parentId || !tableLabel || !items || !Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Look up the order to identify its org_id
-    const { data: order, error: orderLookupErr } = await supabase
+    // Look up the parent order to get org_id
+    const { data: parentOrder, error: parentErr } = await supabase
       .from("orders")
-      .select("id, org_id, customer_name")
-      .eq("id", orderId)
-      .single();
+      .select("id, org_id")
+      .eq("id", parentId)
+      .maybeSingle();
 
-    if (orderLookupErr || !order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    if (parentErr || !parentOrder) {
+      return NextResponse.json({ error: "Parent order not found" }, { status: 404 });
     }
 
+    const targetOrgId = orgId ?? parentOrder.org_id;
+
+    // Validate staff membership
     const { data: staffRows } = await supabase
       .from("staff_users")
       .select("org_id")
       .eq("auth_user_id", user.id);
 
-    const isStaffOfOrg = (staffRows ?? []).some((s) => s.org_id === order.org_id);
-    if (!isStaffOfOrg) {
-      return NextResponse.json({ error: "Forbidden: Not a staff member of this restaurant" }, { status: 403 });
+    if (!staffRows?.some((s) => s.org_id === targetOrgId)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Validate menu items against DB prices
+    // Validate menu items
     const itemIds = items.map((i) => i.id);
     const { data: dbItems } = await supabase
       .from("menu_items")
       .select("id, name, price")
-      .eq("org_id", order.org_id)
+      .eq("org_id", targetOrgId)
       .in("id", itemIds);
 
     if (!dbItems || dbItems.length !== itemIds.length) {
@@ -68,15 +75,27 @@ export async function POST(request: Request) {
       validatedItems.push({ id: dbItem.id, name: dbItem.name, price, quantity: qty });
     }
 
-    const { error } = await supabase
+    // Create the extra order — does NOT affect table status
+    const extraName = `Extra (${tableLabel})`;
+    const { data: order, error: insertErr } = await supabase
       .from("orders")
-      .update({ items: validatedItems, total: calculatedTotal })
-      .eq("id", orderId)
-      .eq("org_id", order.org_id);
+      .insert({
+        org_id: targetOrgId,
+        customer_name: extraName,
+        parent_order_id: parentId,
+        items: validatedItems,
+        total: calculatedTotal,
+        status: "pending",
+      })
+      .select("id")
+      .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (insertErr || !order) {
+      console.error("Extra order creation failed:", insertErr);
+      return NextResponse.json({ error: "Failed to create extra order" }, { status: 500 });
+    }
 
-    return NextResponse.json({ success: true, orderId: order.id });
+    return NextResponse.json({ orderId: order.id });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || "Internal server error" }, { status: 500 });
   }

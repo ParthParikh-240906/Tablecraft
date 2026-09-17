@@ -22,6 +22,7 @@ export interface OrderRecord {
   created_at: string;
   stripe_session_id?: string | null;
   items: OrderItem[];
+  parent_order_id?: string | null;
 }
 
 type FilterKey = "dashboard" | "pending" | "preparing" | "ready" | "completed" | "paid" | "cancelled";
@@ -108,7 +109,7 @@ export function OrdersList({
   const refreshOrders = useCallback(async () => {
     const { data } = await supabase
       .from("orders")
-      .select("id, customer_name, total, status, created_at, stripe_session_id, items")
+      .select("id, customer_name, total, status, created_at, stripe_session_id, items, parent_order_id")
       .eq("org_id", orgId)
       .order("created_at", { ascending: false });
     setOrders(data ?? []);
@@ -144,7 +145,8 @@ export function OrdersList({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredOrders.map((order) => {
-              const isTable = /^Table\s+/i.test(order.customer_name);
+              const cleanName = order.customer_name.replace(/\s+Edit$/, "");
+              const isTable = /^Table\s+/i.test(cleanName);
               const itemsList: OrderItem[] = Array.isArray(order.items) ? order.items : [];
               const timeAgo = new Date(order.created_at).toLocaleTimeString([], {
                 hour: "2-digit",
@@ -174,7 +176,10 @@ export function OrdersList({
                           </span>
                         </div>
                         <h3 className="font-display text-base font-bold text-[var(--ink)]">
-                          {order.customer_name}
+                          {cleanName.replace(/^Table\s+/i, "")}
+                          {cleanName !== order.customer_name && (
+                            <span className="ml-1.5 text-[10px] font-normal text-amber-400 uppercase tracking-wide">Edited</span>
+                          )}
                         </h3>
                       </div>
                       <div className="text-right">{getStatusBadge(order.status)}</div>

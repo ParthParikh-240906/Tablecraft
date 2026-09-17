@@ -17,7 +17,6 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Filter out paid/cancelled orders from the parent's live feed
     setOrders(initialOrders.filter((o) => o.status !== "paid" && o.status !== "cancelled"));
   }, [initialOrders]);
 
@@ -49,8 +48,11 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
     } catch {}
   }
 
-  function handlePrint(order: OrderRecord) {
-    const itemsHtml = order.items
+  function handlePrint(group: OrderRecord[]) {
+    const allItems = group.flatMap((o) => (Array.isArray(o.items) ? o.items : []));
+    const grandTotal = group.reduce((s, o) => s + Number(o.total), 0);
+    const name = group.find((o) => !o.parent_order_id)?.customer_name ?? "Order";
+    const itemsHtml = allItems
       .map((item) => `<tr><td>${item.quantity}x ${item.name}</td><td style="text-align:right">AED ${(item.price * item.quantity).toFixed(2)}</td></tr>`)
       .join("");
     const printWindow = window.open("", "_blank", "width=400,height=600");
@@ -70,9 +72,9 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
         </head>
         <body>
           <h1>ORDER RECEIPT</h1>
-          <p class="meta">${order.customer_name}</p>
+          <p class="meta">${name}</p>
           <table>${itemsHtml}</table>
-          <p class="total">Total: AED ${Number(order.total).toFixed(2)}</p>
+          <p class="total">Total: AED ${grandTotal.toFixed(2)}</p>
           <p class="meta">Tablecraft</p>
         </body>
       </html>
@@ -99,21 +101,35 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
   const ghostBtn = "px-2.5 py-1 text-xs rounded border border-[var(--rule)] text-[var(--ink-soft)] hover:text-[var(--ink)] hover:border-[var(--rule-strong)] hover:bg-[var(--paper)] transition-colors";
   const delBtn = "px-2.5 py-1 text-xs rounded border border-rose-500/30 text-rose-400 hover:bg-rose-500/15 transition-colors";
 
-  function renderCard(order: OrderRecord) {
+  function renderSubCard(order: OrderRecord, isExtra: boolean, group: OrderRecord[]) {
     const items: OrderItem[] = Array.isArray(order.items) ? order.items : [];
-    const label = order.customer_name.replace(/^Table\s+/i, "");
+    const cleanName = order.customer_name.replace(/\s+Edit$/, "");
+    const label = cleanName.replace(/^Table\s+/i, "");
     const total = Number(order.total).toFixed(2);
     const sc = statusCls[order.status] ?? "bg-gray-500/15 text-gray-400 border-gray-500/30";
     const sl = statusLabel[order.status] ?? order.status;
 
     const actionsRow = () => {
+      if (isExtra) {
+        // Extras: only show "Mark Complete" when status is ready, plus Delete
+        return (
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            {order.status === "ready" && (
+              <button onClick={() => updateStatus(order.id, "completed")} disabled={updatingId === order.id} className={btnPrimary}>✓ Mark Complete</button>
+            )}
+            <button onClick={() => handleDelete(order.id)} className={delBtn}>Delete</button>
+          </div>
+        );
+      }
+
+      // Original order actions
       switch (order.status) {
         case "pending":
           return (
             <div className="flex items-center gap-1.5 flex-wrap justify-end">
               <button onClick={() => handleDelete(order.id)} className={delBtn}>Delete</button>
               {onEdit && <button onClick={() => onEdit(order)} className={ghostBtn}>Edit</button>}
-              <button onClick={() => handlePrint(order)} className={ghostBtn}>Print</button>
+              <button onClick={() => handlePrint(group)} className={ghostBtn}>Print</button>
             </div>
           );
         case "preparing":
@@ -137,7 +153,7 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
               <button onClick={() => updateStatus(order.id, "paid")} disabled={updatingId === order.id} className={btnPrimary}>Mark Paid</button>
               <div className="flex items-center gap-1.5 flex-wrap justify-end">
                 <button onClick={() => handleDelete(order.id)} className={delBtn}>Delete</button>
-                <button onClick={() => handlePrint(order)} className={ghostBtn}>Print</button>
+                <button onClick={() => handlePrint(group)} className={ghostBtn}>Print</button>
                 {onEdit && <button onClick={() => onEdit(order)} className={ghostBtn}>Edit</button>}
               </div>
             </div>
@@ -148,10 +164,17 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
     };
 
     return (
-      <div key={order.id} className="flex flex-row items-stretch gap-4 p-4 border border-[var(--rule)] bg-[var(--paper-raised)] rounded-md shadow-xs">
+      <div key={order.id} className={`flex flex-row items-stretch gap-4 p-4 border rounded-md shadow-xs ${
+        isExtra
+          ? "border-[var(--rule)] bg-[var(--paper)] ml-4 mt-1"
+          : "border-[var(--rule)] bg-[var(--paper-raised)]"
+      }`}>
         {/* Left: name → items → price */}
         <div className="flex-1 min-w-0 flex flex-col gap-2">
-          <p className="text-sm font-bold text-[var(--ink)] leading-snug break-words">{label}</p>
+          <p className={`leading-snug break-words ${isExtra ? "text-xs font-semibold text-[var(--ink-soft)]" : "text-sm font-bold text-[var(--ink)]"}`}>
+            {isExtra && <span className="text-[var(--accent)] font-mono mr-1">⚡</span>}
+            {label}
+          </p>
           <div className="space-y-1 text-xs text-[var(--ink-soft)]">
             {items.map((item, i) => (
               <p key={i}>
@@ -176,15 +199,33 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
     );
   }
 
+  // Group orders: original → array of its extras
+  const groups = new Map<string, OrderRecord[]>();
+  for (const o of orders) {
+    const key = o.parent_order_id || o.id;
+    const group = groups.get(key) || [];
+    group.push(o);
+    groups.set(key, group);
+  }
+
   return (
     <div className="space-y-3">
-      {orders.length === 0 ? (
+      {groups.size === 0 ? (
         <div className="ticket p-8 text-center text-[var(--ink-soft)] border border-[var(--rule)] bg-[var(--paper-raised)]">
           <p className="font-display text-base mb-1">No active orders</p>
           <p className="text-xs text-[var(--ink-faint)]">New dine-in orders will appear here automatically.</p>
         </div>
       ) : (
-        orders.map((o) => renderCard(o))
+        Array.from(groups.values()).map((group) => {
+          const original = group.find((o) => !o.parent_order_id) ?? group[0];
+          const extras = group.filter((o) => o.parent_order_id);
+          return (
+            <div key={original.id} className="border border-[var(--rule)] rounded-md overflow-hidden bg-[var(--paper-raised)]">
+              {renderSubCard(original, false, group)}
+              {extras.map((extra) => renderSubCard(extra, true, group))}
+            </div>
+          );
+        })
       )}
     </div>
   );

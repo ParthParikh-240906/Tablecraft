@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { OrderItem } from "./orders-list";
+import type { OrderRecord, OrderItem } from "./orders-list";
 
 interface MenuItem {
   id: string;
@@ -18,7 +18,7 @@ interface OrderedItem {
 }
 
 interface EditOrderModalProps {
-  order: { id: string; items: OrderItem[] };
+  order: OrderRecord;
   orgId: string;
   onOrderUpdated: () => void;
   onClose: () => void;
@@ -28,21 +28,26 @@ export function EditOrderModal({ order, orgId, onOrderUpdated, onClose }: EditOr
   const supabase = createClient();
   const [allMenuItems, setAllMenuItems] = useState<MenuItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [items, setItems] = useState<OrderedItem[]>([]);
+  const [extraItems, setExtraItems] = useState<OrderedItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    setItems(order.items.map((i) => ({ menuItemId: i.id, name: i.name, price: i.price, quantity: i.quantity })));
+  // Parse table label from customer_name for the extra order name
+  const tableLabel = (() => {
+    const raw = order.customer_name.replace(/\s+Edit$/, "");
+    const match = raw.match(/^(?:Table\s+)?(.+)$/);
+    return match ? match[1] : raw;
+  })();
 
+  useEffect(() => {
     supabase
       .from("menu_items")
       .select("id, name, price")
       .eq("org_id", orgId)
       .eq("available", true)
       .then(({ data }) => setAllMenuItems(data ?? []));
-  }, [orgId, order.items, supabase]);
+  }, [orgId, supabase]);
 
   useEffect(() => {
     searchInputRef.current?.focus();
@@ -53,7 +58,7 @@ export function EditOrderModal({ order, orgId, onOrderUpdated, onClose }: EditOr
   );
 
   function addItem(menuItem: MenuItem) {
-    setItems((prev) => {
+    setExtraItems((prev) => {
       const existing = prev.find((i) => i.menuItemId === menuItem.id);
       if (existing) {
         return prev.map((i) =>
@@ -66,7 +71,7 @@ export function EditOrderModal({ order, orgId, onOrderUpdated, onClose }: EditOr
   }
 
   function updateQuantity(index: number, delta: number) {
-    setItems((prev) =>
+    setExtraItems((prev) =>
       prev.map((item, i) =>
         i === index ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item,
       ),
@@ -74,12 +79,12 @@ export function EditOrderModal({ order, orgId, onOrderUpdated, onClose }: EditOr
   }
 
   function removeItem(index: number) {
-    setItems((prev) => prev.filter((_, i) => i !== index));
+    setExtraItems((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function handleSubmit() {
-    if (items.length === 0) {
-      setError("Please add at least one item");
+    if (extraItems.length === 0) {
+      setError("Add at least one extra item");
       return;
     }
 
@@ -87,18 +92,36 @@ export function EditOrderModal({ order, orgId, onOrderUpdated, onClose }: EditOr
     setError(null);
 
     try {
+      // Step 1: Update the original order's total (preserve its items)
+      const originalTotal = order.items.reduce((s, i) => s + (i.price ?? 0) * i.quantity, 0);
       const res = await fetch("/api/orders/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orderId: order.id,
-          items: items.map((i) => ({ id: i.menuItemId, quantity: i.quantity })),
+          items: order.items.map((i) => ({ id: i.id, quantity: i.quantity })),
         }),
       });
-
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Failed to update order");
+        return;
+      }
+
+      // Step 2: Create the extra order
+      const extraRes = await fetch("/api/orders/extra", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parentId: data.orderId,
+          tableLabel,
+          items: extraItems.map((i) => ({ id: i.menuItemId, quantity: i.quantity })),
+          orgId,
+        }),
+      });
+      const extraData = await extraRes.json();
+      if (!extraRes.ok) {
+        setError(extraData.error || "Failed to create extra order");
         return;
       }
 
@@ -111,21 +134,42 @@ export function EditOrderModal({ order, orgId, onOrderUpdated, onClose }: EditOr
     }
   }
 
-  const total = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const extraTotal = extraItems.reduce((s, i) => s + i.price * i.quantity, 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg ticket p-6 bg-[var(--paper-raised)] border border-[var(--rule-strong)] rounded-sm shadow-2xl">
-        <h2 className="font-display text-xl text-[var(--ink)] mb-5">Edit Order</h2>
-
+      <div className="relative w-full max-w-lg ticket p-6 bg-[var(--paper-raised)] border border-[var(--rule-strong)] rounded-sm shadow-2xl max-h-[90vh] overflow-y-auto">
+        <h2 className="font-display text-xl text-[var(--ink)] mb-1">Edit Order</h2>
         <p className="text-xs text-[var(--ink-faint)] mb-4">
-          Order ID: {order.id.slice(0, 8)}…
+          {tableLabel} &middot; Order #{order.id.slice(0, 8)}
         </p>
 
-        {/* Menu item search */}
+        {/* Current items — read only */}
         <div className="mb-4">
-          <label className="label-caps text-[var(--ink-faint)] mb-1.5 block">Add Item</label>
+          <p className="label-caps text-[var(--ink-faint)] mb-2">Current Items</p>
+          <div className="border border-[var(--rule)] rounded-sm bg-[var(--paper)] overflow-hidden opacity-70">
+            {order.items.map((item, idx) => (
+              <div key={idx} className="flex items-center justify-between px-3 py-2 border-b border-[var(--rule)] last:border-b-0 text-sm">
+                <div className="flex items-center gap-3">
+                  <span className="text-[var(--ink)] font-medium w-24 truncate">{item.name}</span>
+                  <span className="text-[var(--accent)] font-mono text-xs">x{item.quantity}</span>
+                </div>
+                <span className="text-[var(--ink-soft)] font-mono text-xs">
+                  AED {(Number(item.price) * item.quantity).toFixed(2)}
+                </span>
+              </div>
+            ))}
+            <div className="px-3 py-2 flex justify-between items-center text-sm border-t border-[var(--rule)]">
+              <span className="text-[var(--ink-faint)]">Original total</span>
+              <span className="font-bold text-[var(--ink)]">AED {Number(order.total).toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Add extra items */}
+        <div className="mb-4">
+          <p className="label-caps text-[var(--ink-faint)] mb-2">Add Extra Items</p>
           <input
             ref={searchInputRef}
             type="text"
@@ -153,40 +197,40 @@ export function EditOrderModal({ order, orgId, onOrderUpdated, onClose }: EditOr
           {searchQuery && filteredMenuItems.length === 0 && (
             <p className="text-xs text-[var(--ink-faint)] mt-1">No items match &ldquo;{searchQuery}&rdquo;</p>
           )}
-        </div>
 
-        {/* Selected items list */}
-        {items.length > 0 && (
-          <div className="mb-4 border border-[var(--rule)] rounded-sm bg-[var(--paper)] overflow-hidden">
-            <div className="px-3 py-2 border-b border-[var(--rule)] label-caps text-[var(--ink-faint)] text-[10px] flex justify-between">
-              <span>Items</span>
-              <span>Total</span>
-            </div>
-            {items.map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between px-3 py-2 border-b border-[var(--rule)] last:border-b-0 text-sm">
-                <div className="flex items-center gap-3">
-                  <button type="button" onClick={() => updateQuantity(idx, -1)}
-                    className="w-6 h-6 rounded-sm border border-[var(--rule)] text-[var(--ink-soft)] hover:text-[var(--ink)] text-xs flex items-center justify-center">−</button>
-                  <span className="text-[var(--ink)] font-medium w-24 truncate">{item.name}</span>
-                  <button type="button" onClick={() => updateQuantity(idx, 1)}
-                    className="w-6 h-6 rounded-sm border border-[var(--rule)] text-[var(--ink-soft)] hover:text-[var(--ink)] text-xs flex items-center justify-center">+</button>
-                  <span className="text-[var(--accent)] font-mono text-xs">x{item.quantity}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[var(--ink-soft)] font-mono text-xs">
-                    AED {(item.price * item.quantity).toFixed(2)}
-                  </span>
-                  <button type="button" onClick={() => removeItem(idx)}
-                    className="text-[var(--ink-faint)] hover:text-red-400 text-xs transition-colors" title="Remove item">✕</button>
-                </div>
+          {/* Selected extras */}
+          {extraItems.length > 0 && (
+            <div className="mt-2 border border-[var(--rule)] rounded-sm bg-[var(--paper)] overflow-hidden">
+              <div className="px-3 py-2 border-b border-[var(--rule)] label-caps text-[var(--ink-faint)] text-[10px] flex justify-between">
+                <span>Extra Items</span>
+                <span>Total</span>
               </div>
-            ))}
-            <div className="px-3 py-2 flex justify-between items-center text-sm border-t border-[var(--rule)]">
-              <span className="text-[var(--ink-faint)]">Order total</span>
-              <span className="font-bold text-[var(--ink)]">AED {total.toFixed(2)}</span>
+              {extraItems.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between px-3 py-2 border-b border-[var(--rule)] last:border-b-0 text-sm">
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => updateQuantity(idx, -1)}
+                      className="w-6 h-6 rounded-sm border border-[var(--rule)] text-[var(--ink-soft)] hover:text-[var(--ink)] text-xs flex items-center justify-center">−</button>
+                    <span className="text-[var(--ink)] font-medium w-24 truncate">{item.name}</span>
+                    <button type="button" onClick={() => updateQuantity(idx, 1)}
+                      className="w-6 h-6 rounded-sm border border-[var(--rule)] text-[var(--ink-soft)] hover:text-[var(--ink)] text-xs flex items-center justify-center">+</button>
+                    <span className="text-[var(--accent)] font-mono text-xs">x{item.quantity}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[var(--ink-soft)] font-mono text-xs">
+                      AED {(item.price * item.quantity).toFixed(2)}
+                    </span>
+                    <button type="button" onClick={() => removeItem(idx)}
+                      className="text-[var(--ink-faint)] hover:text-red-400 text-xs transition-colors" title="Remove item">✕</button>
+                  </div>
+                </div>
+              ))}
+              <div className="px-3 py-2 flex justify-between items-center text-sm border-t border-[var(--rule)]">
+                <span className="text-[var(--ink-faint)]">Extras total</span>
+                <span className="font-bold text-[var(--ink)]">AED {extraTotal.toFixed(2)}</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
 
@@ -195,7 +239,7 @@ export function EditOrderModal({ order, orgId, onOrderUpdated, onClose }: EditOr
             className="px-3 py-1.5 text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] border border-[var(--rule)] rounded-sm transition-colors">
             Cancel
           </button>
-          <button type="button" onClick={handleSubmit} disabled={submitting || items.length === 0}
+          <button type="button" onClick={handleSubmit} disabled={submitting || extraItems.length === 0}
             className="px-3 py-1.5 text-xs font-medium bg-[var(--accent)] text-[var(--paper)] rounded-sm hover:bg-opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
             {submitting ? "Saving…" : "Save Changes"}
           </button>

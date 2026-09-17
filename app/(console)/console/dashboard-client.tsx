@@ -134,7 +134,7 @@ export default function DashboardClient({
     // Refresh live orders
     const { data: orderData } = await supabase
       .from("orders")
-      .select("id, customer_name, total, status, created_at, stripe_session_id, items")
+      .select("id, customer_name, total, status, created_at, stripe_session_id, items, parent_order_id")
       .eq("org_id", orgId)
       .not("status", "eq", "paid")
       .not("status", "eq", "cancelled")

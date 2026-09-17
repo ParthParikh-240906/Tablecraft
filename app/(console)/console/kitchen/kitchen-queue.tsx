@@ -152,10 +152,17 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
               {/* Header row */}
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div>
-                  <p className="font-display text-base font-bold text-[var(--ink)]">{order.customer_name.replace(/^Table\s+/i, "")}</p>
+                  <p className="font-display text-base font-bold text-[var(--ink)]">{order.customer_name.replace(/\s+Edit$/, "").replace(/^Table\s+/i, "")}</p>
                   <p className="text-[10px] text-[var(--ink-faint)] mt-0.5">{timeStr} &middot; {ageMinutes}m ago</p>
                 </div>
-                {getStatusBadge(order.status)}
+                <div className="flex items-center gap-1.5">
+                  {getStatusBadge(order.status)}
+                  {order.customer_name.trimEnd().endsWith(" Edit") && (
+                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/15 text-amber-400">
+                      Edited
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Items preview (collapsed) */}
