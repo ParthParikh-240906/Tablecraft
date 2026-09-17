@@ -4,7 +4,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveOrgId } from "@/lib/org";
 import { PricingClient, type OrgMetricData } from "./pricing-client";
 
-export default async function ConsolePricingPage() {
+export default async function ConsolePricingPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -15,7 +20,7 @@ export default async function ConsolePricingPage() {
     redirect("/console/login");
   }
 
-  const activeOrgId = (await getActiveOrgId(user.id)) ?? "";
+  const activeOrgId = (await getActiveOrgId(user.id, params.org)) ?? "";
   if (!activeOrgId) {
     redirect("/console/login");
   }

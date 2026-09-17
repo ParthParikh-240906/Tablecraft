@@ -3,7 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import { BookingActionsList } from "./booking-actions";
 
-export default async function BookingsPage() {
+export default async function BookingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -11,7 +16,7 @@ export default async function BookingsPage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/console/login");
-  const orgId = await getActiveOrgId(user.id) ?? "";
+  const orgId = await getActiveOrgId(user.id, params.org) ?? "";
 
   const { data: tables } = await supabase
     .from("tables")

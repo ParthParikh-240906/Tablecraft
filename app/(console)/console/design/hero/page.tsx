@@ -4,7 +4,12 @@ import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { HeroPanel } from "./hero-panel";
 
-export default async function ConsoleDesignHeroPage() {
+export default async function ConsoleDesignHeroPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -12,7 +17,7 @@ export default async function ConsoleDesignHeroPage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/console/login");
-  const orgId = await getActiveOrgId(user.id) ?? "";
+  const orgId = await getActiveOrgId(user.id, params.org) ?? "";
   if (!orgId) return null;
 
   const data = await getDesignData(orgId);

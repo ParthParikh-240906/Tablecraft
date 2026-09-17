@@ -155,12 +155,13 @@ export function HeroPanel({
   const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
   const [selected, setSelected] = useState<string[]>([]);
   const [adding, setAdding] = useState<HeroElementKind | null>(null);
-  const [previewHeight, setPreviewHeight] = useState(() => {
+  const [previewHeight, setPreviewHeight] = useState(640);
+  useEffect(() => {
     try {
       const stored = Number(localStorage.getItem("tablecraft_preview_height"));
-      return [640, 960, 1280].includes(stored) ? stored : 640;
-    } catch { return 640; }
-  });
+      if ([640, 960, 1280].includes(stored)) setPreviewHeight(stored);
+    } catch {}
+  }, []);
 
   // Esc clears the selection.
   useEffect(() => {

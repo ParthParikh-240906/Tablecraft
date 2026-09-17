@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { hydrateSettings } from "@/lib/design";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 /**
  * Resolve the active staff row for a user, respecting the selected-org cookie.
@@ -61,10 +61,30 @@ export async function getActiveStaffRow(
 
 /**
  * Resolve the active org ID for a user.
- * Respects the `selected_org` cookie; falls back to the first org.
+ * Priority: urlOrgId param > header (set by middleware) > cookie > default staff row.
  * Returns null if the user has no staff rows.
  */
-export async function getActiveOrgId(userId: string): Promise<string | null> {
+export async function getActiveOrgId(userId: string, urlOrgId?: string): Promise<string | null> {
+  // 1. Direct URL param — most reliable, no cookie/header dependency
+  if (urlOrgId) {
+    const isUUID = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+    if (isUUID(urlOrgId)) return urlOrgId;
+    const org = await getOrgBySlug(urlOrgId);
+    if (org?.id) return org.id;
+  }
+
+  // 2. Header set by middleware on every ?org= request
+  const headerList = await headers();
+  const headerOrg = headerList.get("x-console-selected-org") || null;
+  const isUUID = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+  if (headerOrg && isUUID(headerOrg)) return headerOrg;
+
+  // 3. Persisted cookie (survives reloads)
+  const cookieStore = await cookies();
+  const cookieOrg = cookieStore.get("selected_org")?.value || null;
+  if (cookieOrg && isUUID(cookieOrg)) return cookieOrg;
+
+  // 4. Fallback: resolve from staff rows (default org)
   const result = await getActiveStaffRow(userId);
   if (!result) return null;
   return result.staff.org_id ?? null;

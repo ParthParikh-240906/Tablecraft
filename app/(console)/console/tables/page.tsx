@@ -3,7 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import { TableGrid } from "./table-grid";
 
-export default async function TablesPage() {
+export default async function TablesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -11,7 +16,7 @@ export default async function TablesPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/console/login");
 
-  const orgId = await getActiveOrgId(user!.id) ?? "";
+  const orgId = await getActiveOrgId(user!.id, params.org) ?? "";
 
   if (!orgId) redirect("/console/login");
 

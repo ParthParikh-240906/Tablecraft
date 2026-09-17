@@ -9,7 +9,12 @@ import DashboardClient from "./dashboard-client";
  * that subscribes to realtime changes for books, tables, and orders.
  */
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -18,22 +23,29 @@ export default async function DashboardPage() {
 
   if (!user) redirect("/console/login");
 
-  // Read selected org from header (set by middleware) or cookie,
-  // falling back to the default active org. Using a dedicated header
-  // instead of referer because referer points to the page navigated FROM,
-  // not the current URL — causing stale data when switching restaurants.
-  const { headers: getHeaders } = await import("next/headers");
-  const headerList = await getHeaders();
-  const headerOrg = headerList.get("x-console-selected-org") || null;
-  const { cookies: getCookieStore } = await import("next/headers");
-  const cookieStore = await getCookieStore();
-  const cookieOrg = cookieStore.get("selected_org")?.value || null;
+  // Read selected org from URL param first, then header (set by middleware),
+  // then cookie, falling back to the default active org.
+  const urlOrgParam = params.org || null;
   const isUUID = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
-  const orgId = (
-    (isUUID(headerOrg ?? "") && headerOrg) ||
-    (isUUID(cookieOrg ?? "") && cookieOrg) ||
-    (await getActiveOrgId(user.id))
-  ) ?? "";
+  let orgId: string | null = null;
+  if (urlOrgParam && isUUID(urlOrgParam)) {
+    orgId = urlOrgParam;
+  }
+  if (!orgId) {
+    const { headers: getHeaders } = await import("next/headers");
+    const headerList = await getHeaders();
+    const headerOrg = headerList.get("x-console-selected-org") || null;
+    if (headerOrg && isUUID(headerOrg)) orgId = headerOrg;
+  }
+  if (!orgId) {
+    const { cookies: getCookieStore } = await import("next/headers");
+    const cookieStore = await getCookieStore();
+    const cookieOrg = cookieStore.get("selected_org")?.value || null;
+    if (cookieOrg && isUUID(cookieOrg)) orgId = cookieOrg;
+  }
+  if (!orgId) {
+    orgId = (await getActiveOrgId(user.id, urlOrgParam ?? undefined)) ?? "";
+  }
   const orgName = orgId ? "Restaurant" : "";
 
   // --- "Today" in local time (matches existing app convention) ---

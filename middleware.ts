@@ -54,12 +54,17 @@ export async function middleware(request: NextRequest) {
   // navigation within the console without relying on URL params.
   const orgParam = request.nextUrl.searchParams.get("org");
   if (isConsole && !isLoginPage && orgParam) {
-    const response = NextResponse.next({ request });
+    // Forward the org header on the REQUEST so server components can read it
+    // via headers(). Setting it on the response would never reach the handler.
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-console-selected-org", orgParam);
+    const response = NextResponse.next({
+      request: { headers: requestHeaders },
+    });
     response.cookies.set("selected_org", orgParam, {
       path: "/",
       maxAge: 60 * 60 * 24 * 365, // 1 year
     });
-    response.headers.set("x-console-selected-org", orgParam);
     return response;
   }
 

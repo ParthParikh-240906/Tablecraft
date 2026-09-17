@@ -4,7 +4,12 @@ import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { MenuPagePanel } from "./menu-page-panel";
 
-export default async function ConsoleDesignMenuPage() {
+export default async function ConsoleDesignMenuPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -12,7 +17,7 @@ export default async function ConsoleDesignMenuPage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/console/login");
-  const orgId = await getActiveOrgId(user.id) ?? "";
+  const orgId = await getActiveOrgId(user.id, params.org) ?? "";
   if (!orgId) return null;
 
   const data = await getDesignData(orgId);

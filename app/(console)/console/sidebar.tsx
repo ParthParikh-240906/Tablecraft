@@ -12,25 +12,28 @@ export interface SidebarOrgItem {
 }
 
 interface ConsoleSidebarProps {
-  orgParam: string;
   staffEmail: string;
   staffRole: string;
   userOrgs: SidebarOrgItem[];
+  activeOrgId: string;
 }
 
 export function ConsoleSidebar({
-  orgParam,
   staffEmail,
   staffRole,
   userOrgs,
+  activeOrgId,
 }: ConsoleSidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { theme, setTheme } = useConsoleTheme();
 
-  // Derive current org from URL params instead of server prop
+  // URL param is always fresh (reads current URL); layout prop is stale
+  // because the layout cache doesn't vary on searchParams in Next.js 16.
   const orgIdFromUrl = searchParams.get("org");
-  const currentOrg = userOrgs.find((o) => o.id === orgIdFromUrl) || userOrgs[0] || { id: "", name: "Restaurant", slug: "" };
+  const activeOrgIdFromProps = orgIdFromUrl || activeOrgId;
+  const activeOrgParam = activeOrgIdFromProps ? `?org=${activeOrgIdFromProps}` : "";
+  const currentOrg = userOrgs.find((o) => o.id === activeOrgIdFromProps) || userOrgs[0] || { id: "", name: "Restaurant", slug: "" };
 
   const isHomeActive = pathname === "/console";
   const isConfigActive = pathname === "/console/config" || pathname.startsWith("/console/config/");
@@ -82,7 +85,7 @@ export function ConsoleSidebar({
 
         {/* Home Button -> /console */}
         <Link
-          href={`/console${orgParam}`}
+          href={`/console${activeOrgParam}`}
           className={`flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium transition-colors ${
             isHomeActive ? activeLinkClass : inactiveLinkClass
           }`}
@@ -95,7 +98,7 @@ export function ConsoleSidebar({
 
         {/* Configurations Button -> /console/config */}
         <Link
-          href={`/console/config${orgParam}`}
+          href={`/console/config${activeOrgParam}`}
           className={`flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium transition-colors ${
             isConfigActive ? activeLinkClass : inactiveLinkClass
           }`}
@@ -109,7 +112,7 @@ export function ConsoleSidebar({
 
         {/* Pricing & Upgrades Button -> /console/pricing */}
         <Link
-          href={`/console/pricing${orgParam}`}
+          href={`/console/pricing${activeOrgParam}`}
           className={`flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium transition-colors ${
             isPricingActive ? activeLinkClass : inactiveLinkClass
           }`}

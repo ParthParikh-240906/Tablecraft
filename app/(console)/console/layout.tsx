@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -7,6 +7,12 @@ import { getActiveStaffRow, getOrgBySlug } from "@/lib/org";
 import { LogoutButton } from "./logout-button";
 import { ConsoleThemeWrapper } from "./theme-wrapper";
 import { ConsoleSidebar } from "./sidebar";
+import { HeaderOrg } from "./header-org";
+
+// Force per-request rendering so the header/sidebar reflect the current ?org=
+// param. Without this, the layout is cached as part of the App Shell and
+// ignores searchParams changes (Next.js 16 limitation).
+export const dynamic = "force-dynamic";
 
 /**
  * Console layout: resolves the logged-in staff member's organization.
@@ -19,9 +25,12 @@ import { ConsoleSidebar } from "./sidebar";
  */
 export default async function ConsoleLayout({
   children,
+  searchParams,
 }: {
   children: React.ReactNode;
+  searchParams?: Promise<Record<string, string>>;
 }) {
+  const params = await (searchParams as Promise<Record<string, string>> | undefined) ?? {};
   const supabase = await createClient();
 
   const {
@@ -32,31 +41,19 @@ export default async function ConsoleLayout({
     redirect("/console/login");
   }
 
-  // Read selected org from header (set by middleware) or cookie,
-  // falling back to no selection. Using a dedicated header instead of
-  // referer because referer points to the page navigated FROM, not the
-  // current URL — causing stale data when switching restaurants.
-  const { headers: getHeaders } = await import("next/headers");
-  const headerList = await getHeaders();
-  const headerOrg = headerList.get("x-console-selected-org") || null;
-  let urlOrgParam: string | null = null;
-  if (headerOrg && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(headerOrg)) {
-    urlOrgParam = headerOrg;
-  }
-  if (!urlOrgParam) {
-    const cookieStore = await (await import("next/headers")).cookies();
-    urlOrgParam = cookieStore.get("selected_org")?.value || null;
-  }
-
+  // Resolve org in priority order: URL param > middleware header > cookie > default
   let resolvedOrgId: string | undefined;
+  const urlOrgParam = params.org || null;
   if (urlOrgParam) {
-    // Check if it's a UUID (org id) or a slug
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(urlOrgParam);
-    if (isUUID) {
-      resolvedOrgId = urlOrgParam;
+    resolvedOrgId = urlOrgParam;
+  } else {
+    const headerList = await headers();
+    const headerOrg = headerList.get("x-console-selected-org") || null;
+    if (headerOrg && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(headerOrg)) {
+      resolvedOrgId = headerOrg;
     } else {
-      const org = await getOrgBySlug(urlOrgParam);
-      resolvedOrgId = org?.id;
+      const cookieStore = await cookies();
+      resolvedOrgId = cookieStore.get("selected_org")?.value || undefined;
     }
   }
 
@@ -86,9 +83,6 @@ export default async function ConsoleLayout({
   }
 
   const { staff: staffRow } = result;
-  const org = Array.isArray(staffRow.organizations)
-    ? staffRow.organizations[0]
-    : staffRow.organizations;
 
   // Fetch all orgs linked to this user for the restaurant switcher
   const admin = createAdminClient();
@@ -104,9 +98,10 @@ export default async function ConsoleLayout({
     })
     .filter(Boolean);
 
-  // Build the ?org= param to attach to every internal link so the
-  // selected_org cookie stays in sync when navigating between pages.
-  const orgParam = staffRow.org_id ? `?org=${staffRow.org_id}` : "";
+  // Use the resolved org (from header/cookie) for nav links and header display
+  const activeOrgId = resolvedOrgId || staffRow.org_id;
+  const org = userOrgs.find((o) => o?.id === activeOrgId) || userOrgs[0] || null;
+  const orgParam = activeOrgId ? `?org=${activeOrgId}` : "";
 
   return (
     <ConsoleThemeWrapper>
@@ -116,7 +111,12 @@ export default async function ConsoleLayout({
             <p className="label-caps text-[color:var(--accent)]">
               Operator Console
             </p>
-            <p className="font-display text-lg text-[var(--ink)]">{org?.name ?? "Restaurant"}</p>
+            <p className="font-display text-lg text-[var(--ink)]">
+              <HeaderOrg
+                userOrgs={userOrgs.filter((o): o is NonNullable<typeof o> => !!o).map((o) => ({ id: o.id, name: o.name }))}
+                fallback={org?.name ?? "Restaurant"}
+              />
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-4 text-sm">
             <nav className="flex items-center gap-3">
@@ -164,10 +164,10 @@ export default async function ConsoleLayout({
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex flex-col lg:flex-row gap-8 items-start">
           <ConsoleSidebar
-            orgParam={orgParam}
             staffEmail={staffRow.email}
             staffRole={staffRow.role}
             userOrgs={userOrgs as any}
+            activeOrgId={activeOrgId}
           />
           <div className="ticket flex-1 w-full rounded-sm border border-[var(--rule)] bg-[var(--paper-raised)] overflow-hidden">
             <main className="px-4 sm:px-6 py-6">{children}</main>

@@ -4,14 +4,19 @@ import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { CanvasPanel } from "./canvas-panel";
 
-export default async function ConsoleDesignPage() {
+export default async function ConsoleDesignPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/console/login");
-  const orgId = await getActiveOrgId(user.id) ?? "";
+  const orgId = await getActiveOrgId(user.id, params.org) ?? "";
 
   if (!orgId) return null;
 

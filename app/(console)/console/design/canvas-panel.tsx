@@ -77,12 +77,13 @@ export function CanvasPanel({
   const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
   const [selected, setSelected] = useState<string | "hero" | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
-  const [previewHeight, setPreviewHeight] = useState(() => {
+  const [previewHeight, setPreviewHeight] = useState(640);
+  useEffect(() => {
     try {
       const stored = Number(localStorage.getItem("tablecraft_preview_height"));
-      return [640, 960, 1280].includes(stored) ? stored : 640;
-    } catch { return 640; }
-  });
+      if ([640, 960, 1280].includes(stored)) setPreviewHeight(stored);
+    } catch {}
+  }, []);
 
   const heroRect = settings.canvas.hero_rect;
 

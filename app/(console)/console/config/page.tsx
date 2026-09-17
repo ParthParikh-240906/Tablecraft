@@ -4,7 +4,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveOrgId, getDesignData } from "@/lib/org";
 import { ConfigPanel } from "./config-panel";
 
-export default async function ConsoleConfigPage() {
+export default async function ConsoleConfigPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -15,7 +20,7 @@ export default async function ConsoleConfigPage() {
     redirect("/console/login");
   }
 
-  const orgId = (await getActiveOrgId(user.id)) ?? "";
+  const orgId = (await getActiveOrgId(user.id, params.org)) ?? "";
   if (!orgId) {
     redirect("/console/login");
   }
