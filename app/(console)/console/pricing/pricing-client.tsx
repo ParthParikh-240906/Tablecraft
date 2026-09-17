@@ -17,6 +17,8 @@ export interface OrgMetricData {
   totalEarningsAed: number;
   totalOrdersCount: number;
   paidOrdersCount: number;
+  pendingOrdersCount: number;
+  pendingOrdersAed: number;
   totalBookingsCount: number;
   totalTablesCount: number;
 }
@@ -39,6 +41,8 @@ export function PricingClient({
   // Aggregate metrics across all user-owned restaurants
   const totalCombinedEarnings = orgs.reduce((acc, o) => acc + o.totalEarningsAed, 0);
   const totalCombinedOrders = orgs.reduce((acc, o) => acc + o.paidOrdersCount, 0);
+  const totalCombinedPending = orgs.reduce((acc, o) => acc + o.pendingOrdersCount, 0);
+  const totalCombinedPendingAed = orgs.reduce((acc, o) => acc + o.pendingOrdersAed, 0);
   const totalCombinedBookings = orgs.reduce((acc, o) => acc + o.totalBookingsCount, 0);
   const totalCombinedTables = orgs.reduce((acc, o) => acc + o.totalTablesCount, 0);
 
@@ -155,6 +159,16 @@ export function PricingClient({
               {totalCombinedOrders.toLocaleString()}
             </p>
             <p className="text-[10px] text-[var(--ink-soft)] mt-0.5">Paid transactions</p>
+          </div>
+
+          <div className="ticket p-4 border border-[var(--rule)] bg-[var(--paper-raised)]">
+            <p className="text-[11px] font-mono uppercase tracking-wider text-[var(--ink-faint)]">Pending Orders</p>
+            <p className="font-display text-2xl font-bold text-amber-500 mt-1">
+              {totalCombinedPending.toLocaleString()}
+            </p>
+            <p className="text-[10px] text-[var(--ink-soft)] mt-0.5">
+              AED {totalCombinedPendingAed.toFixed(2)} outstanding
+            </p>
           </div>
 
           <div className="ticket p-4 border border-[var(--rule)] bg-[var(--paper-raised)]">

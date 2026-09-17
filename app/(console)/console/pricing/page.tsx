@@ -25,7 +25,7 @@ export default async function ConsolePricingPage() {
   // Fetch all staff rows for this user to discover all linked restaurants
   const { data: staffRows } = await admin
     .from("staff_users")
-    .select("org_id, role, organizations(id, name, slug, logo_url, plan, stripe_customer_id, stripe_subscription_id, subscription_status)")
+    .select("org_id, role, organizations(id, name, slug, logo_url, subscription_plan, stripe_customer_id, stripe_subscription_id, subscription_status)")
     .eq("auth_user_id", user.id);
 
   const orgMap = new Map<string, any>();
@@ -42,12 +42,12 @@ export default async function ConsolePricingPage() {
   const orgs = Array.from(orgMap.values());
   const orgIds = orgs.map((o) => o.id);
 
-  // Fetch orders, bookings, and tables for all orgs in parallel
+  // Fetch orders (with customer_name + items for detail display), bookings, and tables
   const [{ data: allOrders }, { data: allBookings }, { data: allTables }] = await Promise.all([
     orgIds.length > 0
       ? admin
           .from("orders")
-          .select("id, org_id, total, status, created_at")
+          .select("id, org_id, total, status, customer_name, created_at")
           .in("org_id", orgIds)
       : { data: [] },
     orgIds.length > 0
@@ -70,16 +70,18 @@ export default async function ConsolePricingPage() {
     const orgBookings = (allBookings ?? []).filter((b) => b.org_id === org.id && b.status !== "cancelled");
     const orgTablesList = (allTables ?? []).filter((t) => t.org_id === org.id);
 
-    // Sum paid orders total (in AED). Note: if total is in minor units or standard float, sum accurately.
-    const paidOrders = orgOrders.filter((o) => o.status === "paid" || o.status === "delivered");
+    const paidOrders = orgOrders.filter((o) => o.status === "paid" || o.status === "completed");
     const totalEarningsAed = paidOrders.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
+    const pendingOrders = orgOrders.filter((o) => o.status !== "paid" && o.status !== "completed" && o.status !== "cancelled");
+    const pendingOrdersAed = pendingOrders.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
+    const pendingOrdersCount = pendingOrders.length;
 
     return {
       id: org.id,
       name: org.name,
       slug: org.slug,
       logo_url: org.logo_url ?? null,
-      plan: (org.plan as "free" | "pro" | "max") || "free",
+      plan: (org.subscription_plan as "free" | "pro" | "max") || "free",
       subscription_status: org.subscription_status ?? "inactive",
       stripe_customer_id: org.stripe_customer_id ?? null,
       stripe_subscription_id: org.stripe_subscription_id ?? null,
@@ -87,6 +89,15 @@ export default async function ConsolePricingPage() {
       totalEarningsAed,
       totalOrdersCount: orgOrders.length,
       paidOrdersCount: paidOrders.length,
+      pendingOrdersCount,
+      pendingOrdersAed,
+      paidOrders: paidOrders.map((o) => ({
+        id: o.id,
+        customer_name: o.customer_name ?? "Table Order",
+        total: Number(o.total) || 0,
+        status: o.status,
+        created_at: o.created_at,
+      })),
       totalBookingsCount: orgBookings.length,
       totalTablesCount: orgTablesList.length,
     };
