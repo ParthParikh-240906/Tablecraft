@@ -3,23 +3,66 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useTableRealtime, type TableStatus, type TableRow } from "@/lib/realtime";
 import { createClient } from "@/lib/supabase/client";
+import { useConsoleTheme } from "../theme-wrapper";
 
-const STATUS_BADGE: Record<TableStatus, { label: string; style: string }> = {
-  open: {
-    label: "Open",
-    style: "bg-emerald-950/60 text-emerald-300 border-emerald-800",
-  },
-  occupied: {
-    label: "Occupied",
-    style: "bg-red-950/60 text-red-300 border-red-800",
-  },
-  reserved: {
-    label: "Reserved",
-    style: "bg-amber-950/60 text-amber-300 border-amber-800",
-  },
-};
+function statusBadgeStyle(status: TableStatus, theme: "dark" | "light"): string {
+  if (theme === "light") {
+    switch (status) {
+      case "open": return "bg-emerald-600 text-white border-emerald-600";
+      case "occupied": return "bg-red-600 text-white border-red-600";
+      case "reserved": return "bg-amber-500 text-white border-amber-500";
+    }
+  }
+  switch (status) {
+    case "open": return "bg-emerald-950/60 text-emerald-300 border-emerald-800";
+    case "occupied": return "bg-red-950/60 text-red-300 border-red-800";
+    case "reserved": return "bg-amber-950/60 text-amber-300 border-amber-800";
+  }
+}
+
+function tableTypeBadgeStyle(type: "movable" | "non-movable", theme: "dark" | "light"): string {
+  if (theme === "light") {
+    return type === "movable"
+      ? "bg-violet-600 text-white border-violet-600"
+      : "bg-slate-600 text-white border-slate-600";
+  }
+  return type === "movable"
+    ? "bg-violet-950/50 text-violet-300 border-violet-700"
+    : "bg-slate-950/50 text-slate-400 border-slate-700";
+}
+
+function statusBtnStyle(status: TableStatus, current: TableStatus, theme: "dark" | "light"): string {
+  const isActive = current === status;
+  if (theme === "light") {
+    if (isActive) {
+      switch (status) {
+        case "open": return "bg-emerald-600 text-white border-emerald-600 font-semibold";
+        case "occupied": return "bg-red-600 text-white border-red-600 font-semibold";
+        case "reserved": return "bg-amber-500 text-white border-amber-500 font-semibold";
+      }
+    }
+    switch (status) {
+      case "open": return "border border-emerald-300 text-emerald-700 hover:bg-emerald-50";
+      case "occupied": return "border border-red-300 text-red-600 hover:bg-red-50";
+      case "reserved": return "border border-amber-300 text-amber-700 hover:bg-amber-50";
+    }
+  }
+  if (isActive) {
+    switch (status) {
+      case "open": return "bg-emerald-900/50 text-emerald-300 border-emerald-700 shadow-inner font-semibold";
+      case "occupied": return "bg-red-900/50 text-red-300 border-red-700 shadow-inner font-semibold";
+      case "reserved": return "bg-amber-900/50 text-amber-300 border-amber-700 shadow-inner font-semibold";
+    }
+  }
+  switch (status) {
+    case "open": return "border-[var(--rule)] text-[var(--ink-soft)] hover:bg-emerald-950/20 hover:text-emerald-300";
+    case "occupied": return "border-[var(--rule)] text-[var(--ink-soft)] hover:bg-red-950/20 hover:text-red-300";
+    case "reserved": return "border-[var(--rule)] text-[var(--ink-soft)] hover:bg-amber-950/20 hover:text-amber-300";
+  }
+}
 
 export function TableGrid({ orgId }: { orgId: string }) {
+  const { theme } = useConsoleTheme();
   const { tables, connected, setTablesState, connectError } = useTableRealtime(orgId);
   const [updating, setUpdating] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -308,7 +351,6 @@ export function TableGrid({ orgId }: { orgId: string }) {
         {sorted.map((t) => {
           const derived = getDerivedStatus(t);
           const effectiveStatus = derived.status;
-          const badge = STATUS_BADGE[effectiveStatus];
           const isUpdating = updating === t.id;
 
             return (
@@ -320,18 +362,14 @@ export function TableGrid({ orgId }: { orgId: string }) {
             <div className="flex items-center justify-between">
               <span className="font-display text-lg text-[var(--ink)]">{t.label}</span>
               <span
-                className={`text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm border ${badge.style}`}
+                className={`text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm border ${statusBadgeStyle(effectiveStatus, theme)}`}
               >
-                {badge.label}
+                {effectiveStatus === "open" ? "Open" : effectiveStatus === "occupied" ? "Occupied" : "Reserved"}
               </span>
             </div>
             <p className="text-xs text-[var(--ink-faint)] mt-1">
               Seats {t.capacity} {t.capacity === 1 ? "guest" : "guests"}
-              <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-sm border ${
-                t.table_type === "movable"
-                  ? "bg-violet-950/50 text-violet-300 border-violet-700"
-                  : "bg-slate-950/50 text-slate-400 border-slate-700"
-              }`}>
+              <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-sm border ${tableTypeBadgeStyle(t.table_type ?? "non-movable", theme)}`}>
                 {t.table_type === "movable" ? "Movable" : "Non-Movable"}
               </span>
             </p>
@@ -346,11 +384,7 @@ export function TableGrid({ orgId }: { orgId: string }) {
                       type="button"
                       disabled={isUpdating || t.status === "open"}
                       onClick={() => setTableStatus(t.id, "open")}
-                      className={`text-xs py-1 px-1.5 text-center font-medium rounded-sm border transition-colors ${
-                        t.status === "open"
-                          ? "bg-emerald-900/50 text-emerald-300 border-emerald-700 shadow-inner"
-                          : "border-[var(--rule)] text-[var(--ink-soft)] hover:bg-emerald-950/20 hover:text-emerald-300"
-                      }`}
+                      className={`text-xs py-1 px-1.5 text-center font-medium rounded-sm border transition-colors ${statusBtnStyle("open", t.status, theme)}`}
                     >
                       Open
                     </button>
@@ -358,11 +392,7 @@ export function TableGrid({ orgId }: { orgId: string }) {
                       type="button"
                       disabled={isUpdating || t.status === "occupied"}
                       onClick={() => setTableStatus(t.id, "occupied")}
-                      className={`text-xs py-1 px-1.5 text-center font-medium rounded-sm border transition-colors ${
-                        t.status === "occupied"
-                          ? "bg-red-900/50 text-red-300 border-red-700 shadow-inner"
-                          : "border-[var(--rule)] text-[var(--ink-soft)] hover:bg-red-950/20 hover:text-red-300"
-                      }`}
+                      className={`text-xs py-1 px-1.5 text-center font-medium rounded-sm border transition-colors ${statusBtnStyle("occupied", t.status, theme)}`}
                     >
                       Occupied
                     </button>
@@ -370,11 +400,7 @@ export function TableGrid({ orgId }: { orgId: string }) {
                       type="button"
                       disabled={isUpdating || t.status === "reserved"}
                       onClick={() => setTableStatus(t.id, "reserved")}
-                      className={`text-xs py-1 px-1.5 text-center font-medium rounded-sm border transition-colors ${
-                        t.status === "reserved"
-                          ? "bg-amber-900/50 text-amber-300 border-amber-700 shadow-inner"
-                          : "border-[var(--rule)] text-[var(--ink-soft)] hover:bg-amber-950/20 hover:text-amber-300"
-                      }`}
+                      className={`text-xs py-1 px-1.5 text-center font-medium rounded-sm border transition-colors ${statusBtnStyle("reserved", t.status, theme)}`}
                     >
                       Reserved
                     </button>

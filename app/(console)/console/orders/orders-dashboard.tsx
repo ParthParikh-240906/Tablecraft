@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useConsoleTheme } from "../theme-wrapper";
 import type { OrderRecord, OrderItem } from "./orders-list";
 
 interface OrdersDashboardProps {
@@ -11,6 +12,7 @@ interface OrdersDashboardProps {
 }
 
 export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboardProps) {
+  const { theme } = useConsoleTheme();
   const [orders, setOrders] = useState<OrderRecord[]>(
     initialOrders.filter((o) => o.status !== "paid" && o.status !== "cancelled"),
   );
@@ -85,10 +87,10 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
 
   // Status color classes
   const statusCls: Record<string, string> = {
-    pending: "bg-amber-500/15 text-amber-500 border-amber-500/30",
-    preparing: "bg-blue-500/15 text-blue-500 border-blue-500/30",
-    ready: "bg-purple-500/15 text-purple-400 border-purple-500/30",
-    completed: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    pending: "bg-amber-600/12 text-amber-700 border-amber-600/25",
+    preparing: "bg-blue-600/12 text-blue-700 border-blue-600/25",
+    ready: "bg-purple-600/12 text-purple-700 border-purple-600/25",
+    completed: "bg-emerald-600/12 text-emerald-700 border-emerald-600/25",
   };
   const statusLabel: Record<string, string> = {
     pending: "Pending",
@@ -106,7 +108,7 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
     const cleanName = order.customer_name.replace(/\s+Edit$/, "");
     const label = cleanName.replace(/^Table\s+/i, "");
     const total = Number(order.total).toFixed(2);
-    const sc = statusCls[order.status] ?? "bg-gray-500/15 text-gray-400 border-gray-500/30";
+    const sc = statusCls[order.status] ?? "bg-gray-600/12 text-gray-700 border-gray-600/25";
     const sl = statusLabel[order.status] ?? order.status;
 
     const actionsRow = () => {
@@ -164,10 +166,10 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
     };
 
     return (
-      <div key={order.id} className={`flex flex-row items-stretch gap-4 p-4 border rounded-md shadow-xs ${
+      <div key={order.id} className={`flex flex-row items-stretch gap-4 p-4 ${
         isExtra
-          ? "border-[var(--rule)] bg-[var(--paper)] ml-4 mt-1"
-          : "border-[var(--rule)] bg-[var(--paper-raised)]"
+          ? `border rounded-md ${theme === "light" ? "ticket--light ml-4 mt-1" : "shadow-xs"} border-[var(--rule)] bg-[var(--paper)]`
+          : `border rounded-md ${theme === "light" ? "ticket--light shadow-xs" : "shadow-xs"} border-[var(--rule)] bg-[var(--paper-raised)]`
       }`}>
         {/* Left: name → items → price */}
         <div className="flex-1 min-w-0 flex flex-col gap-2">
@@ -211,7 +213,7 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
   return (
     <div className="space-y-3">
       {groups.size === 0 ? (
-        <div className="ticket p-8 text-center text-[var(--ink-soft)] border border-[var(--rule)] bg-[var(--paper-raised)]">
+        <div className={`${theme === "light" ? "ticket--light p-8" : "ticket p-8"} text-center text-[var(--ink-soft)]`}>
           <p className="font-display text-base mb-1">No active orders</p>
           <p className="text-xs text-[var(--ink-faint)]">New dine-in orders will appear here automatically.</p>
         </div>

@@ -6,6 +6,7 @@ import { useOrdersRealtime } from "@/lib/orders-realtime";
 import { AddOrderModal } from "./add-order-modal";
 import { EditOrderModal } from "./edit-order-modal";
 import { OrdersDashboard } from "./orders-dashboard";
+import { useConsoleTheme } from "../theme-wrapper";
 
 export interface OrderItem {
   id: string;
@@ -44,6 +45,7 @@ export function OrdersList({
   orgId: string;
   initialOrders: OrderRecord[];
 }) {
+  const { theme } = useConsoleTheme();
   const [orders, setOrders] = useState<OrderRecord[]>(initialOrders);
   const [filter, setFilter] = useState<FilterKey>("dashboard");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -118,17 +120,17 @@ export function OrdersList({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "paid":
-        return <span className="status-badge bg-green-500/10 text-green-700 border border-green-500/20">Paid</span>;
+        return <span className="status-badge bg-green-600/12 text-green-700 border border-green-600/25">Paid</span>;
       case "preparing":
-        return <span className="status-badge bg-amber-500/10 text-amber-700 border border-amber-500/20">Preparing</span>;
+        return <span className="status-badge bg-amber-600/12 text-amber-700 border border-amber-600/25">Preparing</span>;
       case "ready":
-        return <span className="status-badge bg-blue-500/10 text-blue-700 border border-blue-500/20">Ready for Pickup</span>;
+        return <span className="status-badge bg-blue-600/12 text-blue-700 border border-blue-600/25">Ready for Pickup</span>;
       case "completed":
-        return <span className="status-badge bg-purple-500/10 text-purple-700 border border-purple-500/20">Completed</span>;
+        return <span className="status-badge bg-purple-600/12 text-purple-700 border border-purple-600/25">Completed</span>;
       case "cancelled":
-        return <span className="status-badge bg-red-500/10 text-red-700 border border-red-500/20">Cancelled</span>;
+        return <span className="status-badge bg-red-600/12 text-red-700 border border-red-600/25">Cancelled</span>;
       default:
-        return <span className="status-badge bg-gray-500/10 text-gray-700 border border-gray-500/20">{status}</span>;
+        return <span className="status-badge bg-gray-600/12 text-gray-700 border border-gray-600/25">{status}</span>;
     }
   };
 
@@ -138,7 +140,7 @@ export function OrdersList({
     return (
       <>
         {filteredOrders.length === 0 ? (
-          <div className="ticket p-12 text-center text-[var(--ink-soft)]">
+          <div className={["ticket", "p-12", "text-center", "text-[var(--ink-soft)]"].join(" ")}>
             <p className="font-display text-lg mb-1">No orders found</p>
             <p className="text-xs">No {filter} orders.</p>
           </div>
@@ -158,7 +160,11 @@ export function OrdersList({
               return (
                 <div
                   key={order.id}
-                  className="ticket p-5 flex flex-col justify-between space-y-4 border border-[var(--rule)] bg-[var(--paper-raised)]"
+                  className={[
+                    theme === "light" ? "ticket--light" : "ticket",
+                    "p-5", "flex", "flex-col", "justify-between", "space-y-4",
+                    "border", "border-[var(--rule)]", "bg-[var(--paper-raised)]", "shadow-xs"
+                  ].join(" ")}
                 >
                   <div>
                     <div className="flex items-start justify-between gap-3 mb-3">
@@ -166,8 +172,8 @@ export function OrdersList({
                         <div className="flex items-center gap-2 mb-1">
                           <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                             isTable
-                              ? "bg-amber-500/15 text-amber-700 border border-amber-500/30"
-                              : "bg-blue-500/15 text-blue-700 border border-blue-500/30"
+                              ? "bg-amber-600/15 text-amber-700 border border-amber-600/30"
+                              : "bg-blue-600/15 text-blue-700 border border-blue-600/30"
                           }`}>
                             {isTable ? "🍽️ Dine-in Table" : "🛍️ Online Order"}
                           </span>

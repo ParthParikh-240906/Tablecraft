@@ -32,14 +32,25 @@ export function ConsoleSidebar({
   const orgIdFromUrl = searchParams.get("org");
   const currentOrg = userOrgs.find((o) => o.id === orgIdFromUrl) || userOrgs[0] || { id: "", name: "Restaurant", slug: "" };
 
-  const isHomeActive = pathname === "/console/design" || pathname.startsWith("/console/design/");
+  const isHomeActive = pathname === "/console";
   const isConfigActive = pathname === "/console/config" || pathname.startsWith("/console/config/");
   const isPricingActive = pathname === "/console/pricing" || pathname.startsWith("/console/pricing/");
+
+  const cardClass = theme === "light"
+    ? "ticket--light p-4 border border-[var(--rule)] bg-[var(--paper-raised)]"
+    : "ticket p-4 border border-[var(--rule)] bg-[var(--paper-raised)]";
+
+  const navCardClass = theme === "light"
+    ? "ticket--light p-2 border border-[var(--rule)] bg-[var(--paper-raised)] space-y-1"
+    : "ticket p-2 border border-[var(--rule)] bg-[var(--paper-raised)] space-y-1";
+
+  const activeLinkClass = "bg-[var(--accent-subtle)] text-[var(--accent)] font-semibold border border-[var(--accent-border)]";
+  const inactiveLinkClass = "text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--paper-overlay)]";
 
   return (
     <aside className="w-full lg:w-64 shrink-0 space-y-6">
       {/* ── Dynamic Title Header ───────────────────────────────────── */}
-      <div className="ticket p-4 border border-[var(--rule)] bg-[var(--paper-raised)]">
+      <div className={cardClass}>
         <div className="flex items-center gap-3">
           {currentOrg.logo_url ? (
             <img
@@ -48,7 +59,7 @@ export function ConsoleSidebar({
               className="w-10 h-10 rounded-full object-cover border border-[var(--rule)] bg-[var(--paper)] shrink-0"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-[var(--accent)]/15 text-[var(--accent)] border border-[var(--accent)]/30 flex items-center justify-center font-display font-bold text-base shrink-0">
+            <div className="w-10 h-10 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent-border)] flex items-center justify-center font-display font-bold text-base shrink-0">
               {currentOrg.name?.[0]?.toUpperCase() ?? "R"}
             </div>
           )}
@@ -64,18 +75,16 @@ export function ConsoleSidebar({
       </div>
 
       {/* ── Main Navigation ────────────────────────────────────────── */}
-      <nav className="ticket p-2 border border-[var(--rule)] bg-[var(--paper-raised)] space-y-1">
+      <nav className={navCardClass}>
         <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest text-[var(--ink-faint)]">
           Navigation
         </div>
 
-        {/* Home Button -> /console/design */}
+        {/* Home Button -> /console */}
         <Link
-          href={`/console/design${orgParam}`}
+          href={`/console${orgParam}`}
           className={`flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium transition-colors ${
-            isHomeActive
-              ? "bg-[var(--accent)]/15 text-[var(--accent)] font-semibold border border-[var(--accent)]/30"
-              : "text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--paper)]"
+            isHomeActive ? activeLinkClass : inactiveLinkClass
           }`}
         >
           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -88,9 +97,7 @@ export function ConsoleSidebar({
         <Link
           href={`/console/config${orgParam}`}
           className={`flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium transition-colors ${
-            isConfigActive
-              ? "bg-[var(--accent)]/15 text-[var(--accent)] font-semibold border border-[var(--accent)]/30"
-              : "text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--paper)]"
+            isConfigActive ? activeLinkClass : inactiveLinkClass
           }`}
         >
           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -104,9 +111,7 @@ export function ConsoleSidebar({
         <Link
           href={`/console/pricing${orgParam}`}
           className={`flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium transition-colors ${
-            isPricingActive
-              ? "bg-[var(--accent)]/15 text-[var(--accent)] font-semibold border border-[var(--accent)]/30"
-              : "text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--paper)]"
+            isPricingActive ? activeLinkClass : inactiveLinkClass
           }`}
         >
           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -117,7 +122,7 @@ export function ConsoleSidebar({
       </nav>
 
       {/* ── Theme Toggle Widget ────────────────────────────────────── */}
-      <div className="ticket p-3 border border-[var(--rule)] bg-[var(--paper-raised)] space-y-2">
+      <div className={cardClass.replace("p-4", "p-3").replace("space-y-", "") + " space-y-2"}>
         <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-[var(--ink-faint)]">
           <span>Theme Mode</span>
           <span className="text-[var(--accent)] font-semibold">{theme === "dark" ? "Dark 🌙" : "Light ☀️"}</span>
@@ -128,7 +133,7 @@ export function ConsoleSidebar({
             onClick={() => setTheme("dark")}
             className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded text-xs font-medium transition-all ${
               theme === "dark"
-                ? "bg-[var(--paper-raised)] text-[var(--ink)] shadow-xs border border-[var(--rule)] font-semibold"
+                ? "bg-[var(--paper-raised)] text-[var(--ink)] shadow-sm border border-[var(--rule)] font-semibold"
                 : "text-[var(--ink-faint)] hover:text-[var(--ink)]"
             }`}
           >
@@ -140,7 +145,7 @@ export function ConsoleSidebar({
             onClick={() => setTheme("light")}
             className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded text-xs font-medium transition-all ${
               theme === "light"
-                ? "bg-[var(--paper-raised)] text-[var(--ink)] shadow-xs border border-[var(--rule)] font-semibold"
+                ? "bg-[var(--paper-raised)] text-[var(--ink)] shadow-sm border border-[var(--rule)] font-semibold"
                 : "text-[var(--ink-faint)] hover:text-[var(--ink)]"
             }`}
           >
@@ -152,7 +157,7 @@ export function ConsoleSidebar({
 
       {/* ── Restaurant Switcher Widget ──────────────────────────────── */}
       {userOrgs.length > 1 && (
-        <div className="ticket p-3 border border-[var(--rule)] bg-[var(--paper-raised)] space-y-2">
+        <div className={cardClass.replace("p-4", "p-3").replace("space-y-", "") + " space-y-2"}>
           <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-[var(--ink-faint)]">
             <span>Switch Restaurant</span>
             <Link href="/console/select" className="text-[var(--accent)] hover:underline text-[10px]">
@@ -168,8 +173,8 @@ export function ConsoleSidebar({
                   href={`/console?org=${org.id}`}
                   className={`flex items-center gap-2.5 px-2.5 py-2 rounded text-xs transition-colors ${
                     isSelected
-                      ? "bg-[var(--accent)]/15 text-[var(--accent)] font-semibold border border-[var(--accent)]/30"
-                      : "text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--paper)] border border-transparent"
+                      ? `${activeLinkClass}`
+                      : `${inactiveLinkClass} border border-transparent`
                   }`}
                 >
                   <div className="w-6 h-6 rounded-full bg-[var(--paper)] flex items-center justify-center text-[10px] font-bold shrink-0 border border-[var(--rule)]">
@@ -185,7 +190,7 @@ export function ConsoleSidebar({
       )}
 
       {/* ── Sidebar Footer (Staff Info) ────────────────────────────── */}
-      <div className="ticket p-3 border border-[var(--rule)] bg-[var(--paper-raised)]">
+      <div className={cardClass.replace("p-4", "p-3")}>
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-mono text-[var(--ink-soft)] truncate">{staffEmail}</p>
