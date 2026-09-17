@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState } from "react";
+import { useOrdersRealtime } from "@/lib/orders-realtime";
+import type { OrderRecord } from "../orders/orders-list";
 
 interface Item {
   id: string;
@@ -19,45 +20,34 @@ interface Order {
   created_at: string;
 }
 
+// Bridge: filter out completed/paid/cancelled for kitchen display
+function filterKitchenOrders(orders: OrderRecord[]): Order[] {
+  return orders
+    .filter((o) => !["completed", "paid", "cancelled"].includes(o.status))
+    .map((o) => ({
+      id: o.id,
+      customer_name: o.customer_name,
+      items: Array.isArray(o.items) ? o.items : [],
+      total: o.total,
+      status: o.status,
+      created_at: o.created_at,
+    }));
+}
+
 export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[]; orgId: string }) {
-  const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const initialOrdersRecord: OrderRecord[] = initialOrders.map((o) => ({
+    id: o.id,
+    customer_name: o.customer_name,
+    total: o.total,
+    status: o.status,
+    created_at: o.created_at,
+    items: o.items,
+  }));
+  const { orders: realtimeOrders, connected } = useOrdersRealtime(orgId, initialOrdersRecord);
+  const orders = filterKitchenOrders(realtimeOrders);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const supabase = createClient();
-
-  // Realtime subscription for new/updated orders in this org
-  useEffect(() => {
-    const channel = supabase
-      .channel("kitchen-orders")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "orders",
-          filter: `org_id=eq.${orgId}`,
-        },
-        (payload) => {
-          const row = payload.new as Order | null;
-          if (!row) return;
-          setOrders((prev) => {
-            // Remove completed, paid, or cancelled orders
-            if (row.status === "completed" || row.status === "paid" || row.status === "cancelled") {
-              return prev.filter((o) => o.id !== row.id);
-            }
-            const exists = prev.some((o) => o.id === row.id);
-            if (exists) {
-              return prev.map((o) => (o.id === row.id ? row : o));
-            }
-            return [...prev, row].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-          });
-        },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgId]);
 
   async function updateStatus(orderId: string, newStatus: string) {
     setUpdatingId(orderId);
@@ -68,9 +58,7 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
         body: JSON.stringify({ orderId, status: newStatus }),
       });
       if (res.ok) {
-        setOrders((prev) =>
-          prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)),
-        );
+        // Hook will pick up the change via realtime/polling
         if (newStatus === "cancelled") {
           setExpandedId(null);
         }
@@ -95,7 +83,7 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
         body: JSON.stringify({ orderId }),
       });
       if (res.ok) {
-        setOrders((prev) => prev.filter((o) => o.id !== orderId));
+        // Hook will pick up the change via realtime/polling
         setExpandedId(null);
       } else {
         const data = await res.json();
@@ -128,11 +116,22 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
       <div className="ticket p-12 text-center text-[var(--ink-soft)]">
         <p className="font-display text-lg mb-1">No open tickets</p>
         <p className="text-xs">Kitchen is quiet — all orders completed.</p>
+        <p className={`text-[10px] mt-2 ${connected ? "text-green-400" : "text-amber-400"}`}>
+          {connected ? "● Live sync" : "◐ Polling…"}
+        </p>
       </div>
     );
   }
 
   return (
+    <div>
+      {/* Connection status bar */}
+      <div className="mb-3 flex items-center gap-2">
+        <span className={`text-[10px] px-2 py-0.5 rounded-full border ${connected ? "bg-green-500/15 text-green-400 border-green-500/30" : "bg-amber-500/15 text-amber-400 border-amber-500/30"}`}>
+          {connected ? "● Live" : "◐ Polling"}
+        </span>
+        <span className="text-[10px] text-[var(--ink-faint)]">{orders.length} open ticket{orders.length > 1 ? "s" : ""}</span>
+      </div>
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {orders.map((order) => {
         const isExpanded = expandedId === order.id;
@@ -153,7 +152,7 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
               {/* Header row */}
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div>
-                  <p className="font-display text-base font-bold text-[var(--ink)]">{order.customer_name}</p>
+                  <p className="font-display text-base font-bold text-[var(--ink)]">{order.customer_name.replace(/^Table\s+/i, "")}</p>
                   <p className="text-[10px] text-[var(--ink-faint)] mt-0.5">{timeStr} &middot; {ageMinutes}m ago</p>
                 </div>
                 {getStatusBadge(order.status)}
@@ -246,6 +245,7 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
           </div>
         );
       })}
+    </div>
     </div>
   );
 }

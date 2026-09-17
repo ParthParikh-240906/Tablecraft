@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     // Look up the order to identify its org_id
     const { data: order, error: orderLookupErr } = await supabase
       .from("orders")
-      .select("id, org_id")
+      .select("id, org_id, customer_name")
       .eq("id", orderId)
       .maybeSingle();
 
@@ -75,6 +75,14 @@ export async function POST(request: Request) {
       .eq("org_id", order.org_id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Append " Edit" to the display name so kitchen shows it as an edit
+    const displayName = order.customer_name.replace(/^Table\s+/i, "");
+    await supabase
+      .from("orders")
+      .update({ customer_name: `${displayName} Edit` })
+      .eq("id", orderId);
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || "Internal server error" }, { status: 500 });

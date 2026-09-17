@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useOrdersRealtime } from "@/lib/orders-realtime";
 import type { OrderRecord } from "./orders/orders-list";
 import { ConsoleOrdersSection } from "./console-orders-section";
 import { BookingActionsList } from "./bookings/booking-actions";
@@ -57,8 +58,10 @@ export default function DashboardClient({
     initialBookings,
     initialOrders,
   ));
-  const [orders, setOrders] = useState<OrderRecord[]>(initialOrders);
   const [todayDateStr, setTodayDateStr] = useState(todayDate);
+
+  // Orders realtime (with polling fallback)
+  const { orders, connected: ordersConnected } = useOrdersRealtime(orgId, initialOrders);
 
   // ── Recalculate stats from current tables & bookings ──
   function calculateStats(
@@ -101,7 +104,9 @@ export default function DashboardClient({
       availableTables,
       totalAvailableSeats,
       bookedToday,
-      liveOrderCount: orders.length,
+      liveOrderCount: orders.filter(
+        (o) => o.status !== "paid" && o.status !== "cancelled" && o.status !== "completed",
+      ).length,
     };
   }
 
@@ -137,11 +142,9 @@ export default function DashboardClient({
 
     const freshTables = (tables ?? []) as TableInfo[];
     const freshBookings = (bookings ?? []) as BookingInfo[];
-    const freshOrders = (orderData ?? []) as OrderRecord[];
-
-    setOrders(freshOrders);
-    setStats(calculateStats(freshTables, freshBookings, freshOrders));
-  }, [orgId, supabase]);
+    // Note: orders are updated via useOrdersRealtime hook, not here
+    setStats(calculateStats(freshTables, freshBookings, orders));
+  }, [orgId, supabase, orders]);
 
   // ── Realtime subscriptions ──
   useEffect(() => {
@@ -163,35 +166,16 @@ export default function DashboardClient({
       )
       .subscribe();
 
-    const ordersChannel = supabase
-      .channel(`dashboard-orders-${orgId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders", filter: `org_id=eq.${orgId}` },
-        (payload) => {
-          const row = payload.new as OrderRecord | null;
-          if (!row) return;
-          setOrders((prev) => {
-            // Remove completed/paid/cancelled orders from dashboard view
-            if (row.status === "paid" || row.status === "cancelled" || row.status === "completed") {
-              return prev.filter((o) => o.id !== row.id);
-            }
-            const exists = prev.some((o) => o.id === row.id);
-            if (exists) {
-              return prev.map((o) => (o.id === row.id ? row : o));
-            }
-            return [...prev, row].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-          });
-        },
-      )
-      .subscribe();
-
     return () => {
       supabase.removeChannel(bookingsChannel);
       supabase.removeChannel(tablesChannel);
-      supabase.removeChannel(ordersChannel);
     };
   }, [orgId, supabase, refreshAll]);
+
+  // Recalculate stats whenever orders update via realtime/polling
+  useEffect(() => {
+    refreshAll();
+  }, [orders, refreshAll]);
 
   // ── Rebuild today bookinigs data for BookingActionsList ──
   const now = new Date();

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useOrdersRealtime } from "@/lib/orders-realtime";
 import { AddOrderModal } from "./add-order-modal";
 import { EditOrderModal } from "./edit-order-modal";
 import { OrdersDashboard } from "./orders-dashboard";
@@ -51,28 +52,13 @@ export function OrdersList({
 
   const supabase = createClient();
 
-  // Realtime subscription to keep orders list in sync across all clients
-  useEffect(() => {
-    const channel = supabase
-      .channel(`orders-list-${orgId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders", filter: `org_id=eq.${orgId}` },
-        () => {
-          supabase
-            .from("orders")
-            .select("id, customer_name, total, status, created_at, stripe_session_id, items")
-            .eq("org_id", orgId)
-            .order("created_at", { ascending: false })
-            .then(({ data }) => setOrders(data ?? []));
-        },
-      )
-      .subscribe();
+  // Orders realtime (with polling fallback)
+  const { orders: realtimeOrders } = useOrdersRealtime(orgId, initialOrders);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [orgId, supabase]);
+  // Sync hook orders into local state for filter-dependent logic
+  useEffect(() => {
+    setOrders(realtimeOrders);
+  }, [realtimeOrders]);
 
   async function updateStatus(orderId: string, newStatus: string) {
     setUpdatingId(orderId);
@@ -158,7 +144,7 @@ export function OrdersList({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredOrders.map((order) => {
-              const isTable = order.customer_name.startsWith("Table ");
+              const isTable = /^Table\s+/i.test(order.customer_name);
               const itemsList: OrderItem[] = Array.isArray(order.items) ? order.items : [];
               const timeAgo = new Date(order.created_at).toLocaleTimeString([], {
                 hour: "2-digit",

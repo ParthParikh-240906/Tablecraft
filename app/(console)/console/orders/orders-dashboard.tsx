@@ -101,7 +101,7 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
 
   function renderCard(order: OrderRecord) {
     const items: OrderItem[] = Array.isArray(order.items) ? order.items : [];
-    const label = order.customer_name; // e.g. "Table 1, 2, 3"
+    const label = order.customer_name.replace(/^Table\s+/i, "");
     const total = Number(order.total).toFixed(2);
     const sc = statusCls[order.status] ?? "bg-gray-500/15 text-gray-400 border-gray-500/30";
     const sl = statusLabel[order.status] ?? order.status;
@@ -148,45 +148,29 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
     };
 
     return (
-      <div key={order.id} className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 p-4 border border-[var(--rule)] bg-[var(--paper-raised)] rounded-md shadow-xs">
-        {/* Left: Table Identifier & Total */}
-        <div className="flex-shrink-0 sm:w-36 flex sm:flex-col justify-between sm:justify-center items-start">
-          <div>
-            <p className="text-sm font-bold text-[var(--ink)] leading-snug break-words">{label}</p>
-            <p className="text-[10px] font-mono text-[var(--ink-faint)] mt-0.5">#{order.id.slice(0, 8)}</p>
+      <div key={order.id} className="flex flex-row items-stretch gap-4 p-4 border border-[var(--rule)] bg-[var(--paper-raised)] rounded-md shadow-xs">
+        {/* Left: name → items → price */}
+        <div className="flex-1 min-w-0 flex flex-col gap-2">
+          <p className="text-sm font-bold text-[var(--ink)] leading-snug break-words">{label}</p>
+          <div className="space-y-1 text-xs text-[var(--ink-soft)]">
+            {items.map((item, i) => (
+              <p key={i}>
+                <span className="text-[var(--accent)] font-mono font-bold">{item.quantity}x</span>{" "}
+                <span className="text-[var(--ink)]">{item.name}</span>
+              </p>
+            ))}
           </div>
-          <p className="font-mono text-xs font-semibold text-[var(--accent)] mt-1">
+          <p className="font-mono text-xs font-semibold text-[var(--accent)] mt-auto">
             AED {total}
           </p>
         </div>
 
-        {/* Divider for desktop */}
-        <div className="hidden sm:block w-px self-stretch bg-[var(--rule)] flex-shrink-0" />
-
-        {/* Middle: Dish Item Capsules (Fluid & Wrapped cleanly) */}
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-1.5 max-h-28 overflow-y-auto pr-1">
-            {items.map((item, i) => (
-              <span
-                key={i}
-                className="inline-flex items-start gap-1.5 text-xs px-2.5 py-1 rounded bg-[var(--paper)] border border-[var(--rule)] text-[var(--ink-soft)] font-medium"
-              >
-                <span className="text-[var(--accent)] font-mono font-bold flex-shrink-0">{item.quantity}x</span>
-                <span className="text-[var(--ink)]">{item.name}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Divider for desktop */}
-        <div className="hidden sm:block w-px self-stretch bg-[var(--rule)] flex-shrink-0" />
-
-        {/* Right: Status Badge & Actions */}
-        <div className="flex-shrink-0 sm:min-w-[150px] flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-[var(--rule)]">
+        {/* Right: status + actions */}
+        <div className="flex-shrink-0 flex flex-col items-end gap-2 pt-1 min-w-[120px]">
           <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${sc}`}>
             {sl}
           </span>
-          {actionsRow()}
+          <div className="mt-auto">{actionsRow()}</div>
         </div>
       </div>
     );
