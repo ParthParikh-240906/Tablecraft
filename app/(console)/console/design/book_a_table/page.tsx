@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { BookATablePanel } from "./book-a-table-panel";
+export const dynamic = "force-dynamic";
 
 export default async function ConsoleDesignBookATablePage({
   searchParams,
@@ -32,7 +33,7 @@ export default async function ConsoleDesignBookATablePage({
       <p className="text-sm text-[var(--ink-soft)] mb-6">
         Style the public booking page — headings, labels, and the submit button.
       </p>
-      <BookATablePanel
+      <BookATablePanel key={orgId}
         orgId={orgId}
         orgName={data.orgName}
         initialSettings={data.settings}

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveOrgId } from "@/lib/org";
 import { PricingClient, type OrgMetricData } from "./pricing-client";
+export const dynamic = "force-dynamic";
 
 export default async function ConsolePricingPage({
   searchParams,

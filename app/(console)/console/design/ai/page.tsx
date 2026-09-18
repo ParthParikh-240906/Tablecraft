@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { AiPanel } from "./ai-panel";
+export const dynamic = "force-dynamic";
 
 export default async function ConsoleDesignAiPage({
   searchParams,
@@ -32,7 +33,7 @@ export default async function ConsoleDesignAiPage({
       <p className="text-sm text-[var(--ink-soft)] mb-6">
         Generate AI images and configure the AI chatbot for your restaurant site.
       </p>
-      <AiPanel
+      <AiPanel key={orgId}
         orgId={orgId}
         initialSettings={data.settings}
         orgName={data.orgName}

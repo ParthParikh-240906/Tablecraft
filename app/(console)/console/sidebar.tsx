@@ -173,7 +173,7 @@ export function ConsoleSidebar({
               return (
                 <Link
                   key={org.id}
-                  href={`/console?org=${org.id}`}
+                  href={`${pathname}${activeOrgParam.replace(/org=[^&]*/, `org=${org.id}`) || `?org=${org.id}`}`}
                   className={`flex items-center gap-2.5 px-2.5 py-2 rounded text-xs transition-colors ${
                     isSelected
                       ? `${activeLinkClass}`

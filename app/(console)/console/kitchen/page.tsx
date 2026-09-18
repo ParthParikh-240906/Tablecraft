@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import { KitchenQueue } from "./kitchen-queue";
+export const dynamic = "force-dynamic";
 
 interface KitchenOrder {
   id: string;

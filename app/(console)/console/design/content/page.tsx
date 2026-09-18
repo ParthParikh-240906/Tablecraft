@@ -4,6 +4,7 @@ import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { buildDefaultContentElements } from "@/lib/design";
 import { ContentPanel } from "./content-panel";
+export const dynamic = "force-dynamic";
 
 export default async function ConsoleDesignContentPage({
   searchParams,
@@ -51,7 +52,7 @@ export default async function ConsoleDesignContentPage({
       <p className="text-sm text-[var(--ink-soft)] mb-6">
         About us, paragraphs, location and contact.
       </p>
-      <ContentPanel
+      <ContentPanel key={orgId}
         orgId={orgId}
         orgName={data.orgName}
         initialSettings={settings}

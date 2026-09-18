@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { CanvasPanel } from "./canvas-panel";
+export const dynamic = "force-dynamic";
 
 export default async function ConsoleDesignPage({
   searchParams,
@@ -32,7 +33,7 @@ export default async function ConsoleDesignPage({
         Header, page colors, and the layer canvas. Hero content, content
         sections, and AI images live on their own pages.
       </p>
-      <CanvasPanel
+      <CanvasPanel key={orgId}
         orgId={orgId}
         orgName={data.orgName}
         initialSettings={data.settings}

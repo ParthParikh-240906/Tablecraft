@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import { TableGrid } from "./table-grid";
+export const dynamic = "force-dynamic";
 
 export default async function TablesPage({
   searchParams,

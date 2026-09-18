@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveOrgId, getDesignData } from "@/lib/org";
 import { ConfigPanel } from "./config-panel";
+export const dynamic = "force-dynamic";
 
 export default async function ConsoleConfigPage({
   searchParams,

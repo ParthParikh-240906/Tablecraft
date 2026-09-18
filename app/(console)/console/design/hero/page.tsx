@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { HeroPanel } from "./hero-panel";
+export const dynamic = "force-dynamic";
 
 export default async function ConsoleDesignHeroPage({
   searchParams,
@@ -32,7 +33,7 @@ export default async function ConsoleDesignHeroPage({
       <p className="text-sm text-[var(--ink-soft)] mb-6">
         Hero background and the text/logo elements that sit on top of it.
       </p>
-      <HeroPanel
+      <HeroPanel key={orgId}
         orgId={orgId}
         orgName={data.orgName}
         initialSettings={data.settings}

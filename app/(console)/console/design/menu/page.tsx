@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { MenuPagePanel } from "./menu-page-panel";
+export const dynamic = "force-dynamic";
 
 export default async function ConsoleDesignMenuPage({
   searchParams,
@@ -31,7 +32,7 @@ export default async function ConsoleDesignMenuPage({
       <p className="text-sm text-[var(--ink-soft)] mb-6">
         Style the public menu page — headings, categories, and items.
       </p>
-      <MenuPagePanel
+      <MenuPagePanel key={orgId}
         orgId={orgId}
         orgName={data.orgName}
         initialSettings={data.settings}

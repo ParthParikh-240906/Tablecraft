@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import { BookingActionsList } from "./booking-actions";
+export const dynamic = "force-dynamic";
 
 export default async function BookingsPage({
   searchParams,

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import DashboardClient from "./dashboard-client";
+export const dynamic = "force-dynamic";
 
 /**
  * Dashboard landing page for the operator console.
