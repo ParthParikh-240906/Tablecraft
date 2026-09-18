@@ -26,6 +26,29 @@ export default async function ConsoleConfigPage({
     redirect("/console/login");
   }
 
+  // Staff-only guard
+  const staffAdmin = createAdminClient();
+  const { data: staffRows } = await staffAdmin
+    .from("staff_users")
+    .select("role")
+    .eq("auth_user_id", user.id)
+    .eq("org_id", orgId)
+    .single();
+
+  if (staffRows?.role !== 'owner') {
+    const orgParam = orgId ? `?org=${orgId}` : "";
+    redirect(`/console${orgParam}`);
+  }
+
+  // Fetch owner and staff emails for the account sections
+  const { data: accountRows } = await staffAdmin
+    .from("staff_users")
+    .select("role, email")
+    .eq("org_id", orgId);
+
+  const ownerEmail = (accountRows ?? []).find((r: any) => r.role === "owner")?.email ?? "";
+  const staffEmail = (accountRows ?? []).find((r: any) => r.role === "staff")?.email ?? "";
+
   const data = await getDesignData(orgId);
   if (!data) {
     redirect("/console");
@@ -51,6 +74,8 @@ export default async function ConsoleConfigPage({
       orgName={data.org.name}
       initialSettings={data.settings}
       userOrgs={userOrgs as any}
+      ownerEmail={ownerEmail}
+      staffEmail={staffEmail}
     />
   );
 }

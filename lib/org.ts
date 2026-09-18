@@ -34,6 +34,15 @@ export async function getActiveStaffRow(
   const rows = staffRows ?? [];
   if (rows.length === 0) return null;
 
+  // Build a lookup of all org IDs + slugs this user has rows for.
+  const orgSet = new Set<string>();
+  for (const r of rows) {
+    const o = Array.isArray(r.organizations) ? (r.organizations as any[])[0] : r.organizations;
+    if (r.org_id) orgSet.add(r.org_id);
+    if (o?.id) orgSet.add(o.id);
+    if (o?.slug) orgSet.add(o.slug);
+  }
+
   // URL param takes priority over the cookie — this lets each tab
   // independently select its org even when the cookie is shared across tabs.
   const cookieStore = await cookies();
@@ -47,9 +56,16 @@ export async function getActiveStaffRow(
     const matched = rows.find((r: any) => {
       const orgData = Array.isArray(r.organizations) ? (r.organizations as any[])[0] : r.organizations;
       const orgId = r.org_id ?? orgData?.id;
-      return orgId === selectedOrgId || orgData?.slug === selectedOrgId;
+      const orgSlug = orgData?.slug;
+      // UUID match on org_id or direct slug match
+      return orgId === selectedOrgId || orgSlug === selectedOrgId;
     });
-    if (matched) selected = matched;
+    // Only accept the selection if it's a real org for this user.
+    // This prevents a stale selected_org cookie (left from a different
+    // restaurant session) from hijacking the active org.
+    if (matched && orgSet.has(selectedOrgId)) {
+      selected = matched;
+    }
   }
 
   return {
@@ -236,3 +252,40 @@ export async function getMenuByOrg(orgId: string) {
     items,
   }));
 }
+/**
+ * Resolve a ?org= value (UUID or slug) to a UUID, scoped to a specific user.
+ *
+ * Returns null when the value is present but not authorized for this user,
+ * so the caller can fall back to the default org.
+ */
+export async function resolveOrgIdForUser(
+  userId: string,
+  value: string | undefined | null,
+): Promise<string | null> {
+  if (!value) return null;
+  const isUUID = (s: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+
+  if (isUUID(value)) {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("staff_users")
+      .select("org_id")
+      .eq("auth_user_id", userId)
+      .eq("org_id", value)
+      .single();
+    return data?.org_id ?? null;
+  }
+
+  const org = await getOrgBySlug(value);
+  if (!org) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("staff_users")
+    .select("org_id")
+    .eq("auth_user_id", userId)
+    .eq("org_id", org.id)
+    .single();
+  return data?.org_id ?? null;
+}
+

@@ -3,11 +3,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getActiveStaffRow, getOrgBySlug } from "@/lib/org";
+import { getActiveStaffRow, getOrgBySlug, resolveOrgIdForUser } from "@/lib/org";
 import { LogoutButton } from "./logout-button";
 import { ConsoleThemeWrapper } from "./theme-wrapper";
 import { ConsoleSidebar } from "./sidebar";
 import { HeaderOrg } from "./header-org";
+import { HeaderNav } from "./header-nav";
 
 // Force per-request rendering so the header/sidebar reflect the current ?org=
 // param. Without this, the layout is cached as part of the App Shell and
@@ -41,20 +42,23 @@ export default async function ConsoleLayout({
     redirect("/console/login");
   }
 
-  // Resolve org in priority order: URL param > middleware header > cookie > default
+  // Resolve org in priority order: URL param > middleware header > cookie > default.
+  // resolveOrgIdForUser accepts either a UUID or a slug, validates ownership,
+  // and returns null (fallthrough) when the value isn't authorized for this user.
   let resolvedOrgId: string | undefined;
   const urlOrgParam = params.org || null;
   if (urlOrgParam) {
-    resolvedOrgId = urlOrgParam;
-  } else {
+    resolvedOrgId = (await resolveOrgIdForUser(user.id, urlOrgParam)) || undefined;
+  }
+  if (!resolvedOrgId) {
     const headerList = await headers();
     const headerOrg = headerList.get("x-console-selected-org") || null;
-    if (headerOrg && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(headerOrg)) {
-      resolvedOrgId = headerOrg;
-    } else {
-      const cookieStore = await cookies();
-      resolvedOrgId = cookieStore.get("selected_org")?.value || undefined;
-    }
+    resolvedOrgId = headerOrg ? (await resolveOrgIdForUser(user.id, headerOrg)) || undefined : undefined;
+  }
+  if (!resolvedOrgId) {
+    const cookieStore = await cookies();
+    const cookieVal = cookieStore.get("selected_org")?.value || null;
+    resolvedOrgId = cookieVal ? (await resolveOrgIdForUser(user.id, cookieVal)) || undefined : undefined;
   }
 
   const result = await getActiveStaffRow(user.id, resolvedOrgId);
@@ -83,6 +87,7 @@ export default async function ConsoleLayout({
   }
 
   const { staff: staffRow } = result;
+  const isOwner = staffRow.role === 'owner';
 
   // Fetch all orgs linked to this user for the restaurant switcher
   const admin = createAdminClient();
@@ -119,39 +124,19 @@ export default async function ConsoleLayout({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-4 text-sm">
-            <nav className="flex items-center gap-3">
-              <Link href={`/console${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-                Dashboard
-              </Link>
-              <Link href={`/console/tables${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-                Tables
-              </Link>
-              <Link href={`/console/bookings${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-                Bookings
-              </Link>
-              <Link href={`/console/orders${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-                Orders
-              </Link>
-              <Link href={`/console/kitchen${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-                Kitchen
-              </Link>
-              <Link href={`/console/menu${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-                Menu
-              </Link>
-              <Link href={`/console/design${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-                Design
-              </Link>
-              <span className="text-[var(--rule)]">|</span>
-              {org?.slug && (
-                <Link href={`/${org.slug}`} className="text-[var(--accent)] hover:underline font-medium">
-                  Public Storefront →
-                </Link>
-              )}
-            </nav>
+            <HeaderNav
+              isOwner={isOwner}
+              userOrgs={userOrgs.filter((o): o is NonNullable<typeof o> => !!o)}
+              fallbackSlug={org?.slug ?? ""}
+            />
             <div className="flex items-center gap-3 border-l border-[var(--rule)] pl-4">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-[var(--ink-faint)] hidden sm:inline">{staffRow.email}</span>
-                <span className="px-2 py-0.5 rounded-sm border border-[var(--rule)] text-[10px] font-medium uppercase tracking-wider text-[var(--ink-soft)]">
+                <span className={`px-2 py-0.5 rounded-sm border text-[10px] font-medium uppercase tracking-wider ${
+                  staffRow.role === 'owner'
+                    ? 'border-[var(--accent-border)] text-[var(--accent)] bg-[var(--accent-subtle)]'
+                    : 'border-[var(--rule)] text-[var(--ink-soft)]'
+                }`}>
                   {staffRow.role}
                 </span>
               </div>
@@ -162,13 +147,15 @@ export default async function ConsoleLayout({
       </header>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex flex-col lg:flex-row gap-8 items-start">
-          <ConsoleSidebar
-            staffEmail={staffRow.email}
-            staffRole={staffRow.role}
-            userOrgs={userOrgs as any}
-            activeOrgId={activeOrgId}
-          />
+        <div className={`flex flex-col lg:flex-row gap-8 items-start ${isOwner ? '' : 'lg:pl-0'}`}>
+          {isOwner && (
+            <ConsoleSidebar
+              staffEmail={staffRow.email}
+              staffRole={staffRow.role}
+              userOrgs={userOrgs as any}
+              activeOrgId={activeOrgId}
+            />
+          )}
           <div className="ticket flex-1 w-full rounded-sm border border-[var(--rule)] bg-[var(--paper-raised)] overflow-hidden">
             <main className="px-4 sm:px-6 py-6">{children}</main>
           </div>

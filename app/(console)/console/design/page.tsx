@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { CanvasPanel } from "./canvas-panel";
@@ -20,6 +21,20 @@ export default async function ConsoleDesignPage({
   const orgId = await getActiveOrgId(user.id, params.org) ?? "";
 
   if (!orgId) return null;
+
+  // Staff-only guard
+  const admin = createAdminClient();
+  const { data: staffRows } = await admin
+    .from("staff_users")
+    .select("role")
+    .eq("auth_user_id", user.id)
+    .eq("org_id", orgId)
+    .single();
+
+  if (staffRows?.role !== 'owner') {
+    const orgParam = orgId ? `?org=${orgId}` : "";
+    redirect(`/console${orgParam}`);
+  }
 
   const data = await getDesignData(orgId);
   if (!data) return null;

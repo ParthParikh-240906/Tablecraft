@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 /**
  * Gates /console and /dashboard routes behind Supabase Auth and refreshes sessions.
@@ -54,14 +55,30 @@ export async function middleware(request: NextRequest) {
   // navigation within the console without relying on URL params.
   const orgParam = request.nextUrl.searchParams.get("org");
   if (isConsole && !isLoginPage && orgParam) {
+    let resolvedOrgId = orgParam;
+    // If the param looks like a slug (not a UUID), resolve it to a UUID.
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgParam);
+    if (!isUUID) {
+      try {
+        const supabase = await createClient();
+        const { data: org } = await supabase
+          .from("organizations")
+          .select("id")
+          .eq("slug", orgParam)
+          .single();
+        if (org?.id) resolvedOrgId = org.id;
+      } catch {
+        // fall through — store the raw param, layout will validate
+      }
+    }
     // Forward the org header on the REQUEST so server components can read it
     // via headers(). Setting it on the response would never reach the handler.
     const requestHeaders = new Headers(request.headers);
-    requestHeaders.set("x-console-selected-org", orgParam);
+    requestHeaders.set("x-console-selected-org", resolvedOrgId);
     const response = NextResponse.next({
       request: { headers: requestHeaders },
     });
-    response.cookies.set("selected_org", orgParam, {
+    response.cookies.set("selected_org", resolvedOrgId, {
       path: "/",
       maxAge: 60 * 60 * 24 * 365, // 1 year
     });

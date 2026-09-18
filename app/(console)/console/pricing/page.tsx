@@ -46,6 +46,13 @@ export default async function ConsolePricingPage({
   }
 
   const orgs = Array.from(orgMap.values());
+
+  // Staff-only guard
+  const activeOrgData = orgs.find((o) => o.id === activeOrgId);
+  if (activeOrgData?.staffRole !== 'owner') {
+    const orgParam = activeOrgId ? `?org=${activeOrgId}` : "";
+    redirect(`/console${orgParam}`);
+  }
   const orgIds = orgs.map((o) => o.id);
 
   // Fetch orders (with customer_name + items for detail display), bookings, and tables

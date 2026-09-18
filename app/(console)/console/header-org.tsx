@@ -11,13 +11,13 @@ export function HeaderOrg({
   userOrgs,
   fallback,
 }: {
-  userOrgs: { id: string; name: string }[];
+  userOrgs: { id: string; name: string; slug?: string }[];
   fallback: string;
 }) {
   const searchParams = useSearchParams();
   const orgId = searchParams.get("org");
   const name =
-    userOrgs.find((o) => o.id === orgId)?.name ??
+    userOrgs.find((o) => o.id === orgId || o.slug === orgId)?.name ??
     (orgId ? orgId.slice(0, 8) : fallback);
   return <>{name}</>;
 }

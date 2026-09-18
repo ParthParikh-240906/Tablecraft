@@ -42,6 +42,12 @@ export default async function DashboardPage() {
     .select("org_id, role, organizations(id, name, slug, logo_url, theme_color, tagline, subscription_plan, subscription_status)")
     .eq("auth_user_id", user.id);
 
+  // Staff-only users must use the console — redirect them away from the dashboard.
+  const isOwner = (staffRows ?? []).some((r: any) => r.role === 'owner');
+  if (!isOwner) {
+    redirect("/console");
+  }
+
   interface OrgInfo {
     id: string;
     name: string;

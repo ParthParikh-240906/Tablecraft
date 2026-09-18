@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useDesign } from "../design/use-design";
 import { useConsoleTheme } from "../theme-wrapper";
 import { defaultBookingConfig, type BookingConfigDesign, type DesignSettingsV2 } from "@/lib/design";
@@ -18,14 +18,24 @@ export function ConfigPanel({
   orgName,
   initialSettings,
   userOrgs,
+  ownerEmail,
+  staffEmail,
 }: {
   orgId: string;
   orgName: string;
   initialSettings: DesignSettingsV2;
   userOrgs: ConfigOrgItem[];
+  ownerEmail: string;
+  staffEmail: string;
 }) {
   const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
   const { theme, setTheme } = useConsoleTheme();
+  const [staffEmailInput, setStaffEmailInput] = useState(staffEmail);
+
+  // Sync local input when parent passes a new email (org switch)
+  useEffect(() => {
+    setStaffEmailInput(staffEmail);
+  }, [staffEmail]);
 
   const bookingConfig: BookingConfigDesign = settings.booking_config ?? defaultBookingConfig();
 
@@ -357,6 +367,98 @@ export function ConfigPanel({
           </div>
         </section>
       )}
+
+      {/* ── Owner Account Section ─────────────────────────────────── */}
+      <section className="ticket p-6 border border-[var(--rule)] bg-[var(--paper-raised)] space-y-5">
+        <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Owner Account</h2>
+
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--ink-faint)] mb-1">
+            Owner email
+          </label>
+          <p className="text-sm text-[var(--ink)] font-mono">{ownerEmail}</p>
+        </div>
+
+        <div>
+          <label htmlFor="ownerPassword" className="block text-xs font-semibold uppercase tracking-wider text-[var(--ink-faint)] mb-1">
+            New password <span className="text-[var(--ink-faint)] font-normal normal-case">(optional)</span>
+          </label>
+          <input
+            id="ownerPassword"
+            type="password"
+            placeholder="At least 8 characters"
+            className="input placeholder:text-[var(--ink-faint)] w-full max-w-sm"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={async () => {
+            const pwd = (document.getElementById("ownerPassword") as HTMLInputElement)?.value;
+            if (!pwd) return;
+            const res = await fetch("/api/account/update", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ section: "owner", password: pwd }),
+            });
+            const data = await res.json();
+            if (!res.ok) alert(data.error ?? "Update failed");
+          }}
+          className="btn btn-accent text-xs px-4 py-2"
+        >
+          Save Owner Account
+        </button>
+      </section>
+
+      {/* ── Staff Account Section ─────────────────────────────────── */}
+      <section className="ticket p-6 border border-[var(--rule)] bg-[var(--paper-raised)] space-y-5">
+        <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Staff Account</h2>
+
+        <div>
+          <label htmlFor="staffEmail" className="block text-xs font-semibold uppercase tracking-wider text-[var(--ink-faint)] mb-1">
+            Staff email
+          </label>
+          <input
+            id="staffEmail"
+            type="email"
+            value={staffEmailInput}
+            onChange={(e) => setStaffEmailInput(e.target.value)}
+            placeholder="Enter staff email"
+            className="input placeholder:text-[var(--ink-faint)] w-full max-w-sm"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="staffPassword" className="block text-xs font-semibold uppercase tracking-wider text-[var(--ink-faint)] mb-1">
+            New password <span className="text-[var(--ink-faint)] font-normal normal-case">(optional)</span>
+          </label>
+          <input
+            id="staffPassword"
+            type="password"
+            placeholder="At least 8 characters"
+            className="input placeholder:text-[var(--ink-faint)] w-full max-w-sm"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={async () => {
+            const newEmail = staffEmailInput.trim();
+            const pwd = (document.getElementById("staffPassword") as HTMLInputElement)?.value;
+            if (!newEmail && !pwd) return;
+            const res = await fetch("/api/account/update", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ section: "staff", email: newEmail || undefined, password: pwd || undefined }),
+            });
+            const data = await res.json();
+            if (!res.ok) alert(data.error ?? "Update failed");
+          }}
+          className="btn btn-accent text-xs px-4 py-2"
+        >
+          Save Staff Account
+        </button>
+      </section>
     </div>
   );
 }
