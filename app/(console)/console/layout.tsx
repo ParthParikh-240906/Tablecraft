@@ -118,7 +118,7 @@ export default async function ConsoleLayout({
             </p>
             <p className="font-display text-lg text-[var(--ink)]">
               <HeaderOrg
-                userOrgs={userOrgs.filter((o): o is NonNullable<typeof o> => !!o).map((o) => ({ id: o.id, name: o.name }))}
+                userOrgs={userOrgs.filter((o): o is NonNullable<typeof o> => !!o).map((o) => ({ id: o.id, name: o.name, slug: o.slug }))}
                 fallback={org?.name ?? "Restaurant"}
               />
             </p>

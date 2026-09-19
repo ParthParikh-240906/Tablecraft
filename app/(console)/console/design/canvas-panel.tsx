@@ -10,7 +10,7 @@ import { DesignNav } from "./design-nav";
 import { ColorField, DesignField, OpacityField } from "./design-fields";
 import { type OrgView } from "@/components/OrgPageView";
 import {
-  GOOGLE_FONTS,
+  LOCAL_FONTS,
   type DesignSettingsV2,
 } from "@/lib/design";
 
@@ -218,7 +218,7 @@ export function CanvasPanel({
                   onChange={(e) => updateSettings({ header: { ...settings.header, nav_design: { ...settings.header.nav_design, fontFamily: e.target.value } } })}
                   className="col-span-1 w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs"
                 >
-                  {GOOGLE_FONTS.map((f) => (
+                  {LOCAL_FONTS.map((f) => (
                     <option key={f.value} value={f.value}>{f.name}</option>
                   ))}
                 </select>
@@ -241,7 +241,7 @@ export function CanvasPanel({
                   onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, fontFamily: e.target.value } } })}
                   className="col-span-1 w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs"
                 >
-                  {GOOGLE_FONTS.map((f) => (
+                  {LOCAL_FONTS.map((f) => (
                     <option key={f.value} value={f.value}>{f.name}</option>
                   ))}
                 </select>

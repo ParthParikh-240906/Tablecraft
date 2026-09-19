@@ -71,17 +71,15 @@ export async function middleware(request: NextRequest) {
         // fall through — store the raw param, layout will validate
       }
     }
-    // Forward the org header on the REQUEST so server components can read it
-    // via headers(). Setting it on the response would never reach the handler.
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set("x-console-selected-org", resolvedOrgId);
-    const response = NextResponse.next({
-      request: { headers: requestHeaders },
-    });
-    response.cookies.set("selected_org", resolvedOrgId, {
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365, // 1 year
-    });
+    // Only set the cookie if we resolved to a UUID — avoid persisting stale slugs.
+    const isResolvedUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedOrgId);
+    const response = NextResponse.next({ request });
+    if (isResolvedUUID) {
+      response.cookies.set("selected_org", resolvedOrgId, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365, // 1 year
+      });
+    }
     return response;
   }
 

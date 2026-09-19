@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getOrgAndParagraphs } from "@/lib/org";
 import { buildDefaultContentElements, hydrateSettings, type DesignSettingsV2 } from "@/lib/design";
-import { GOOGLE_FONTS_CSS, OrgPageView } from "@/components/OrgPageView";
+import { OrgPageView } from "@/components/OrgPageView";
 import type { Metadata } from "next";
 
 // Revalidate every 60s so repeated visits hit the cache instead of a cold Supabase fetch
@@ -67,10 +67,6 @@ export default async function OrgLandingPage({
 
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link rel="stylesheet" href={GOOGLE_FONTS_CSS} />
-
       <OrgPageView
         mode="site"
         slug={org.slug}

@@ -20,7 +20,7 @@ export function HeaderNav({ isOwner, userOrgs, fallbackSlug }: HeaderNavProps) {
   const searchParams = useSearchParams();
   const orgId = searchParams.get("org");
   const orgParam = orgId ? `?org=${orgId}` : "";
-  const currentOrg = userOrgs.find((o) => o.id === orgId) || userOrgs[0];
+  const currentOrg = userOrgs.find((o) => o.id === orgId || o.slug === orgId) || userOrgs[0];
   const slug = currentOrg?.slug ?? fallbackSlug;
 
   return (

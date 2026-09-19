@@ -16,6 +16,6 @@ export function HeaderOrgSlug({
   const searchParams = useSearchParams();
   const orgId = searchParams.get("org");
   const slug =
-    userOrgs.find((o) => o.id === orgId)?.slug ?? fallbackSlug;
+    userOrgs.find((o) => o.id === orgId || o.slug === orgId)?.slug ?? fallbackSlug;
   return <>{slug}</>;
 }

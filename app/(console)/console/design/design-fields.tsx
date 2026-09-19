@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { GOOGLE_FONTS } from "@/lib/design";
+import { LOCAL_FONTS } from "@/lib/design";
 import type { TextDesign } from "@/lib/design";
 
 export function ColorField({
@@ -104,7 +104,7 @@ export function DesignField({
             onChange={(e) => onChange({ ...design, fontFamily: e.target.value })}
             className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs"
           >
-            {GOOGLE_FONTS.map((f) => (
+            {LOCAL_FONTS.map((f) => (
               <option key={f.name} value={f.value}>
                 {f.name}
               </option>
