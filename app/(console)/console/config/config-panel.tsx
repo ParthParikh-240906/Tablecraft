@@ -31,6 +31,20 @@ export function ConfigPanel({
   const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
   const { theme, setTheme } = useConsoleTheme();
   const [staffEmailInput, setStaffEmailInput] = useState(staffEmail);
+  const [ownerSaved, setOwnerSaved] = useState(false);
+  const [staffSaved, setStaffSaved] = useState(false);
+
+  useEffect(() => {
+    if (!ownerSaved) return;
+    const t = setTimeout(() => setOwnerSaved(false), 3000);
+    return () => clearTimeout(t);
+  }, [ownerSaved]);
+
+  useEffect(() => {
+    if (!staffSaved) return;
+    const t = setTimeout(() => setStaffSaved(false), 3000);
+    return () => clearTimeout(t);
+  }, [staffSaved]);
 
   // Sync local input when parent passes a new email (org switch)
   useEffect(() => {
@@ -391,23 +405,30 @@ export function ConfigPanel({
           />
         </div>
 
-        <button
-          type="button"
-          onClick={async () => {
-            const pwd = (document.getElementById("ownerPassword") as HTMLInputElement)?.value;
-            if (!pwd) return;
-            const res = await fetch("/api/account/update", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ section: "owner", password: pwd }),
-            });
-            const data = await res.json();
-            if (!res.ok) alert(data.error ?? "Update failed");
-          }}
-          className="btn btn-accent text-xs px-4 py-2"
-        >
-          Save Owner Account
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={async () => {
+              const pwd = (document.getElementById("ownerPassword") as HTMLInputElement)?.value;
+              if (!pwd) return;
+              const res = await fetch("/api/account/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ section: "owner", password: pwd }),
+              });
+              const data = await res.json();
+              if (!res.ok) {
+                alert(data.error ?? "Update failed");
+                return;
+              }
+              setOwnerSaved(true);
+            }}
+            className="btn btn-accent text-xs px-4 py-2"
+          >
+            Save Owner Account
+          </button>
+          {ownerSaved && <span className="text-green-400 text-sm">✓</span>}
+        </div>
       </section>
 
       {/* ── Staff Account Section ─────────────────────────────────── */}
@@ -440,24 +461,31 @@ export function ConfigPanel({
           />
         </div>
 
-        <button
-          type="button"
-          onClick={async () => {
-            const newEmail = staffEmailInput.trim();
-            const pwd = (document.getElementById("staffPassword") as HTMLInputElement)?.value;
-            if (!newEmail && !pwd) return;
-            const res = await fetch("/api/account/update", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ section: "staff", email: newEmail || undefined, password: pwd || undefined }),
-            });
-            const data = await res.json();
-            if (!res.ok) alert(data.error ?? "Update failed");
-          }}
-          className="btn btn-accent text-xs px-4 py-2"
-        >
-          Save Staff Account
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={async () => {
+              const newEmail = staffEmailInput.trim();
+              const pwd = (document.getElementById("staffPassword") as HTMLInputElement)?.value;
+              if (!newEmail && !pwd) return;
+              const res = await fetch("/api/account/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ section: "staff", email: newEmail || undefined, password: pwd || undefined }),
+              });
+              const data = await res.json();
+              if (!res.ok) {
+                alert(data.error ?? "Update failed");
+                return;
+              }
+              setStaffSaved(true);
+            }}
+            className="btn btn-accent text-xs px-4 py-2"
+          >
+            Save Staff Account
+          </button>
+          {staffSaved && <span className="text-green-400 text-sm">✓</span>}
+        </div>
       </section>
     </div>
   );
