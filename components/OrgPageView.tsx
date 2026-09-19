@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  GOOGLE_FONTS_CSS,
   type ContentElement,
   type DesignSettingsV2,
   type HeroBackground,
@@ -463,4 +462,3 @@ export function OrgPageView({
   );
 }
 
-export { GOOGLE_FONTS_CSS };

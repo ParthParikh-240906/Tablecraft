@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useOrdersRealtime } from "@/lib/orders-realtime";
 import { AddOrderModal } from "./add-order-modal";
 import { EditOrderModal } from "./edit-order-modal";
 import { OrdersDashboard } from "./orders-dashboard";
+import { useConsoleTheme } from "../theme-wrapper";
 
 export interface OrderItem {
   id: string;
@@ -21,6 +23,7 @@ export interface OrderRecord {
   created_at: string;
   stripe_session_id?: string | null;
   items: OrderItem[];
+  parent_order_id?: string | null;
 }
 
 type FilterKey = "dashboard" | "pending" | "preparing" | "ready" | "completed" | "paid" | "cancelled";
@@ -42,12 +45,23 @@ export function OrdersList({
   orgId: string;
   initialOrders: OrderRecord[];
 }) {
+  const { theme } = useConsoleTheme();
   const [orders, setOrders] = useState<OrderRecord[]>(initialOrders);
   const [filter, setFilter] = useState<FilterKey>("dashboard");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<OrderRecord | null>(null);
+
+  const supabase = createClient();
+
+  // Orders realtime (with polling fallback)
+  const { orders: realtimeOrders } = useOrdersRealtime(orgId, initialOrders);
+
+  // Sync hook orders into local state for filter-dependent logic
+  useEffect(() => {
+    setOrders(realtimeOrders);
+  }, [realtimeOrders]);
 
   async function updateStatus(orderId: string, newStatus: string) {
     setUpdatingId(orderId);
@@ -95,29 +109,28 @@ export function OrdersList({
   }
 
   const refreshOrders = useCallback(async () => {
-    const supabase = createClient();
     const { data } = await supabase
       .from("orders")
-      .select("id, customer_name, total, status, created_at, stripe_session_id, items")
+      .select("id, customer_name, total, status, created_at, stripe_session_id, items, parent_order_id")
       .eq("org_id", orgId)
       .order("created_at", { ascending: false });
-    setOrders((data ?? []) as OrderRecord[]);
-  }, [orgId]);
+    setOrders(data ?? []);
+  }, [orgId, supabase]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "paid":
-        return <span className="status-badge bg-green-500/10 text-green-700 border border-green-500/20">Paid</span>;
+        return <span className="status-badge bg-green-600/12 text-green-700 border border-green-600/25">Paid</span>;
       case "preparing":
-        return <span className="status-badge bg-amber-500/10 text-amber-700 border border-amber-500/20">Preparing</span>;
+        return <span className="status-badge bg-amber-600/12 text-amber-700 border border-amber-600/25">Preparing</span>;
       case "ready":
-        return <span className="status-badge bg-blue-500/10 text-blue-700 border border-blue-500/20">Ready for Pickup</span>;
+        return <span className="status-badge bg-blue-600/12 text-blue-700 border border-blue-600/25">Ready for Pickup</span>;
       case "completed":
-        return <span className="status-badge bg-purple-500/10 text-purple-700 border border-purple-500/20">Completed</span>;
+        return <span className="status-badge bg-purple-600/12 text-purple-700 border border-purple-600/25">Completed</span>;
       case "cancelled":
-        return <span className="status-badge bg-red-500/10 text-red-700 border border-red-500/20">Cancelled</span>;
+        return <span className="status-badge bg-red-600/12 text-red-700 border border-red-600/25">Cancelled</span>;
       default:
-        return <span className="status-badge bg-gray-500/10 text-gray-700 border border-gray-500/20">{status}</span>;
+        return <span className="status-badge bg-gray-600/12 text-gray-700 border border-gray-600/25">{status}</span>;
     }
   };
 
@@ -127,14 +140,15 @@ export function OrdersList({
     return (
       <>
         {filteredOrders.length === 0 ? (
-          <div className="ticket p-12 text-center text-[var(--ink-soft)]">
+          <div className={["ticket", "p-12", "text-center", "text-[var(--ink-soft)]"].join(" ")}>
             <p className="font-display text-lg mb-1">No orders found</p>
             <p className="text-xs">No {filter} orders.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredOrders.map((order) => {
-              const isTable = order.customer_name.startsWith("Table ");
+              const cleanName = order.customer_name.replace(/\s+Edit$/, "");
+              const isTable = /^Table\s+/i.test(cleanName);
               const itemsList: OrderItem[] = Array.isArray(order.items) ? order.items : [];
               const timeAgo = new Date(order.created_at).toLocaleTimeString([], {
                 hour: "2-digit",
@@ -146,7 +160,11 @@ export function OrdersList({
               return (
                 <div
                   key={order.id}
-                  className="ticket p-5 flex flex-col justify-between space-y-4 border border-[var(--rule)] bg-[var(--paper-raised)]"
+                  className={[
+                    theme === "light" ? "ticket--light" : "ticket",
+                    "p-5", "flex", "flex-col", "justify-between", "space-y-4",
+                    "border", "border-[var(--rule)]", "bg-[var(--paper-raised)]", "shadow-xs"
+                  ].join(" ")}
                 >
                   <div>
                     <div className="flex items-start justify-between gap-3 mb-3">
@@ -154,8 +172,8 @@ export function OrdersList({
                         <div className="flex items-center gap-2 mb-1">
                           <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                             isTable
-                              ? "bg-amber-500/15 text-amber-700 border border-amber-500/30"
-                              : "bg-blue-500/15 text-blue-700 border border-blue-500/30"
+                              ? "bg-amber-600/15 text-amber-700 border border-amber-600/30"
+                              : "bg-blue-600/15 text-blue-700 border border-blue-600/30"
                           }`}>
                             {isTable ? "🍽️ Dine-in Table" : "🛍️ Online Order"}
                           </span>
@@ -164,7 +182,10 @@ export function OrdersList({
                           </span>
                         </div>
                         <h3 className="font-display text-base font-bold text-[var(--ink)]">
-                          {order.customer_name}
+                          {cleanName.replace(/^Table\s+/i, "")}
+                          {cleanName !== order.customer_name && (
+                            <span className="ml-1.5 text-[10px] font-normal text-amber-400 uppercase tracking-wide">Edited</span>
+                          )}
                         </h3>
                       </div>
                       <div className="text-right">{getStatusBadge(order.status)}</div>

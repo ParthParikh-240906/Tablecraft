@@ -1,18 +1,24 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { HeroPanel } from "./hero-panel";
+export const dynamic = "force-dynamic";
 
-export default async function ConsoleDesignHeroPage() {
+export default async function ConsoleDesignHeroPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  
-
-  const orgId = await getActiveOrgId(user!.id) ?? "";
+  if (!user) redirect("/console/login");
+  const orgId = await getActiveOrgId(user.id, params.org) ?? "";
   if (!orgId) return null;
 
   const data = await getDesignData(orgId);
@@ -27,7 +33,7 @@ export default async function ConsoleDesignHeroPage() {
       <p className="text-sm text-[var(--ink-soft)] mb-6">
         Hero background and the text/logo elements that sit on top of it.
       </p>
-      <HeroPanel
+      <HeroPanel key={orgId}
         orgId={orgId}
         orgName={data.orgName}
         initialSettings={data.settings}

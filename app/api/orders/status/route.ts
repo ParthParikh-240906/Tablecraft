@@ -26,15 +26,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid status value" }, { status: 400 });
     }
 
-    // Verify staff org using anon client (needs auth for row-level checks)
-    const { data: staff } = await supabase
-      .from("staff_users")
-      .select("org_id")
-      .eq("auth_user_id", user.id)
+    // Look up order to discover its org_id
+    const { data: order, error: orderLookupErr } = await adminSupabase
+      .from("orders")
+      .select("id, org_id, customer_name, parent_order_id")
+      .eq("id", orderId)
       .maybeSingle();
 
-    if (!staff) {
-      return NextResponse.json({ error: "Forbidden: Not a staff member" }, { status: 403 });
+    if (orderLookupErr || !order) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    // Verify staff org using anon client (needs auth for row-level checks)
+    const { data: staffRows } = await supabase
+      .from("staff_users")
+      .select("org_id")
+      .eq("auth_user_id", user.id);
+
+    const isStaffOfOrg = (staffRows ?? []).some((s) => s.org_id === order.org_id);
+    if (!isStaffOfOrg) {
+      return NextResponse.json({ error: "Forbidden: Not a staff member of this restaurant" }, { status: 403 });
     }
 
     // Update order status with admin client to bypass RLS and ensure consistency
@@ -42,23 +53,26 @@ export async function POST(request: Request) {
       .from("orders")
       .update({ status })
       .eq("id", orderId)
-      .eq("org_id", staff.org_id);
+      .eq("org_id", order.org_id);
 
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
+    // Cascade: original paid → all extras get paid
+    if (status === "paid" && !order.parent_order_id) {
+      await adminSupabase
+        .from("orders")
+        .update({ status: "paid" })
+        .eq("parent_order_id", order.id);
+    }
+
     // Free tables when order is paid or cancelled
     if (status === "paid" || status === "cancelled") {
-      const { data: order } = await adminSupabase
-        .from("orders")
-        .select("customer_name")
-        .eq("id", orderId)
-        .single();
-
-      if (order && order.customer_name && order.customer_name.startsWith("Table ")) {
+      const rawName = (order?.customer_name ?? "").replace(/\s+Edit$/, "");
+      if (rawName && rawName.startsWith("Table ")) {
         // Parse table labels from customer_name: "Table 1, 2, 3" or "Table 7"
-        const labelsStr = order.customer_name.slice("Table ".length);
+        const labelsStr = rawName.slice("Table ".length);
         const tableLabels: string[] = labelsStr
           .split(",")
           .map((s: string) => s.trim())
@@ -73,7 +87,7 @@ export async function POST(request: Request) {
         const { data: tables } = await adminSupabase
           .from("tables")
           .select("id, label")
-          .eq("org_id", staff.org_id)
+          .eq("org_id", order.org_id)
           .in("label", labelVariants);
 
         if (!tables || tables.length === 0) {
@@ -91,7 +105,7 @@ export async function POST(request: Request) {
         const { data: upcomingBookings } = await adminSupabase
           .from("bookings")
           .select("id")
-          .eq("org_id", staff.org_id)
+          .eq("org_id", order.org_id)
           .gte("datetime", now)
           .neq("status", "cancelled");
 
@@ -104,7 +118,7 @@ export async function POST(request: Request) {
           const { data: comboRows } = await adminSupabase
             .from("booking_tables")
             .select("table_id")
-            .eq("org_id", staff.org_id)
+            .eq("org_id", order.org_id)
             .in("booking_id", Array.from(upcomingBookingIdsSet));
 
           const reservedTableIds = new Set<string>(

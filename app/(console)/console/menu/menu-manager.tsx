@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useConsoleTheme } from "../theme-wrapper";
 
 interface MenuItem {
   id: string;
@@ -24,6 +25,7 @@ const EMPTY_FORM = {
 };
 
 export function MenuManager({ orgId }: { orgId: string }) {
+  const { theme } = useConsoleTheme();
   const supabase = createClient();
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -343,8 +345,8 @@ export function MenuManager({ orgId }: { orgId: string }) {
         <div
           className={`p-3 mb-4 rounded-sm text-sm ${
             scanError
-              ? "bg-red-900/40 text-red-400"
-              : "bg-green-900/40 text-green-400"
+              ? theme === "light" ? "bg-red-600 text-white" : "bg-red-900/40 text-red-400"
+              : theme === "light" ? "bg-green-600 text-white" : "bg-green-900/40 text-green-400"
           }`}
         >
           {scanError || scanStatus}
@@ -401,7 +403,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
             />
           </div>
           {error && (
-            <p className="text-sm text-red-400 rounded-sm bg-red-900/40 px-3 py-2">
+            <p className={`text-sm rounded-sm px-3 py-2 ${theme === "light" ? "bg-red-600 text-white" : "text-red-400 bg-red-900/40"}`}> 
               {error}
             </p>
           )}
@@ -440,7 +442,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
             return categoryOrder.map((cat, catIdx) => (
               <div key={cat} className="rounded-sm border border-[var(--rule)]">
                 {/* Category header with reorder buttons */}
-                <div className="px-4 py-2 bg-[var(--muted)] flex items-center justify-between">
+                <div className={`px-4 py-2 flex items-center justify-between ${theme === "light" ? "bg-[var(--layer2)]" : "bg-[var(--muted)]"}`}> 
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-sm">{cat}</span>
                     <span className="text-xs text-[var(--ink-faint)]">({grouped[cat].length} items)</span>
@@ -528,8 +530,12 @@ export function MenuManager({ orgId }: { orgId: string }) {
                           onClick={() => toggleAvailable(item)}
                           className={`text-xs px-2 py-1 rounded-sm ${
                             item.available
-                              ? "bg-green-900/40 text-green-400"
-                              : "bg-[var(--muted)] text-[var(--ink-muted)]"
+                              ? theme === "light"
+                                ? "bg-green-600 text-white"
+                                : "bg-green-900/40 text-green-400"
+                              : theme === "light"
+                                ? "bg-slate-500 text-white"
+                                : "bg-[var(--muted)] text-[var(--ink-muted)]"
                           }`}
                         >
                           {item.available ? "Available" : "Unavailable"}

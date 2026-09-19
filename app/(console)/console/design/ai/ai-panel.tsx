@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useDesign } from "../use-design";
 import { DesignNav } from "../design-nav";
 import { ColorField } from "../design-fields";
-import { GOOGLE_FONTS, newContentElement, newHeroElement, type DesignSettingsV2 } from "@/lib/design";
+import { LOCAL_FONTS, newContentElement, newHeroElement, type DesignSettingsV2 } from "@/lib/design";
 
 export function AiPanel({
   orgId,
@@ -294,7 +294,7 @@ export function AiPanel({
                 onChange={(e) => updateChatbot({ font_family: e.target.value })}
                 className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs"
               >
-                {GOOGLE_FONTS.map((f) => (
+                {LOCAL_FONTS.map((f) => (
                   <option key={f.value} value={f.value}>{f.name}</option>
                 ))}
               </select>

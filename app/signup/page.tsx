@@ -13,6 +13,8 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [consolePassword, setConsolePassword] = useState("");
+  const [staffEmail, setStaffEmail] = useState("");
+  const [staffPassword, setStaffPassword] = useState("");
   const [tagline, setTagline] = useState("");
   const [signedIn, setSignedIn] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
@@ -133,6 +135,8 @@ export default function SignupPage() {
       if (consolePassword) {
         formData.append('consolePassword', consolePassword);
       }
+      formData.append('staffEmail', staffEmail);
+      formData.append('staffPassword', staffPassword);
       
       // Optional fields
       if (validBranches.length > 0) {
@@ -334,6 +338,49 @@ export default function SignupPage() {
                 ? "Separate password for console login. Leave blank to use Google sign-in only."
                 : "Optional separate password for the console. If set, you can log into the console with this password independently."}
             </p>
+          </div>
+
+          {/* ── Staff Account Section ── */}
+          <div className="border-t border-[var(--rule)] pt-5 mt-2">
+            <p className="text-sm font-medium mb-3">
+              Staff Account <span className="text-[var(--accent)]">*</span>
+            </p>
+            <p className="text-xs text-[var(--ink-faint)] mb-4">
+              A staff account is required for your restaurant team to access the console.
+            </p>
+
+            <div>
+              <label htmlFor="staffEmail" className="block text-sm font-medium mb-1.5">
+                Staff email / Restaurant email
+              </label>
+              <input
+                id="staffEmail"
+                type="email"
+                value={staffEmail}
+                onChange={(e) => setStaffEmail(e.target.value)}
+                required
+                placeholder="staff@restaurant.com"
+                className="input placeholder:text-[var(--ink-faint)]"
+              />
+            </div>
+
+            <div className="mt-3">
+              <label htmlFor="staffPassword" className="block text-sm font-medium mb-1.5">
+                Staff password
+              </label>
+              <input
+                id="staffPassword"
+                type="password"
+                value={staffPassword}
+                onChange={(e) => setStaffPassword(e.target.value)}
+                required
+                minLength={8}
+                className="input placeholder:text-[var(--ink-faint)]"
+              />
+              <p className="text-xs text-[var(--ink-faint)] mt-1">
+                At least 8 characters. Used by staff to sign in to the console.
+              </p>
+            </div>
           </div>
 
           {/* About your restaurant — required */}

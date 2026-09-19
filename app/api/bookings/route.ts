@@ -141,14 +141,14 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
 
   // --- Resolve org by slug or id ---
-  let org: { id: string } | null = null;
+  let org: { id: string; design_settings?: any } | null = null;
   let orgError: any = null;
   if (orgSlug) {
-    const result = await admin.from("organizations").select("id").eq("slug", orgSlug).maybeSingle();
+    const result = await admin.from("organizations").select("id, design_settings").eq("slug", orgSlug).maybeSingle();
     org = result.data;
     orgError = result.error;
   } else {
-    const result = await admin.from("organizations").select("id").eq("id", orgId!).maybeSingle();
+    const result = await admin.from("organizations").select("id, design_settings").eq("id", orgId!).maybeSingle();
     org = result.data;
     orgError = result.error;
   }
@@ -180,10 +180,17 @@ export async function POST(request: Request) {
     );
   }
 
-  // 2-hour reservation window: check for overlapping confirmed/pending bookings.
-  const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
-  const windowStart = new Date(when.getTime() - TWO_HOURS_MS).toISOString();
-  const windowEnd = new Date(when.getTime() + TWO_HOURS_MS).toISOString();
+  // Dynamic reservation buffer & duration settings from organization config
+  const bookingConfig = (org as any)?.design_settings?.booking_config;
+  const bufferMinutes = typeof bookingConfig?.buffer_before_minutes === "number" ? bookingConfig.buffer_before_minutes : 120;
+  const noTimeLimit = Boolean(bookingConfig?.no_time_limit);
+  const durationMinutes = noTimeLimit ? 24 * 60 : (typeof bookingConfig?.duration_minutes === "number" ? bookingConfig.duration_minutes : 120);
+  const bufferMs = bufferMinutes * 60 * 1000;
+  const durationMs = durationMinutes * 60 * 1000;
+
+  // Check for overlapping confirmed/pending bookings within [when - bufferMs, when + durationMs]
+  const windowStart = new Date(when.getTime() - bufferMs).toISOString();
+  const windowEnd = new Date(when.getTime() + durationMs).toISOString();
 
   const { data: conflictingBookings, error: bookingsError } = await admin
     .from("bookings")
@@ -212,9 +219,9 @@ export async function POST(request: Request) {
     for (const row of jtBookings ?? []) bookedTableIds.add(row.table_id);
   }
 
-  // Determine which tables are free for this 2-hour window.
-  // Also exclude occupied tables for immediate bookings.
-  const isImmediate = Math.abs(when.getTime() - Date.now()) < TWO_HOURS_MS;
+  // Determine which tables are free for this booking window.
+  // Also exclude occupied tables for immediate bookings (within pre-reservation buffer).
+  const isImmediate = Math.abs(when.getTime() - Date.now()) < bufferMs;
 
   const availableTables = orgTables.filter((t) => {
     if (bookedTableIds.has(t.id)) return false;
@@ -222,11 +229,15 @@ export async function POST(request: Request) {
     return true;
   });
 
+  const durationFormatted = noTimeLimit
+    ? "no time limit"
+    : `${durationMinutes >= 60 ? `${Math.floor(durationMinutes / 60)}h ` : ""}${durationMinutes % 60 ? `${durationMinutes % 60}m` : ""}`.trim();
+
   if (availableTables.length === 0) {
     return NextResponse.json(
       {
         error:
-          "All suitable tables are fully booked for this time slot (reservations are 2 hours). Please choose a different time.",
+          `All suitable tables are fully booked for this time slot (reservations are ${durationFormatted}). Please choose a different time.`,
       },
       { status: 409 }
     );

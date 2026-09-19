@@ -15,13 +15,6 @@ export async function POST(request: Request) {
     const { data: { user } } = await authClient.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { data: staffRows } = await supabase
-      .from("staff_users")
-      .select("org_id")
-      .eq("auth_user_id", user.id);
-    const staff = staffRows?.[0] ?? null;
-    if (!staff) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
     const body = await request.json();
     const { orderId, items } = body as { orderId: string; items: OrderItemInput[] };
 
@@ -29,12 +22,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing orderId or items" }, { status: 400 });
     }
 
+    // Look up the order to identify its org_id
+    const { data: order, error: orderLookupErr } = await supabase
+      .from("orders")
+      .select("id, org_id, customer_name")
+      .eq("id", orderId)
+      .single();
+
+    if (orderLookupErr || !order) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    const { data: staffRows } = await supabase
+      .from("staff_users")
+      .select("org_id")
+      .eq("auth_user_id", user.id);
+
+    const isStaffOfOrg = (staffRows ?? []).some((s) => s.org_id === order.org_id);
+    if (!isStaffOfOrg) {
+      return NextResponse.json({ error: "Forbidden: Not a staff member of this restaurant" }, { status: 403 });
+    }
+
     // Validate menu items against DB prices
     const itemIds = items.map((i) => i.id);
     const { data: dbItems } = await supabase
       .from("menu_items")
       .select("id, name, price")
-      .eq("org_id", staff.org_id)
+      .eq("org_id", order.org_id)
       .in("id", itemIds);
 
     if (!dbItems || dbItems.length !== itemIds.length) {
@@ -58,10 +72,11 @@ export async function POST(request: Request) {
       .from("orders")
       .update({ items: validatedItems, total: calculatedTotal })
       .eq("id", orderId)
-      .eq("org_id", staff.org_id);
+      .eq("org_id", order.org_id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ success: true });
+
+    return NextResponse.json({ success: true, orderId: order.id });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || "Internal server error" }, { status: 500 });
   }

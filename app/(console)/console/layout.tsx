@@ -1,9 +1,19 @@
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveStaffRow, getOrgBySlug } from "@/lib/org";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getActiveStaffRow, getOrgBySlug, resolveOrgIdForUser } from "@/lib/org";
 import { LogoutButton } from "./logout-button";
+import { ConsoleThemeWrapper } from "./theme-wrapper";
+import { ConsoleSidebar } from "./sidebar";
+import { HeaderOrg } from "./header-org";
+import { HeaderNav } from "./header-nav";
+
+// Force per-request rendering so the header/sidebar reflect the current ?org=
+// param. Without this, the layout is cached as part of the App Shell and
+// ignores searchParams changes (Next.js 16 limitation).
+export const dynamic = "force-dynamic";
 
 /**
  * Console layout: resolves the logged-in staff member's organization.
@@ -16,9 +26,12 @@ import { LogoutButton } from "./logout-button";
  */
 export default async function ConsoleLayout({
   children,
+  searchParams,
 }: {
   children: React.ReactNode;
+  searchParams?: Promise<Record<string, string>>;
 }) {
+  const params = await (searchParams as Promise<Record<string, string>> | undefined) ?? {};
   const supabase = await createClient();
 
   const {
@@ -29,29 +42,23 @@ export default async function ConsoleLayout({
     redirect("/console/login");
   }
 
-  // Read ?org= from the request URL so each tab can independently select
-  // its org, even when the shared cookie has a stale value from another tab.
-  // We read it from the Referer header (set by the previous navigation)
-  // since server components don't have direct access to the current URL.
-  const { headers: getHeaders } = await import("next/headers");
-  const headerList = await getHeaders();
-  const referer = headerList.get("referer") || "";
-  let urlOrgParam: string | null = null;
-  try {
-    const url = new URL(referer);
-    urlOrgParam = url.searchParams.get("org");
-  } catch {}
-
+  // Resolve org in priority order: URL param > middleware header > cookie > default.
+  // resolveOrgIdForUser accepts either a UUID or a slug, validates ownership,
+  // and returns null (fallthrough) when the value isn't authorized for this user.
   let resolvedOrgId: string | undefined;
+  const urlOrgParam = params.org || null;
   if (urlOrgParam) {
-    // Check if it's a UUID (org id) or a slug
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(urlOrgParam);
-    if (isUUID) {
-      resolvedOrgId = urlOrgParam;
-    } else {
-      const org = await getOrgBySlug(urlOrgParam);
-      resolvedOrgId = org?.id;
-    }
+    resolvedOrgId = (await resolveOrgIdForUser(user.id, urlOrgParam)) || undefined;
+  }
+  if (!resolvedOrgId) {
+    const headerList = await headers();
+    const headerOrg = headerList.get("x-console-selected-org") || null;
+    resolvedOrgId = headerOrg ? (await resolveOrgIdForUser(user.id, headerOrg)) || undefined : undefined;
+  }
+  if (!resolvedOrgId) {
+    const cookieStore = await cookies();
+    const cookieVal = cookieStore.get("selected_org")?.value || null;
+    resolvedOrgId = cookieVal ? (await resolveOrgIdForUser(user.id, cookieVal)) || undefined : undefined;
   }
 
   const result = await getActiveStaffRow(user.id, resolvedOrgId);
@@ -80,58 +87,56 @@ export default async function ConsoleLayout({
   }
 
   const { staff: staffRow } = result;
-  const org = Array.isArray(staffRow.organizations)
-    ? staffRow.organizations[0]
-    : staffRow.organizations;
+  const isOwner = staffRow.role === 'owner';
 
-  // Build the ?org= param to attach to every internal link so the
-  // selected_org cookie stays in sync when navigating between pages.
-  const orgParam = staffRow.org_id ? `?org=${staffRow.org_id}` : "";
+  // Fetch all orgs linked to this user for the restaurant switcher
+  const admin = createAdminClient();
+  const { data: allStaffRows } = await admin
+    .from("staff_users")
+    .select("org_id, role, organizations(id, name, slug, logo_url, theme_color)")
+    .eq("auth_user_id", user.id);
+
+  const userOrgs = (allStaffRows ?? [])
+    .map((r: any) => {
+      const o = Array.isArray(r.organizations) ? r.organizations[0] : r.organizations;
+      return o ? { id: o.id, name: o.name, slug: o.slug, logo_url: o.logo_url } : null;
+    })
+    .filter(Boolean);
+
+  // Use the resolved org (from header/cookie) for nav links and header display
+  const activeOrgId = resolvedOrgId || staffRow.org_id;
+  const org = userOrgs.find((o) => o?.id === activeOrgId) || userOrgs[0] || null;
+  const orgParam = activeOrgId ? `?org=${activeOrgId}` : "";
 
   return (
-    <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)]">
+    <ConsoleThemeWrapper>
       <header className="border-b border-[var(--rule)] bg-[var(--paper)]">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="label-caps text-[color:var(--accent)]">
               Operator Console
             </p>
-            <p className="font-display text-lg text-[var(--ink)]">{org?.name ?? "Restaurant"}</p>
+            <p className="font-display text-lg text-[var(--ink)]">
+              <HeaderOrg
+                userOrgs={userOrgs.filter((o): o is NonNullable<typeof o> => !!o).map((o) => ({ id: o.id, name: o.name, slug: o.slug }))}
+                fallback={org?.name ?? "Restaurant"}
+              />
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-4 text-sm">
-            <nav className="flex items-center gap-3">
-              <Link href={`/console${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-                Dashboard
-              </Link>
-              <Link href={`/console/tables${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-                Tables
-              </Link>
-              <Link href={`/console/bookings${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-                Bookings
-              </Link>
-              <Link href={`/console/orders${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-                Orders
-              </Link>
-              <Link href={`/console/kitchen${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-                Kitchen
-              </Link>
-              <Link href={`/console/menu${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-                Menu
-              </Link>
-              <Link href={`/console/design${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-                Design
-              </Link>
-              <span className="text-[var(--rule)]">|</span>
-              {org?.slug && (
-                <Link href={`/${org.slug}`} className="text-[var(--accent)] hover:underline font-medium">
-                  Public Storefront →
-                </Link>
-              )}
-            </nav>
+            <HeaderNav
+              isOwner={isOwner}
+              userOrgs={userOrgs.filter((o): o is NonNullable<typeof o> => !!o)}
+              fallbackSlug={org?.slug ?? ""}
+            />
             <div className="flex items-center gap-3 border-l border-[var(--rule)] pl-4">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-[var(--ink-faint)] hidden sm:inline">{staffRow.email}</span>
-                <span className="px-2 py-0.5 rounded-sm border border-[var(--rule)] text-[10px] font-medium uppercase tracking-wider text-[var(--ink-soft)]">
+                <span className={`px-2 py-0.5 rounded-sm border text-[10px] font-medium uppercase tracking-wider ${
+                  staffRow.role === 'owner'
+                    ? 'border-[var(--accent-border)] text-[var(--accent)] bg-[var(--accent-subtle)]'
+                    : 'border-[var(--rule)] text-[var(--ink-soft)]'
+                }`}>
                   {staffRow.role}
                 </span>
               </div>
@@ -140,9 +145,22 @@ export default async function ConsoleLayout({
           </div>
         </div>
       </header>
-      <div className="bg-[#161311] border border-white/20 max-w-5xl mx-auto mt-8 mb-12 rounded-sm">
-        <main className="px-4 py-6">{children}</main>
+
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className={`flex flex-col lg:flex-row gap-8 items-start ${isOwner ? '' : 'lg:pl-0'}`}>
+          {isOwner && (
+            <ConsoleSidebar
+              staffEmail={staffRow.email}
+              staffRole={staffRow.role}
+              userOrgs={userOrgs as any}
+              activeOrgId={activeOrgId}
+            />
+          )}
+          <div className="ticket flex-1 w-full rounded-sm border border-[var(--rule)] bg-[var(--paper-raised)] overflow-hidden">
+            <main className="px-4 sm:px-6 py-6">{children}</main>
+          </div>
+        </div>
       </div>
-    </div>
+    </ConsoleThemeWrapper>
   );
 }

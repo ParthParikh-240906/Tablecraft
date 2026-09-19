@@ -1,11 +1,85 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 /* =============================================================================
    Tablecraft design system — premium restaurant tech
    Deep espresso ground, warm brown layer, burnt-orange accent.
-   DM Serif Display for editorial headings, Inter for crisp body text.
+   Playfair Display for editorial headings, Inter for crisp body text.
    ============================================================================= */
+
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter/Inter-VariableFont_opsz,wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-stretch: normal;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter/Inter-Italic-VariableFont_opsz,wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: italic;
+  font-stretch: normal;
+}
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/fonts/Playfair_Display/PlayfairDisplay-VariableFont_wght.ttf') format('truetype');
+  font-weight: 400 900;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/fonts/Playfair_Display/PlayfairDisplay-Italic-VariableFont_wght.ttf') format('truetype');
+  font-weight: 400 900;
+  font-style: italic;
+}
+@font-face {
+  font-family: 'Calistoga';
+  src: url('/fonts/Calistoga/Calistoga-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('/fonts/Instrument_Serif/InstrumentSerif-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('/fonts/Instrument_Serif/InstrumentSerif-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+}
+@font-face {
+  font-family: 'Tangerine';
+  src: url('/fonts/Tangerine/Tangerine-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Tangerine';
+  src: url('/fonts/Tangerine/Tangerine-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Playpen Sans';
+  src: url('/fonts/Playpen_Sans/PlaypenSans-VariableFont_wght.ttf') format('truetype');
+  font-weight: 400 800;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Sansita Swashed';
+  src: url('/fonts/Sansita_Swashed/SansitaSwashed-VariableFont_wght.ttf') format('truetype');
+  font-weight: 400 900;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Rubik Doodle Shadow';
+  src: url('/fonts/Rubik_Doodle_Shadow/RubikDoodleShadow-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
 
 :root {
   /* Deep espresso base, alabaster cream layer, punchy burnt-orange accent */
@@ -25,7 +99,7 @@
   --accent-glow: rgba(212, 82, 0, 0.35);
   --secondary: #0ea5e9;
 
-  --font-serif: 'DM Serif Display', Georgia, 'Times New Roman', serif;
+  --font-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
   --font-sans: 'Inter', var(--font-body), ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -276,16 +350,31 @@ body {
 /* Explicit light theme for restaurant microsites /[orgSlug] */
 [data-theme="light"],
 .theme-light {
-  --paper: #faf9f6;
+  --paper: #f7f5f2;
   --paper-raised: #ffffff;
-  --paper-overlay: #f5f0ea;
-  --layer2: #f0ebe4;
-  --ink: #1c1917;
-  --ink-soft: #57534e;
-  --ink-faint: #a8a29e;
-  --rule: #e7e2d9;
-  --rule-strong: #1c1917;
+  --paper-overlay: #efebe5;
+  --layer2: #e8e3db;
+
+  --ink: #1a1614;
+  --ink-soft: #5c534b;
+  --ink-faint: #8a7f76;
+
+  --rule: #d8d0c8;
+  --rule-strong: #b8afa5;
+
   --accent: #d45200;
+  --accent-subtle: rgba(212, 82, 0, 0.08);
+  --accent-border: rgba(212, 82, 0, 0.28);
+
+  --shadow-sm: 0 1px 3px rgba(26, 22, 20, 0.06), 0 1px 2px rgba(26, 22, 20, 0.04);
+  --shadow-md: 0 4px 16px rgba(26, 22, 20, 0.07), 0 1px 3px rgba(26, 22, 20, 0.05);
+  --shadow-lg: 0 12px 40px rgba(26, 22, 20, 0.10), 0 4px 12px rgba(26, 22, 20, 0.06);
+
+  --ink-emphasis: #1a1614;
+
+  color-scheme: light;
+  --muted: #e8e3db;
+  --ink-muted: #5c534b;
 }
 
 [data-theme="dark"],
@@ -301,6 +390,62 @@ body {
   --rule-strong: rgba(255, 255, 255, 0.14);
   --accent: #d45200;
   --accent-glow: rgba(212, 82, 0, 0.35);
+  --muted: #1a1614;
+  --ink-muted: #7a6f64;
+}
+
+/* =============================================================================
+   Light theme — elevated cards, visible borders, subtle shadows
+   ============================================================================= */
+
+.ticket--light {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 150ms ease, border-color 150ms ease;
+}
+.ticket--light:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--rule-strong);
+}
+
+.nav-item-light {
+  border: 1px solid transparent;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.nav-item-light[data-active="true"] {
+  background: var(--accent-subtle);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  font-weight: 600;
+}
+.nav-item-light:not([data-active="true"]) {
+  color: var(--ink-soft);
+}
+.nav-item-light:not([data-active="true"]):hover {
+  background: var(--paper-overlay);
+  color: var(--ink);
+  border-color: var(--rule);
+}
+
+.btn-outline-strong {
+  border: 1px solid var(--rule-strong);
+  color: var(--ink);
+  background: transparent;
+}
+.btn-outline-strong:hover {
+  background: var(--paper-raised);
+  border-color: var(--ink-soft);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Number inputs adapt to current theme */
+[data-theme="dark"] input[type="number"] {
+  color-scheme: dark;
+}
+[data-theme="light"] input[type="number"] {
+  color-scheme: light;
 }
 
 /* =============================================================================
@@ -420,8 +565,4 @@ body {
   opacity: 0.4;
 }
 
-/* Console dark UI: render native number-input spinner arrows in white so
-   they're visible against dark backgrounds. */
-input[type="number"] {
-  color-scheme: dark;
-}
+

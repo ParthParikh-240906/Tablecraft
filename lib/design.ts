@@ -88,6 +88,20 @@ export interface ReservePageDesign {
   back_button_color?: string;
 }
 
+export interface BookingConfigDesign {
+  buffer_before_minutes: number; // minutes before booking when table is marked reserved (default: 120)
+  duration_minutes: number; // reservation duration in minutes (default: 120)
+  no_time_limit: boolean; // if true, reservation has no duration cap
+}
+
+export function defaultBookingConfig(): BookingConfigDesign {
+  return {
+    buffer_before_minutes: 120,
+    duration_minutes: 120,
+    no_time_limit: false,
+  };
+}
+
 export interface HeroElement extends Rect, ShapeStyle {
   id: string;
   kind: HeroElementKind;
@@ -156,26 +170,22 @@ export interface DesignSettingsV2 {
   chatbot?: ChatbotDesign;
   menu_page?: MenuPageDesign;
   reserve_page?: ReservePageDesign;
+  booking_config?: BookingConfigDesign;
   menu_page_shapes?: { id: string; style: ShapeStyle }[];
   reserve_page_shapes?: { id: string; style: ShapeStyle }[];
 }
 
-// ─── Fonts ────────────────────────────────────────────────────────────────────
+// ─── Fonts (local) ────────────────────────────────────────────────────────────
 
-export const GOOGLE_FONTS_CSS =
-  "https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&family=Montserrat:wght@400;700&family=Poppins:wght@400;700&family=Lato:wght@400;700&family=Playfair+Display:wght@400;700&family=Lora:wght@400;700&family=DM+Sans:wght@400;700&family=Merriweather:wght@400;700&display=swap";
-
-export const GOOGLE_FONTS = [
+export const LOCAL_FONTS = [
   { name: "Inter", value: "'Inter', sans-serif" },
-  { name: "Roboto", value: "'Roboto', sans-serif" },
-  { name: "Open Sans", value: "'Open Sans', sans-serif" },
-  { name: "Montserrat", value: "'Montserrat', sans-serif" },
-  { name: "Poppins", value: "'Poppins', sans-serif" },
-  { name: "Lato", value: "'Lato', sans-serif" },
   { name: "Playfair Display", value: "'Playfair Display', serif" },
-  { name: "Lora", value: "'Lora', serif" },
-  { name: "DM Sans", value: "'DM Sans', sans-serif" },
-  { name: "Merriweather", value: "'Merriweather', serif" },
+  { name: "Calistoga", value: "'Calistoga', cursive" },
+  { name: "Instrument Serif", value: "'Instrument Serif', serif" },
+  { name: "Tangerine", value: "'Tangerine', cursive" },
+  { name: "Playpen Sans", value: "'Playpen Sans', cursive" },
+  { name: "Sansita Swashed", value: "'Sansita Swashed', cursive" },
+  { name: "Rubik Doodle Shadow", value: "'Rubik Doodle Shadow', cursive" },
 ];
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
@@ -494,6 +504,7 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
     chatbot: legacy.chatbot ?? defaultChatbotDesign(),
     menu_page: { ...defaultMenuPageDesign(), ...(legacy.menu_page ?? {}) },
     reserve_page: { ...defaultReservePageDesign(), ...(legacy.reserve_page ?? {}) },
+    booking_config: { ...defaultBookingConfig(), ...(legacy.booking_config ?? {}) },
   };
 
   // Legacy page layers / canvas shapes ride along as hero elements

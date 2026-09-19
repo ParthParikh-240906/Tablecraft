@@ -20,68 +20,103 @@ export async function DELETE(request: Request) {
       .eq("id", orderId)
       .maybeSingle();
 
-    if (order && order.customer_name && order.customer_name.startsWith("Table ")) {
-      const labelsStr = order.customer_name.slice("Table ".length);
+    if (!order) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    const { data: staffRows } = await supabase
+      .from("staff_users")
+      .select("org_id")
+      .eq("auth_user_id", user.id);
+
+    const isStaffOfOrg = (staffRows ?? []).some((s) => s.org_id === order.org_id);
+    if (!isStaffOfOrg) {
+      return NextResponse.json({ error: "Forbidden: Not a staff member of this restaurant" }, { status: 403 });
+    }
+
+    const rawName = (order?.customer_name ?? "").replace(/\s+Edit$/, "");
+    if (rawName && rawName.startsWith("Table ")) {
+      const labelsStr = rawName.slice("Table ".length);
       const tableLabels: string[] = labelsStr
         .split(",")
         .map((s: string) => s.trim())
         .filter((s: string) => s.length > 0);
 
       if (tableLabels.length > 0) {
-        const labelVariants = tableLabels.flatMap((l: string) => [`Table ${l}`, l]);
-        const { data: tables } = await supabase
-          .from("tables")
-          .select("id, label")
+        // Only free tables if no other active order still references them
+        const { data: otherActive } = await supabase
+          .from("orders")
+          .select("id, customer_name")
           .eq("org_id", order.org_id)
-          .in("label", labelVariants);
+          .neq("id", orderId)
+          .neq("status", "paid")
+          .neq("status", "cancelled")
+          .neq("status", "completed");
 
-        if (tables && tables.length > 0) {
-          const tableIds = tables.map((t) => t.id);
+        const labelSet = new Set(tableLabels);
+        const stillOccupied = (otherActive ?? []).some((o: { customer_name: string }) => {
+          const name = o.customer_name.replace(/\s+Edit$/, "");
+          if (!name.startsWith("Table ")) return false;
+          const otherLabels = name.slice("Table ".length).split(",").map((s: string) => s.trim());
+          return otherLabels.some((l: string) => labelSet.has(l));
+        });
 
-          // Check for upcoming non-cancelled bookings to determine reserved vs open
-          const now = new Date().toISOString();
-          const { data: upcomingBookings } = await supabase
-            .from("bookings")
-            .select("id")
+        if (!stillOccupied) {
+          const labelVariants = tableLabels.flatMap((l: string) => [`Table ${l}`, l]);
+          const { data: tables } = await supabase
+            .from("tables")
+            .select("id, label")
             .eq("org_id", order.org_id)
-            .gte("datetime", now)
-            .neq("status", "cancelled");
+            .in("label", labelVariants);
 
-          const upcomingBookingIdsSet = new Set<string>(
-            (upcomingBookings ?? []).map((b: { id: string }) => b.id)
-          );
+          if (tables && tables.length > 0) {
+            const tableIds = tables.map((t) => t.id);
 
-          if (upcomingBookingIdsSet.size > 0) {
-            const { data: comboRows } = await supabase
-              .from("booking_tables")
-              .select("table_id")
+            // Check for upcoming non-cancelled bookings to determine reserved vs open
+            const now = new Date().toISOString();
+            const { data: upcomingBookings } = await supabase
+              .from("bookings")
+              .select("id")
               .eq("org_id", order.org_id)
-              .in("booking_id", Array.from(upcomingBookingIdsSet));
+              .gte("datetime", now)
+              .neq("status", "cancelled");
 
-            const reservedTableIds = new Set<string>(
-              (comboRows ?? []).map((r: { table_id: string }) => r.table_id)
+            const upcomingBookingIdsSet = new Set<string>(
+              (upcomingBookings ?? []).map((b: { id: string }) => b.id)
             );
 
-            const toReserve = tableIds.filter((id) => reservedTableIds.has(id));
-            const toOpen = tableIds.filter((id) => !reservedTableIds.has(id));
+            if (upcomingBookingIdsSet.size > 0) {
+              const { data: comboRows } = await supabase
+                .from("booking_tables")
+                .select("table_id")
+                .eq("org_id", order.org_id)
+                .in("booking_id", Array.from(upcomingBookingIdsSet));
 
-            if (toReserve.length > 0) {
-              await supabase
-                .from("tables")
-                .update({ status: "reserved" })
-                .in("id", toReserve);
-            }
-            if (toOpen.length > 0) {
+              const reservedTableIds = new Set<string>(
+                (comboRows ?? []).map((r: { table_id: string }) => r.table_id)
+              );
+
+              const toReserve = tableIds.filter((id) => reservedTableIds.has(id));
+              const toOpen = tableIds.filter((id) => !reservedTableIds.has(id));
+
+              if (toReserve.length > 0) {
+                await supabase
+                  .from("tables")
+                  .update({ status: "reserved" })
+                  .in("id", toReserve);
+              }
+              if (toOpen.length > 0) {
+                await supabase
+                  .from("tables")
+                  .update({ status: "open" })
+                  .in("id", toOpen);
+              }
+            } else {
               await supabase
                 .from("tables")
                 .update({ status: "open" })
-                .in("id", toOpen);
+                .in("id", tableIds);
             }
-          } else {
-            await supabase
-              .from("tables")
-              .update({ status: "open" })
-              .in("id", tableIds);
           }
         }
       }

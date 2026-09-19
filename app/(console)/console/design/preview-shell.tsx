@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
-import { GOOGLE_FONTS_CSS, type DesignSettingsV2 } from "@/lib/design";
+import { type ReactNode } from "react";
+import { type DesignSettingsV2 } from "@/lib/design";
 import { OrgPageView, type OrgView } from "@/components/OrgPageView";
 
 /**
@@ -29,16 +29,6 @@ export function PreviewShell({
   children?: ReactNode;
   previewHeight?: number;
 }) {
-  // Make the 10 Google Fonts available to the preview.
-  useEffect(() => {
-    if (document.getElementById("tc-designer-fonts")) return;
-    const link = document.createElement("link");
-    link.id = "tc-designer-fonts";
-    link.rel = "stylesheet";
-    link.href = GOOGLE_FONTS_CSS;
-    document.head.appendChild(link);
-  }, []);
-
   const hClass = previewHeight === 640 ? "h-[640px]" : previewHeight === 960 ? "h-[960px]" : previewHeight === 1280 ? "h-[1280px]" : `h-[${previewHeight}px]`;
 
   return (

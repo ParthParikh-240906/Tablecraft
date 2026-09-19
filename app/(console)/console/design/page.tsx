@@ -1,17 +1,40 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { CanvasPanel } from "./canvas-panel";
+export const dynamic = "force-dynamic";
 
-export default async function ConsoleDesignPage() {
+export default async function ConsoleDesignPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const orgId = await getActiveOrgId(user!.id) ?? "";
+  if (!user) redirect("/console/login");
+  const orgId = await getActiveOrgId(user.id, params.org) ?? "";
 
   if (!orgId) return null;
+
+  // Staff-only guard
+  const admin = createAdminClient();
+  const { data: staffRows } = await admin
+    .from("staff_users")
+    .select("role")
+    .eq("auth_user_id", user.id)
+    .eq("org_id", orgId)
+    .single();
+
+  if (staffRows?.role !== 'owner') {
+    const orgParam = orgId ? `?org=${orgId}` : "";
+    redirect(`/console${orgParam}`);
+  }
 
   const data = await getDesignData(orgId);
   if (!data) return null;
@@ -25,7 +48,7 @@ export default async function ConsoleDesignPage() {
         Header, page colors, and the layer canvas. Hero content, content
         sections, and AI images live on their own pages.
       </p>
-      <CanvasPanel
+      <CanvasPanel key={orgId}
         orgId={orgId}
         orgName={data.orgName}
         initialSettings={data.settings}

@@ -37,6 +37,8 @@ export async function POST(request: Request) {
   const password = formData.get('password') as string;
   const tagline = formData.get('tagline') as string;
   const consolePassword = formData.get('consolePassword') as string | null;
+  const staffEmail = formData.get('staffEmail') as string | null;
+  const staffPassword = formData.get('staffPassword') as string | null;
 
   // Optional fields
   const branchesStr = formData.get('branches') as string;
@@ -64,6 +66,12 @@ export async function POST(request: Request) {
   }
   if (!aboutText || typeof aboutText !== "string" || aboutText.trim().length < 10) {
     return NextResponse.json({ error: "Please provide a short description of your restaurant (at least 10 characters)" }, { status: 400 });
+  }
+  if (!staffEmail || typeof staffEmail !== "string" || !staffEmail.includes("@")) {
+    return NextResponse.json({ error: "A valid staff email is required" }, { status: 400 });
+  }
+  if (!staffPassword || typeof staffPassword !== "string" || staffPassword.length < 8) {
+    return NextResponse.json({ error: "Staff password must be at least 8 characters" }, { status: 400 });
   }
 
   const admin = createAdminClient();
@@ -302,6 +310,45 @@ export async function POST(request: Request) {
       );
     }
     return NextResponse.json({ error: "Could not create staff account" }, { status: 500 });
+  }
+
+  // --- Create the staff account ---
+  {
+    const { data: staffAuthUser, error: staffAuthError } = await admin.auth.admin.createUser({
+      email: staffEmail!.trim().toLowerCase(),
+      password: staffPassword!,
+      email_confirm: true,
+    });
+
+    if (staffAuthError) {
+      console.error("signup: staff auth creation failed", staffAuthError);
+      // Roll back owner
+      await admin.from("staff_users").delete().eq("org_id", org.id);
+      await admin.from("organizations").delete().eq("id", org.id);
+      if (!isSessionUser) {
+        await admin.auth.admin.deleteUser(authUserId);
+      }
+      return NextResponse.json({ error: "Could not create staff account" }, { status: 500 });
+    }
+
+    const { error: staffRowError } = await admin.from("staff_users").insert({
+      org_id: org.id,
+      email: staffEmail!.trim().toLowerCase(),
+      role: "staff",
+      auth_user_id: staffAuthUser!.user.id,
+    });
+
+    if (staffRowError) {
+      console.error("signup: staff row creation failed", staffRowError);
+      await admin.auth.admin.deleteUser(staffAuthUser!.user.id);
+      // Roll back owner
+      await admin.from("staff_users").delete().eq("org_id", org.id);
+      await admin.from("organizations").delete().eq("id", org.id);
+      if (!isSessionUser) {
+        await admin.auth.admin.deleteUser(authUserId);
+      }
+      return NextResponse.json({ error: "Could not create staff account" }, { status: 500 });
+    }
   }
 
   return NextResponse.json(

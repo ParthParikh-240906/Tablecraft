@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 /**
  * Gates /console and /dashboard routes behind Supabase Auth and refreshes sessions.
@@ -54,11 +55,31 @@ export async function middleware(request: NextRequest) {
   // navigation within the console without relying on URL params.
   const orgParam = request.nextUrl.searchParams.get("org");
   if (isConsole && !isLoginPage && orgParam) {
+    let resolvedOrgId = orgParam;
+    // If the param looks like a slug (not a UUID), resolve it to a UUID.
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgParam);
+    if (!isUUID) {
+      try {
+        const supabase = await createClient();
+        const { data: org } = await supabase
+          .from("organizations")
+          .select("id")
+          .eq("slug", orgParam)
+          .single();
+        if (org?.id) resolvedOrgId = org.id;
+      } catch {
+        // fall through — store the raw param, layout will validate
+      }
+    }
+    // Only set the cookie if we resolved to a UUID — avoid persisting stale slugs.
+    const isResolvedUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedOrgId);
     const response = NextResponse.next({ request });
-    response.cookies.set("selected_org", orgParam, {
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365, // 1 year
-    });
+    if (isResolvedUUID) {
+      response.cookies.set("selected_org", resolvedOrgId, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365, // 1 year
+      });
+    }
     return response;
   }
 

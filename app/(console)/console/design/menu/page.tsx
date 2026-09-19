@@ -1,18 +1,24 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { MenuPagePanel } from "./menu-page-panel";
+export const dynamic = "force-dynamic";
 
-export default async function ConsoleDesignMenuPage() {
+export default async function ConsoleDesignMenuPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  
-
-  const orgId = await getActiveOrgId(user!.id) ?? "";
+  if (!user) redirect("/console/login");
+  const orgId = await getActiveOrgId(user.id, params.org) ?? "";
   if (!orgId) return null;
 
   const data = await getDesignData(orgId);
@@ -26,7 +32,7 @@ export default async function ConsoleDesignMenuPage() {
       <p className="text-sm text-[var(--ink-soft)] mb-6">
         Style the public menu page — headings, categories, and items.
       </p>
-      <MenuPagePanel
+      <MenuPagePanel key={orgId}
         orgId={orgId}
         orgName={data.orgName}
         initialSettings={data.settings}
