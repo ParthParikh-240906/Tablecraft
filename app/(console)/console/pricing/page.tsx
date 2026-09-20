@@ -93,7 +93,7 @@ export default async function ConsolePricingPage({
       slug: org.slug,
       logo_url: org.logo_url ?? null,
       plan: (org.subscription_plan as "free" | "pro" | "max") || "free",
-      subscription_status: org.subscription_status ?? "inactive",
+      subscription_status: org.subscription_status ?? "free",
       stripe_customer_id: org.stripe_customer_id ?? null,
       stripe_subscription_id: org.stripe_subscription_id ?? null,
       currentPeriodEnd: org.subscription_current_period_end ?? null,

@@ -37,7 +37,7 @@ export function PricingClient({
   accessDeniedOrgName?: string | null;
 }) {
   const [selectedOrgId, setSelectedOrgId] = useState<string>(activeOrgId || orgs[0]?.id || "");
-  const [loadingPlan, setLoadingPlan] = useState<PaidPlanKey | "portal" | "cancel" | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<PaidPlanKey | "portal" | "cancel" | "sync" | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [hasCanceled, setHasCanceled] = useState(false);
   const router = useRouter();
@@ -54,7 +54,7 @@ export function PricingClient({
     sessionStorage.setItem(key, "1");
 
     let attempts = 0;
-    const maxAttempts = 5;
+    const maxAttempts = 15; // ~30s total (15 × 2s)
 
     const poll = async () => {
       attempts++;
@@ -63,7 +63,7 @@ export function PricingClient({
       router.refresh();
     };
     poll();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedOrg = orgs.find((o) => o.id === selectedOrgId) || orgs[0];
 
@@ -103,6 +103,26 @@ export function PricingClient({
     } catch (err: any) {
       console.error("Upgrade error:", err);
       setErrorMsg(err.message || "Could not initiate upgrade. Please try again.");
+      setLoadingPlan(null);
+    }
+  };
+
+  const handleSyncPlan = async () => {
+    if (!selectedOrg) return;
+    setLoadingPlan("sync");
+    try {
+      const res = await fetch("/api/subscription/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgSlug: selectedOrg.slug }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Sync failed");
+      router.refresh();
+    } catch (err: any) {
+      console.error("Sync error:", err);
+      setErrorMsg(err.message || "Could not sync plan status.");
+    } finally {
       setLoadingPlan(null);
     }
   };
@@ -375,24 +395,36 @@ export function PricingClient({
               </div>
             </div>
 
-            {selectedOrg.stripe_customer_id && selectedOrg.stripe_subscription_id && selectedOrg.subscription_status === "active" && (
+            {(selectedOrg.stripe_customer_id || selectedOrg.subscription_status === "active") && selectedOrg.subscription_status !== "free" && (
               <>
                 <button
                   type="button"
-                  onClick={handleManageBilling}
-                  disabled={loadingPlan === "portal"}
+                  onClick={handleSyncPlan}
+                  disabled={loadingPlan === "sync"}
                   className="btn btn-outline text-xs py-1.5 px-3"
                 >
-                  {loadingPlan === "portal" ? "Opening Stripe…" : "Manage Billing & Invoices →"}
+                  {loadingPlan === "sync" ? "Syncing…" : "Sync Plan Status"}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  disabled={loadingPlan === "cancel"}
-                  className="btn btn-outline text-xs py-1.5 px-3 text-rose-500 hover:text-rose-600 border-rose-300 hover:border-rose-400"
-                >
-                  {loadingPlan === "cancel" ? "Canceling…" : "Cancel Subscription"}
-                </button>
+                {selectedOrg.stripe_subscription_id && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleManageBilling}
+                      disabled={loadingPlan === "portal"}
+                      className="btn btn-outline text-xs py-1.5 px-3"
+                    >
+                      {loadingPlan === "portal" ? "Opening Stripe…" : "Manage Billing & Invoices →"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      disabled={loadingPlan === "cancel"}
+                      className="btn btn-outline text-xs py-1.5 px-3 text-rose-500 hover:text-rose-600 border-rose-300 hover:border-rose-400"
+                    >
+                      {loadingPlan === "cancel" ? "Canceling…" : "Cancel Subscription"}
+                    </button>
+                  </>
+                )}
               </>
             )}
           </div>
