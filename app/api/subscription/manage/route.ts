@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     const { data: org, error: orgError } = await supabase
       .from("organizations")
-      .select("id, stripe_customer_id, subscription_status, slug")
+      .select("id, name, stripe_customer_id, subscription_status, slug, stripe_portal_configuration_id")
       .eq("slug", orgSlug)
       .single();
 
@@ -37,8 +37,31 @@ export async function POST(request: Request) {
       `${request.headers.get("x-forwarded-proto")}://${request.headers.get("x-forwarded-host")}` ||
       "";
 
+    // Use stored configuration if available, otherwise create one
+    let configurationId: string | null = org.stripe_portal_configuration_id;
+
+    if (!configurationId) {
+      const config = await stripe.billingPortal.configurations.create({
+        business_profile: {
+          headline: org.name || "Tablecraft",
+        },
+        features: {
+          customer_update: { enabled: true },
+          payment_method_update: { enabled: true },
+          subscription_cancel: { enabled: true },
+          subscription_update: { enabled: true },
+        },
+      });
+      configurationId = config.id;
+      await supabase
+        .from("organizations")
+        .update({ stripe_portal_configuration_id: configurationId })
+        .eq("slug", orgSlug);
+    }
+
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: org.stripe_customer_id,
+      configuration: configurationId,
       return_url: `${origin}/console/pricing?org=${org.slug}`,
     });
 
