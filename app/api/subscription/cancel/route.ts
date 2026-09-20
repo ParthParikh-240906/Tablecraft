@@ -47,7 +47,21 @@ export async function POST(request: Request) {
       cancel_at_period_end: true,
     });
 
-    return NextResponse.json({ success: true });
+    // Fetch period end before writing to DB
+    const stripeSub = (await stripe.subscriptions.retrieve(org.stripe_subscription_id)) as any;
+    const periodEnd = stripeSub.current_period_end
+      ? new Date(stripeSub.current_period_end * 1000).toISOString()
+      : null;
+
+    await supabase
+      .from("organizations")
+      .update({
+        subscription_status: "canceled",
+        subscription_current_period_end: periodEnd,
+      })
+      .eq("slug", orgSlug);
+
+    return NextResponse.json({ success: true, periodEnd });
   } catch (err: any) {
     console.error("Cancel subscription failed:", err);
     return NextResponse.json(

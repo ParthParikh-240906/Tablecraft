@@ -59,7 +59,14 @@ export async function POST(request: Request) {
     const orgSlug = await resolveOrgSlug(supabase, sub.metadata);
 
     if (orgSlug) {
-      const status = sub.status === "active" ? "active" : sub.status === "past_due" ? "past_due" : "canceled";
+      const shouldCancel = (sub as any).cancel_at_period_end === true && sub.status === "active";
+      const status = shouldCancel
+        ? "canceled"
+        : sub.status === "active"
+          ? "active"
+          : sub.status === "past_due"
+            ? "past_due"
+            : "canceled";
       const plan = (sub.metadata?.plan as "pro" | "max") || "pro";
       const periodEnd = sub.current_period_end
         ? new Date(sub.current_period_end * 1000).toISOString()

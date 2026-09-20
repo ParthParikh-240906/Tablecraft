@@ -397,14 +397,16 @@ export function PricingClient({
 
             {(selectedOrg.stripe_customer_id || selectedOrg.subscription_status === "active") && selectedOrg.subscription_status !== "free" && (
               <>
-                <button
-                  type="button"
-                  onClick={handleSyncPlan}
-                  disabled={loadingPlan === "sync"}
-                  className="btn btn-outline text-xs py-1.5 px-3"
-                >
-                  {loadingPlan === "sync" ? "Syncing…" : "Sync Plan Status"}
-                </button>
+                {!selectedOrg.stripe_subscription_id && (
+                  <button
+                    type="button"
+                    onClick={handleSyncPlan}
+                    disabled={loadingPlan === "sync"}
+                    className="btn btn-outline text-xs py-1.5 px-3"
+                  >
+                    {loadingPlan === "sync" ? "Syncing…" : "Sync Plan Status"}
+                  </button>
+                )}
                 {selectedOrg.stripe_subscription_id && (
                   <>
                     <button
@@ -415,14 +417,16 @@ export function PricingClient({
                     >
                       {loadingPlan === "portal" ? "Opening Stripe…" : "Manage Billing & Invoices →"}
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleCancel}
-                      disabled={loadingPlan === "cancel"}
-                      className="btn btn-outline text-xs py-1.5 px-3 text-rose-500 hover:text-rose-600 border-rose-300 hover:border-rose-400"
-                    >
-                      {loadingPlan === "cancel" ? "Canceling…" : "Cancel Subscription"}
-                    </button>
+                    {selectedOrg.subscription_status !== "canceled" && (
+                      <button
+                        type="button"
+                        onClick={handleCancel}
+                        disabled={loadingPlan === "cancel"}
+                        className="btn btn-outline text-xs py-1.5 px-3 text-rose-500 hover:text-rose-600 border-rose-300 hover:border-rose-400"
+                      >
+                        {loadingPlan === "cancel" ? "Canceling…" : "Cancel Subscription"}
+                      </button>
+                    )}
                   </>
                 )}
               </>
