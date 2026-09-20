@@ -487,7 +487,7 @@ export function PricingClient({
                   disabled={Boolean(loadingPlan)}
                   className="w-full py-2.5 px-4 rounded text-xs font-semibold bg-[var(--accent)] text-white hover:opacity-95 transition-all shadow-xs disabled:opacity-50"
                 >
-                  {loadingPlan === "pro" ? "Redirecting to Stripe…" : `Upgrade ${selectedOrg?.name ?? "Restaurant"} to Pro →`}
+                  {loadingPlan === "pro" ? "Redirecting to Stripe…" : `${selectedOrg?.plan === "max" ? "Switch" : "Upgrade"} ${selectedOrg?.name ?? "Restaurant"} to Pro →`}
                 </button>
               )}
             </div>
@@ -558,7 +558,7 @@ export function PricingClient({
                   disabled={Boolean(loadingPlan)}
                   className="w-full py-2.5 px-4 rounded text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white transition-all shadow-xs disabled:opacity-50"
                 >
-                  {loadingPlan === "max" ? "Redirecting to Stripe…" : `Upgrade ${selectedOrg?.name ?? "Restaurant"} to Max →`}
+                  {loadingPlan === "max" ? "Redirecting to Stripe…" : `${selectedOrg?.plan === "pro" ? "Upgrade" : "Switch"} ${selectedOrg?.name ?? "Restaurant"} to Max →`}
                 </button>
               )}
             </div>

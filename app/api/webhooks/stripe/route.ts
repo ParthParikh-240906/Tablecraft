@@ -67,16 +67,13 @@ export async function POST(request: Request) {
 
       await supabase
         .from("organizations")
-        .upsert(
-          {
-            stripe_subscription_id: sub.id,
-            stripe_customer_id: sub.customer as string,
-            subscription_status: status,
-            subscription_plan: plan,
-            subscription_current_period_end: periodEnd,
-          },
-          { onConflict: "slug" },
-        )
+        .update({
+          stripe_subscription_id: sub.id,
+          stripe_customer_id: sub.customer as string,
+          subscription_status: status,
+          subscription_plan: plan,
+          subscription_current_period_end: periodEnd,
+        })
         .eq("slug", orgSlug);
 
       console.log(`Subscription ${sub.id} for org ${orgSlug}: ${status} (${plan})`);
