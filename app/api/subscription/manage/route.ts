@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     const { data: org, error: orgError } = await supabase
       .from("organizations")
-      .select("id, stripe_customer_id, subscription_status")
+      .select("id, stripe_customer_id, subscription_status, slug")
       .eq("slug", orgSlug)
       .single();
 
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: org.stripe_customer_id,
-      return_url: `${origin}/console`,
+      return_url: `${origin}/console/pricing?org=${org.slug}`,
     });
 
     return NextResponse.json({ url: portalSession.url });

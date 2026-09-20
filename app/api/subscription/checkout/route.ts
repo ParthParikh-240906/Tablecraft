@@ -79,19 +79,51 @@ export async function POST(request: Request) {
       });
     }
 
-    // Create subscription Checkout Session
-    const session = await stripe.checkout.sessions.create({
+    // Store customer ID on the org
+    if (orgId) {
+      await supabase
+        .from("organizations")
+        .update({ stripe_customer_id: stripeCustomer.id })
+        .eq("id", orgId);
+    } else if (orgSlug) {
+      await supabase
+        .from("organizations")
+        .update({ stripe_customer_id: stripeCustomer.id })
+        .eq("slug", orgSlug);
+    }
+
+    // Check if customer already has an active subscription (upgrade case)
+    const existingSubs = await stripe.subscriptions.list({
       customer: stripeCustomer.id,
-      mode: "subscription",
-      line_items: [{ price: monthlyPriceId, quantity: 1 }],
-      subscription_data: {
+      status: "active",
+      limit: 1,
+    });
+
+    const successUrl = orgSlug
+      ? `${origin}/console/pricing?org=${orgSlug}&checkout=done`
+      : `${origin}/signup?checkout=done&plan=${plan}`;
+
+    if (existingSubs.data.length > 0) {
+      // Upgrade: update existing subscription directly with proration
+      const existingSub = existingSubs.data[0] as any;
+      await stripe.subscriptions.update(existingSub.id, {
+        items: [{ id: existingSub.items.data[0].id, price: monthlyPriceId }],
+        proration_behavior: "create_prorations",
         metadata: {
           orgSlug: orgSlug || "",
           orgId: orgId || "",
           plan,
         },
-      },
-      success_url: orgSlug ? `${origin}/console/pricing?org=${orgSlug}&checkout=done` : `${origin}/signup?checkout=done&plan=${plan}`,
+      });
+      return NextResponse.json({ upgraded: true, successUrl });
+    }
+
+    // New subscription: create Stripe Checkout Session
+    const session = await stripe.checkout.sessions.create({
+      customer: stripeCustomer.id,
+      mode: "subscription",
+      line_items: [{ price: monthlyPriceId, quantity: 1 }],
+      success_url: successUrl,
       cancel_url: `${origin}/console`,
       metadata: {
         orgSlug: orgSlug || "",
@@ -100,19 +132,6 @@ export async function POST(request: Request) {
         type: "subscription",
       },
     });
-
-    // Store customer ID on the org
-    if (orgId) {
-      await supabase
-        .from("organizations")
-        .update({ stripe_customer_id: stripeCustomer!.id })
-        .eq("id", orgId);
-    } else if (orgSlug) {
-      await supabase
-        .from("organizations")
-        .update({ stripe_customer_id: stripeCustomer!.id })
-        .eq("slug", orgSlug);
-    }
 
     return NextResponse.json({ url: session.url, sessionId: session.id });
   } catch (err: any) {

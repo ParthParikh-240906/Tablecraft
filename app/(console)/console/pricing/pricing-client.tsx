@@ -96,7 +96,11 @@ export function PricingClient({
       }
 
       if (data.url) {
+        // New subscription — redirect to Stripe Checkout
         window.location.href = data.url;
+      } else if (data.upgraded) {
+        // Existing subscription upgraded server-side — go straight to success
+        window.location.href = data.successUrl;
       } else {
         throw new Error("No checkout URL returned by server");
       }
@@ -446,12 +450,13 @@ export function PricingClient({
         )}
 
         {selectedOrg?.subscription_status === "canceled" && !hasCanceled && (
-          <div className="p-4 rounded bg-stone-500/10 border border-stone-500/30 text-stone-600 text-xs">
+          <div className="p-4 rounded bg-amber-500/10 border border-amber-500/30 text-amber-700 text-xs">
             <p className="font-semibold mb-1">Subscription Expired</p>
             <p>
               Your subscription ended on{" "}
               <span className="font-mono font-semibold">{selectedOrg.currentPeriodEnd ? new Date(selectedOrg.currentPeriodEnd).toLocaleDateString() : "—"}</span>.
-              Upgrade again to restore access.
+              You can still use the <span className="font-semibold">{selectedOrg.plan.toUpperCase()}</span> plan until{" "}
+              <span className="font-mono font-semibold">{selectedOrg.currentPeriodEnd ? new Date(selectedOrg.currentPeriodEnd).toLocaleDateString() : "—"}</span>.
             </p>
           </div>
         )}
