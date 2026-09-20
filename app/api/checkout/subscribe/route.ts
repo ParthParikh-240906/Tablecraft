@@ -96,9 +96,8 @@ export async function POST(request: Request) {
           plan,
         },
       },
-      customer_email: email || stripeCustomer.email || undefined,
-      success_url: `${origin}/signup?checkout=done&plan=${plan}${orgSlug ? `&orgSlug=${orgSlug}` : ""}`,
-      cancel_url: `${origin}/#pricing`,
+      success_url: orgSlug ? `${origin}/console/pricing?org=${orgSlug}&checkout=done` : `${origin}/signup?checkout=done&plan=${plan}`,
+      cancel_url: `${origin}/console`,
       metadata: {
         orgSlug: orgSlug || "",
         orgId: orgId || "",

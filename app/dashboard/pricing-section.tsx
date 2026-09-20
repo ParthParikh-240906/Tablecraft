@@ -34,29 +34,17 @@ function PricingCard({ plan, index }: { plan: typeof MARKETING_PLANS[0]; index: 
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      router.push(`/signin?next=/signup?plan=${plan.planKey}`);
+      router.push(`/signin?next=/dashboard`);
       return;
     }
-    setLoading(true);
-    try {
-      const res = await fetch("/api/checkout/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: plan.planKey }),
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        console.error("Checkout failed:", data);
-        alert(data.error ?? "Failed to start checkout. Please try again.");
-        setLoading(false);
-      }
-    } catch (err) {
-      console.error("Checkout error:", err);
-      alert("Network error. Please try again.");
-      setLoading(false);
-    }
+    // Signed in: redirect to console pricing page to pick restaurant + plan
+    const { data: staffRows } = await supabase
+      .from("staff_users")
+      .select("org_id")
+      .eq("auth_user_id", user.id)
+      .eq("role", "owner");
+    const orgId = (staffRows ?? [])[0]?.org_id;
+    router.push(`/console/pricing?org=${orgId}&plan=${plan.planKey}`);
   }
 
   return (

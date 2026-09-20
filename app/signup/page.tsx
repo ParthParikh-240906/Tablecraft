@@ -46,15 +46,29 @@ export default function SignupPage() {
   }, []);
 
   // Check if user is signed in; if so, lock email to session email.
+  // If signed in with an existing restaurant + paid plan, skip to console pricing.
   // If not signed in, redirect to sign-in — restaurant creation requires an account.
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
         setSignedIn(true);
         setEmail(user.email ?? "");
+        const urlPlan = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("plan");
+        if (urlPlan === "pro" || urlPlan === "max") {
+          const { data: staffRows } = await supabase
+            .from("staff_users")
+            .select("id")
+            .eq("auth_user_id", user.id)
+            .eq("role", "owner")
+            .single();
+          if (staffRows) {
+            router.push(`/console/pricing?plan=${urlPlan}`);
+            return;
+          }
+        }
       } else {
-        router.push("/signin?next=/signup");
+        router.push("/signin?next=/dashboard");
       }
       setAuthChecked(true);
     });

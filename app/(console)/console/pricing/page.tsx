@@ -31,7 +31,7 @@ export default async function ConsolePricingPage({
   // Fetch all staff rows for this user to discover all linked restaurants
   const { data: staffRows } = await admin
     .from("staff_users")
-    .select("org_id, role, organizations(id, name, slug, logo_url, subscription_plan, stripe_customer_id, stripe_subscription_id, subscription_status)")
+    .select("org_id, role, organizations(id, name, slug, logo_url, subscription_plan, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end)")
     .eq("auth_user_id", user.id);
 
   const orgMap = new Map<string, any>();
@@ -47,12 +47,10 @@ export default async function ConsolePricingPage({
 
   const orgs = Array.from(orgMap.values());
 
-  // Staff-only guard
+  // Staff-only guard — show access denied message instead of silent redirect
   const activeOrgData = orgs.find((o) => o.id === activeOrgId);
-  if (activeOrgData?.staffRole !== 'owner') {
-    const orgParam = activeOrgId ? `?org=${activeOrgId}` : "";
-    redirect(`/console${orgParam}`);
-  }
+  const staffAccessDenied = activeOrgData?.staffRole !== 'owner';
+  const accessDeniedOrgName = staffAccessDenied ? (activeOrgData?.name ?? "this restaurant") : null;
   const orgIds = orgs.map((o) => o.id);
 
   // Fetch orders (with customer_name + items for detail display), bookings, and tables
@@ -98,6 +96,7 @@ export default async function ConsolePricingPage({
       subscription_status: org.subscription_status ?? "inactive",
       stripe_customer_id: org.stripe_customer_id ?? null,
       stripe_subscription_id: org.stripe_subscription_id ?? null,
+      currentPeriodEnd: org.subscription_current_period_end ?? null,
       staffRole: org.staffRole,
       totalEarningsAed,
       totalOrdersCount: orgOrders.length,
@@ -121,6 +120,7 @@ export default async function ConsolePricingPage({
       activeOrgId={activeOrgId}
       userEmail={user.email ?? ""}
       orgs={orgMetrics}
+      accessDeniedOrgName={accessDeniedOrgName}
     />
   );
 }

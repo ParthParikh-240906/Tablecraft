@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PLAN_MONTHLY_AED, type PaidPlanKey } from "@/lib/pricing";
 
 export interface OrgMetricData {
@@ -13,6 +14,7 @@ export interface OrgMetricData {
   subscription_status: string;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  currentPeriodEnd: string | null;
   staffRole: string;
   totalEarningsAed: number;
   totalOrdersCount: number;
@@ -27,22 +29,47 @@ export function PricingClient({
   activeOrgId,
   userEmail,
   orgs,
+  accessDeniedOrgName,
 }: {
   activeOrgId: string;
   userEmail: string;
   orgs: OrgMetricData[];
+  accessDeniedOrgName?: string | null;
 }) {
   const [selectedOrgId, setSelectedOrgId] = useState<string>(activeOrgId || orgs[0]?.id || "");
-  const [loadingPlan, setLoadingPlan] = useState<PaidPlanKey | "portal" | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<PaidPlanKey | "portal" | "cancel" | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [hasCanceled, setHasCanceled] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Auto-refresh after Stripe checkout completes (polls until webhook updates DB)
+  useEffect(() => {
+    const param = searchParams.get("checkout");
+    if (!param) return;
+
+    // Only poll once per page session — don't re-poll after router.refresh()
+    const key = `pricing_poll_${param}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
+
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    const poll = async () => {
+      attempts++;
+      if (attempts >= maxAttempts) return;
+      await new Promise((r) => setTimeout(r, 2000));
+      router.refresh();
+    };
+    poll();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedOrg = orgs.find((o) => o.id === selectedOrgId) || orgs[0];
 
   // Aggregate metrics across all user-owned restaurants
   const totalCombinedEarnings = orgs.reduce((acc, o) => acc + o.totalEarningsAed, 0);
   const totalCombinedOrders = orgs.reduce((acc, o) => acc + o.paidOrdersCount, 0);
-  const totalCombinedPending = orgs.reduce((acc, o) => acc + o.pendingOrdersCount, 0);
-  const totalCombinedPendingAed = orgs.reduce((acc, o) => acc + o.pendingOrdersAed, 0);
   const totalCombinedBookings = orgs.reduce((acc, o) => acc + o.totalBookingsCount, 0);
   const totalCombinedTables = orgs.reduce((acc, o) => acc + o.totalTablesCount, 0);
 
@@ -111,6 +138,30 @@ export function PricingClient({
     }
   };
 
+  const handleCancel = async () => {
+    if (!selectedOrg) return;
+    if (!window.confirm(`Cancel your ${selectedOrg.plan.toUpperCase()} plan? You'll keep access until the end of your billing period.`)) return;
+    setLoadingPlan("cancel");
+    try {
+      const res = await fetch("/api/subscription/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgSlug: selectedOrg.slug }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Failed to cancel subscription");
+      }
+      setHasCanceled(true);
+      router.refresh();
+    } catch (err: any) {
+      console.error("Cancel error:", err);
+      setErrorMsg(err.message || "Could not cancel subscription.");
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-5xl">
       {/* ── Page Header ────────────────────────────────────────────── */}
@@ -129,6 +180,13 @@ export function PricingClient({
         <div className="p-3.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-500 text-xs flex items-center justify-between">
           <span>{errorMsg}</span>
           <button onClick={() => setErrorMsg(null)} className="font-bold ml-2">✕</button>
+        </div>
+      )}
+
+      {accessDeniedOrgName && (
+        <div className="p-4 rounded bg-amber-500/10 border border-amber-500/30 text-amber-700 text-xs">
+          <p className="font-semibold mb-1">Access Restricted</p>
+          <p>This account is configured as staff for "{accessDeniedOrgName}". Please sign in with the owner account to manage pricing and upgrades.</p>
         </div>
       )}
 
@@ -159,16 +217,6 @@ export function PricingClient({
               {totalCombinedOrders.toLocaleString()}
             </p>
             <p className="text-[10px] text-[var(--ink-soft)] mt-0.5">Paid transactions</p>
-          </div>
-
-          <div className="ticket p-4 border border-[var(--rule)] bg-[var(--paper-raised)]">
-            <p className="text-[11px] font-mono uppercase tracking-wider text-[var(--ink-faint)]">Pending Orders</p>
-            <p className="font-display text-2xl font-bold text-amber-500 mt-1">
-              {totalCombinedPending.toLocaleString()}
-            </p>
-            <p className="text-[10px] text-[var(--ink-soft)] mt-0.5">
-              AED {totalCombinedPendingAed.toFixed(2)} outstanding
-            </p>
           </div>
 
           <div className="ticket p-4 border border-[var(--rule)] bg-[var(--paper-raised)]">
@@ -327,16 +375,48 @@ export function PricingClient({
               </div>
             </div>
 
-            {selectedOrg.stripe_customer_id && (
-              <button
-                type="button"
-                onClick={handleManageBilling}
-                disabled={loadingPlan === "portal"}
-                className="btn btn-outline text-xs py-1.5 px-3"
-              >
-                {loadingPlan === "portal" ? "Opening Stripe…" : "Manage Billing & Invoices →"}
-              </button>
+            {selectedOrg.stripe_customer_id && selectedOrg.stripe_subscription_id && selectedOrg.subscription_status === "active" && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleManageBilling}
+                  disabled={loadingPlan === "portal"}
+                  className="btn btn-outline text-xs py-1.5 px-3"
+                >
+                  {loadingPlan === "portal" ? "Opening Stripe…" : "Manage Billing & Invoices →"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={loadingPlan === "cancel"}
+                  className="btn btn-outline text-xs py-1.5 px-3 text-rose-500 hover:text-rose-600 border-rose-300 hover:border-rose-400"
+                >
+                  {loadingPlan === "cancel" ? "Canceling…" : "Cancel Subscription"}
+                </button>
+              </>
             )}
+          </div>
+        )}
+
+        {hasCanceled && selectedOrg?.currentPeriodEnd && (
+          <div className="p-4 rounded bg-amber-500/10 border border-amber-500/30 text-amber-700 text-xs">
+            <p className="font-semibold mb-1">Subscription Canceled</p>
+            <p>
+              Your subscription has been canceled. You can still use the {selectedOrg.plan.toUpperCase()} plan until{" "}
+              <span className="font-mono font-semibold">{new Date(selectedOrg.currentPeriodEnd).toLocaleDateString()}</span>.
+              After that date, your plan will switch to Free.
+            </p>
+          </div>
+        )}
+
+        {selectedOrg?.subscription_status === "canceled" && !hasCanceled && (
+          <div className="p-4 rounded bg-stone-500/10 border border-stone-500/30 text-stone-600 text-xs">
+            <p className="font-semibold mb-1">Subscription Expired</p>
+            <p>
+              Your subscription ended on{" "}
+              <span className="font-mono font-semibold">{selectedOrg.currentPeriodEnd ? new Date(selectedOrg.currentPeriodEnd).toLocaleDateString() : "—"}</span>.
+              Upgrade again to restore access.
+            </p>
           </div>
         )}
 
