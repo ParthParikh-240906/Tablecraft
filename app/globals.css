@@ -344,31 +344,31 @@ body {
 /* Explicit light theme — warm cream, inviting */
 [data-theme="light"],
 .theme-light {
-  --paper: #faf7f2;
-  --paper-raised: #fffcf8;
-  --paper-overlay: #f2ebe0;
-  --layer2: #ece5da;
+  --paper: #ffffff;
+  --paper-raised: #fffcf7;
+  --paper-overlay: #f5f0e8;
+  --layer2: #efe8dc;
 
-  --ink: #2a2018;
-  --ink-soft: #7a6b5d;
-  --ink-faint: #a09486;
+  --ink: #1a1410;
+  --ink-soft: #5c4a3a;
+  --ink-faint: #8a7562;
 
-  --rule: #e4ddd2;
-  --rule-strong: #d4cdbf;
+  --rule: #ddd5c8;
+  --rule-strong: #c8bfb0;
 
-  --accent: #d45200;
-  --accent-subtle: rgba(212, 82, 0, 0.08);
-  --accent-border: rgba(212, 82, 0, 0.28);
+  --accent: #c44800;
+  --accent-subtle: rgba(196, 72, 0, 0.07);
+  --accent-border: rgba(196, 72, 0, 0.24);
 
-  --shadow-sm: 0 1px 4px rgba(42, 32, 24, 0.08), 0 1px 2px rgba(42, 32, 24, 0.04);
-  --shadow-md: 0 4px 16px rgba(42, 32, 24, 0.08), 0 1px 3px rgba(42, 32, 24, 0.05);
-  --shadow-lg: 0 12px 40px rgba(42, 32, 24, 0.10), 0 4px 12px rgba(42, 32, 24, 0.06);
+  --shadow-sm: 0 1px 3px rgba(26, 20, 16, 0.06), 0 1px 2px rgba(26, 20, 16, 0.04);
+  --shadow-md: 0 4px 14px rgba(26, 20, 16, 0.07), 0 1px 3px rgba(26, 20, 16, 0.04);
+  --shadow-lg: 0 12px 36px rgba(26, 20, 16, 0.09), 0 4px 10px rgba(26, 20, 16, 0.05);
 
-  --ink-emphasis: #2a2018;
+  --ink-emphasis: #1a1410;
 
   color-scheme: light;
-  --muted: #ece5da;
-  --ink-muted: #7a6b5d;
+  --muted: #ede7db;
+  --ink-muted: #8a7562;
 }
 
 [data-theme="dark"],
