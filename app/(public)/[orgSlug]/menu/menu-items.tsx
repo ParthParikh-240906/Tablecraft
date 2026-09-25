@@ -1,6 +1,7 @@
 "use client";
 
 import type { MenuPageDesign } from "@/lib/design";
+import { getShadowStyle } from "@/lib/design";
 
 interface MenuItem {
   id: string;
@@ -23,7 +24,7 @@ interface ShapeElement {
 }
 
 function inline(
-  d: { fontFamily: string; fontSize: number; color: string; textAlign: string },
+  d: { fontFamily: string; fontSize: number; color: string; textAlign: string; shadow?: { color: string; direction: number; length: number; opacity?: number } },
   extra?: React.CSSProperties,
 ): React.CSSProperties {
   return {
@@ -31,6 +32,7 @@ function inline(
     fontSize: `${d.fontSize}px`,
     color: d.color,
     textAlign: d.textAlign as React.CSSProperties["textAlign"],
+    textShadow: getShadowStyle(d.shadow),
     ...extra,
   };
 }

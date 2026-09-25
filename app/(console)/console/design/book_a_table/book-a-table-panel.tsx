@@ -3,6 +3,7 @@
 import { useDesign } from "../use-design";
 import { DesignNav } from "../design-nav";
 import { ColorField, DesignField } from "../design-fields";
+import { AnimationBuilder } from "@/components/AnimationBuilder";
 import { SiteHeader } from "@/components/SiteHeader";
 import { defaultReservePageDesign, type DesignSettingsV2, type ReservePageDesign } from "@/lib/design";
 
@@ -78,7 +79,8 @@ export function BookATablePanel({
                 onChange={(e) => update({ title_design: { ...reserve.title_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
             </div>
-            <DesignField label="" design={reserve.title_design} onChange={(d) => update({ title_design: d })} />
+            <DesignField customFonts={settings.custom_fonts} label="" design={reserve.title_design} onChange={(d) => update({ title_design: d })} />
+            <AnimationBuilder design={reserve.title_design} onChange={(d) => update({ title_design: d })} />
           </section>
 
           <section className="ticket p-5 space-y-3">
@@ -90,7 +92,8 @@ export function BookATablePanel({
                 onChange={(e) => update({ subtitle_design: { ...reserve.subtitle_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
             </div>
-            <DesignField label="" design={reserve.subtitle_design} onChange={(d) => update({ subtitle_design: d })} />
+            <DesignField customFonts={settings.custom_fonts} label="" design={reserve.subtitle_design} onChange={(d) => update({ subtitle_design: d })} />
+            <AnimationBuilder design={reserve.subtitle_design} onChange={(d) => update({ subtitle_design: d })} />
           </section>
 
           <section className="ticket p-5 space-y-3">
@@ -102,7 +105,8 @@ export function BookATablePanel({
                 onChange={(e) => update({ label_design: { ...reserve.label_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
             </div>
-            <DesignField label="" design={reserve.label_design} onChange={(d) => update({ label_design: d })} />
+            <DesignField customFonts={settings.custom_fonts} label="" design={reserve.label_design} onChange={(d) => update({ label_design: d })} />
+            <AnimationBuilder design={reserve.label_design} onChange={(d) => update({ label_design: d })} />
           </section>
 
           <section className="ticket p-5 space-y-3">
@@ -114,7 +118,8 @@ export function BookATablePanel({
                 onChange={(e) => update({ button_design: { ...reserve.button_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
             </div>
-            <DesignField label="" design={reserve.button_design} onChange={(d) => update({ button_design: d })} />
+            <DesignField customFonts={settings.custom_fonts} label="" design={reserve.button_design} onChange={(d) => update({ button_design: d })} />
+            <AnimationBuilder design={reserve.button_design} onChange={(d) => update({ button_design: d })} />
           </section>
 
           {/* Input colors */}

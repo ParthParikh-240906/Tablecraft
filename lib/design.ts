@@ -8,6 +8,37 @@ export interface TextDesign {
   fontSize: number;
   color: string;
   textAlign: "left" | "center" | "right";
+  shadow?: {
+    color: string;
+    direction: number;
+    length: number;
+    opacity?: number;
+  };
+  animation?: {
+    type: "slideUp" | "scaleOut" | "fadeIn" | "none";
+    duration: number;
+    delay: number;
+  };
+}
+
+export function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const m = hex.replace(/^#/, "").match(hex.length === 4 ? /^[0-9a-fA-F]{3}$/ : /^[0-9a-fA-F]{6}$/);
+  if (!m) return { r: 0, g: 0, b: 0 };
+  const full = hex.length === 4
+    ? "#" + hex.slice(1).split("").map((c) => c + c).join("")
+    : hex;
+  const n = parseInt(full.slice(1), 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+export function getShadowStyle(shadow?: TextDesign['shadow']): string | undefined {
+  if (!shadow || shadow.length === 0) return undefined;
+  const rad = shadow.direction * (Math.PI / 180);
+  const x = Math.round(Math.cos(rad) * shadow.length);
+  const y = Math.round(Math.sin(rad) * shadow.length);
+  const opacity = shadow.opacity ?? 1;
+  const { r, g, b } = hexToRgb(shadow.color);
+  return `${x}px ${y}px 1px rgba(${r},${g},${b},${opacity})`;
 }
 
 export interface HeaderNavDesign {
@@ -28,6 +59,8 @@ export type LayerType = "color" | "image" | "images" | "video";
 export type HeroElementKind = "logo" | "title" | "tagline" | "text" | "shape" | "image" | "button";
 export type ContentElementKind = "title" | "text" | "image" | "images" | "shape" | "button";
 export type ButtonType = "book" | "menu";
+export type HeaderElementKind = "logo" | "name" | "menu_link" | "book_button";
+export interface HeaderElement { id: string; kind: HeaderElementKind; }
 
 export interface Rect {
   x: number; // percent of container width
@@ -156,6 +189,7 @@ export interface DesignSettingsV2 {
     logo_border_width: number; // px, 0 = no border
     nav_design: HeaderNavDesign;
     cta_design: HeaderCtaDesign;
+    header_elements?: HeaderElement[];
   };
   canvas: {
     hero_rect: { y: number; h: number }; // % of page height
@@ -173,6 +207,7 @@ export interface DesignSettingsV2 {
   booking_config?: BookingConfigDesign;
   menu_page_shapes?: { id: string; style: ShapeStyle }[];
   reserve_page_shapes?: { id: string; style: ShapeStyle }[];
+  custom_fonts?: { name: string; value: string; url: string }[];
 }
 
 // ─── Fonts (local) ────────────────────────────────────────────────────────────
@@ -183,9 +218,6 @@ export const LOCAL_FONTS = [
   { name: "Calistoga", value: "'Calistoga', cursive" },
   { name: "Instrument Serif", value: "'Instrument Serif', serif" },
   { name: "Tangerine", value: "'Tangerine', cursive" },
-  { name: "Playpen Sans", value: "'Playpen Sans', cursive" },
-  { name: "Sansita Swashed", value: "'Sansita Swashed', cursive" },
-  { name: "Rubik Doodle Shadow", value: "'Rubik Doodle Shadow', cursive" },
 ];
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
@@ -211,6 +243,17 @@ export const DEFAULT_TEXT_DESIGN: TextDesign = {
 export function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
+
+export function newHeaderElement(kind: HeaderElementKind): HeaderElement {
+  return { id: uid(), kind };
+}
+
+const DEFAULT_HEADER_ELEMENTS: HeaderElement[] = [
+  { id: "h-logo", kind: "logo" },
+  { id: "h-name", kind: "name" },
+  { id: "h-menu", kind: "menu_link" },
+  { id: "h-book", kind: "book_button" },
+];
 
 export function clampRect(r: Rect, min = 3, maxY?: number): Rect {
   const w = Math.min(100, Math.max(min, r.w));
@@ -314,6 +357,7 @@ export function defaultHeaderDesign(): DesignSettingsV2["header"] {
       borderRadius: 9999,
       borderWidth: 2,
     },
+    header_elements: [...DEFAULT_HEADER_ELEMENTS],
   };
 }
 

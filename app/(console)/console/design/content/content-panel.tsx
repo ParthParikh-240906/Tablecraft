@@ -7,6 +7,7 @@ import { ResizableBox } from "../resizable-box";
 import { PreviewShell } from "../preview-shell";
 import { DesignNav } from "../design-nav";
 import { ColorField, DesignField, OpacityField } from "../design-fields";
+import { AnimationBuilder } from "@/components/AnimationBuilder";
 import { type OrgView } from "@/components/OrgPageView";
 import {
   newContentElement,
@@ -437,7 +438,7 @@ export function ContentPanel({
                     </div>
                   </div>
                   <ColorField label="Button background" value={sel.bgColor ?? "#f97316"} onChange={(v) => updateEl(sel.id, { bgColor: v })} />
-                  <DesignField
+                  <DesignField customFonts={settings.custom_fonts}
                     label=""
                     design={sel.design}
                     onChange={(d) => updateEl(sel.id, { design: d })}
@@ -473,11 +474,14 @@ export function ContentPanel({
               )}
 
               {sel.kind !== "shape" && sel.kind !== "button" && (
-                <DesignField
+                <DesignField customFonts={settings.custom_fonts}
                   label=""
                   design={sel.design}
                   onChange={(d) => updateEl(sel.id, { design: d })}
                 />
+              )}
+              {sel.kind !== "shape" && sel.kind !== "button" && (
+                <AnimationBuilder design={sel.design} onChange={(d) => updateEl(sel.id, { design: d })} />
               )}
             </section>
           )}

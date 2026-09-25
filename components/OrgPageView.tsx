@@ -13,6 +13,8 @@ import { FitText } from "./fit-text";
 import { AutoBackgroundCarousel } from "./AutoBackgroundCarousel";
 import { RestaurantPhotoCarousel } from "./RestaurantPhotoCarousel";
 import { SiteHeader } from "./SiteHeader";
+import { AnimatedText } from "./AnimatedText";
+import { getShadowStyle } from "@/lib/design";
 
 export interface OrgView {
   name: string;
@@ -146,7 +148,12 @@ function HeroText({
         textAlign: s.textAlign,
       }}
     >
-      <span className="whitespace-pre-line">{text}</span>
+      <AnimatedText
+        design={s}
+        style={{ display: "inline" }}
+      >
+        <span className="whitespace-pre-line">{text}</span>
+      </AnimatedText>
     </FitText>
   );
 }
@@ -274,12 +281,12 @@ function ContentVisual({
   if (!text) return null;
 
   return (
-    <div
+    <AnimatedText
+      text={text}
+      design={s}
       className={`w-full h-full overflow-hidden leading-relaxed ${el.kind === "title" ? "font-bold" : ""}`}
       style={{ fontFamily: s.fontFamily, fontSize: fS(s.fontSize), color: s.color, textAlign: s.textAlign }}
-    >
-      <span className="whitespace-pre-line">{text}</span>
-    </div>
+    />
   );
 }
 

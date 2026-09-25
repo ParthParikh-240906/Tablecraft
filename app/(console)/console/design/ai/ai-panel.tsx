@@ -21,6 +21,7 @@ export function AiPanel({
   const [result, setResult] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [newFontName, setNewFontName] = useState("");
 
   const handleReference = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -294,7 +295,7 @@ export function AiPanel({
                 onChange={(e) => updateChatbot({ font_family: e.target.value })}
                 className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs"
               >
-                {LOCAL_FONTS.map((f) => (
+                {[...LOCAL_FONTS, ...(settings.custom_fonts || [])].map((f) => (
                   <option key={f.value} value={f.value}>{f.name}</option>
                 ))}
               </select>
@@ -319,6 +320,84 @@ export function AiPanel({
               value={chatbot.border_color ?? "transparent"}
               onChange={(v) => updateChatbot({ border_color: v })}
             />
+          </section>
+
+          {/* Custom Google Fonts */}
+          <section className="ticket p-5 space-y-4">
+            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
+              Custom Google Fonts
+            </h3>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+                  Google Font Name (e.g. Sixtfyfour, Space Mono)
+                </label>
+                <input
+                  type="text"
+                  value={newFontName}
+                  onChange={(e) => setNewFontName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (!newFontName.trim()) return;
+                      const name = newFontName.trim();
+                      const url = `https://fonts.googleapis.com/css2?family=${name.replace(/ /g, "+")}:wght@400;700&display=swap`;
+                      updateSettings({
+                        custom_fonts: [
+                          ...(settings.custom_fonts || []),
+                          { name, value: `'${name}', sans-serif`, url },
+                        ],
+                      });
+                      setNewFontName("");
+                    }
+                  }}
+                  className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs text-[var(--ink)]"
+                  placeholder="Roboto"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!newFontName.trim()) return;
+                  const name = newFontName.trim();
+                  const url = `https://fonts.googleapis.com/css2?family=${name.replace(/ /g, "+")}:wght@400;700&display=swap`;
+                  updateSettings({
+                    custom_fonts: [
+                      ...(settings.custom_fonts || []),
+                      { name, value: `'${name}', sans-serif`, url },
+                    ],
+                  });
+                  setNewFontName("");
+                }}
+                className="btn btn-outline text-xs h-[30px]"
+              >
+                Add
+              </button>
+            </div>
+            
+            {(settings.custom_fonts || []).length > 0 && (
+              <ul className="space-y-1">
+                {settings.custom_fonts!.map((font, idx) => (
+                  <li key={idx} className="flex flex-wrap items-center justify-between text-xs py-1 border-b border-[var(--rule)] last:border-0">
+                    <span className="text-[var(--ink)]">{font.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const arr = [...settings.custom_fonts!];
+                        arr.splice(idx, 1);
+                        updateSettings({ custom_fonts: arr });
+                      }}
+                      className="text-red-500 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="text-[10px] text-[var(--ink-faint)] leading-relaxed">
+              Added fonts become immediately available across all font pickers in the studio. They will be loaded automatically on the preview and public pages.
+            </p>
           </section>
         </div>
 

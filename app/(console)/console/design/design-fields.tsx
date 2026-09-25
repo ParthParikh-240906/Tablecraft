@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { LOCAL_FONTS } from "@/lib/design";
 import type { TextDesign } from "@/lib/design";
+import { AnimationBuilder } from "@/components/AnimationBuilder";
 
 export function ColorField({
   label,
@@ -84,12 +85,15 @@ export function OpacityField({
 export function DesignField({
   label,
   design,
+  customFonts = [],
   onChange,
 }: {
   label: string;
   design: TextDesign;
+  customFonts?: { name: string; value: string }[];
   onChange: (d: TextDesign) => void;
 }) {
+  const fonts = [...LOCAL_FONTS, ...customFonts];
   return (
     <div className="space-y-2">
       {label && (
@@ -104,7 +108,7 @@ export function DesignField({
             onChange={(e) => onChange({ ...design, fontFamily: e.target.value })}
             className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs"
           >
-            {LOCAL_FONTS.map((f) => (
+            {fonts.map((f) => (
               <option key={f.name} value={f.value}>
                 {f.name}
               </option>

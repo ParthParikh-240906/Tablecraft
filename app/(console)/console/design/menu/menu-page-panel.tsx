@@ -3,6 +3,7 @@
 import { useDesign } from "../use-design";
 import { DesignNav } from "../design-nav";
 import { ColorField, DesignField } from "../design-fields";
+import { AnimationBuilder } from "@/components/AnimationBuilder";
 import { SiteHeader } from "@/components/SiteHeader";
 import { defaultMenuPageDesign, type DesignSettingsV2, type MenuPageDesign } from "@/lib/design";
 
@@ -78,7 +79,8 @@ export function MenuPagePanel({
                 onChange={(e) => update({ title_design: { ...menu.title_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
             </div>
-            <DesignField label="" design={menu.title_design} onChange={(d) => update({ title_design: d })} />
+            <DesignField customFonts={settings.custom_fonts} label="" design={menu.title_design} onChange={(d) => update({ title_design: d })} />
+            <AnimationBuilder design={menu.title_design} onChange={(d) => update({ title_design: d })} />
           </section>
 
           <section className="ticket p-5 space-y-3">
@@ -90,7 +92,8 @@ export function MenuPagePanel({
                 onChange={(e) => update({ subtitle_design: { ...menu.subtitle_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
             </div>
-            <DesignField label="" design={menu.subtitle_design} onChange={(d) => update({ subtitle_design: d })} />
+            <DesignField customFonts={settings.custom_fonts} label="" design={menu.subtitle_design} onChange={(d) => update({ subtitle_design: d })} />
+            <AnimationBuilder design={menu.subtitle_design} onChange={(d) => update({ subtitle_design: d })} />
           </section>
 
           <section className="ticket p-5 space-y-3">
@@ -102,7 +105,8 @@ export function MenuPagePanel({
                 onChange={(e) => update({ category_design: { ...menu.category_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
             </div>
-            <DesignField label="" design={menu.category_design} onChange={(d) => update({ category_design: d })} />
+            <DesignField customFonts={settings.custom_fonts} label="" design={menu.category_design} onChange={(d) => update({ category_design: d })} />
+            <AnimationBuilder design={menu.category_design} onChange={(d) => update({ category_design: d })} />
           </section>
 
           <section className="ticket p-5 space-y-3">
@@ -114,7 +118,8 @@ export function MenuPagePanel({
                 onChange={(e) => update({ item_name_design: { ...menu.item_name_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
             </div>
-            <DesignField label="" design={menu.item_name_design} onChange={(d) => update({ item_name_design: d })} />
+            <DesignField customFonts={settings.custom_fonts} label="" design={menu.item_name_design} onChange={(d) => update({ item_name_design: d })} />
+            <AnimationBuilder design={menu.item_name_design} onChange={(d) => update({ item_name_design: d })} />
           </section>
 
           <section className="ticket p-5 space-y-3">
@@ -126,7 +131,8 @@ export function MenuPagePanel({
                 onChange={(e) => update({ item_price_design: { ...menu.item_price_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
             </div>
-            <DesignField label="" design={menu.item_price_design} onChange={(d) => update({ item_price_design: d })} />
+            <DesignField customFonts={settings.custom_fonts} label="" design={menu.item_price_design} onChange={(d) => update({ item_price_design: d })} />
+            <AnimationBuilder design={menu.item_price_design} onChange={(d) => update({ item_price_design: d })} />
           </section>
 
           <section className="ticket p-5 space-y-3">
@@ -138,7 +144,8 @@ export function MenuPagePanel({
                 onChange={(e) => update({ item_description_design: { ...menu.item_description_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
             </div>
-            <DesignField label="" design={menu.item_description_design} onChange={(d) => update({ item_description_design: d })} />
+            <DesignField customFonts={settings.custom_fonts} label="" design={menu.item_description_design} onChange={(d) => update({ item_description_design: d })} />
+            <AnimationBuilder design={menu.item_description_design} onChange={(d) => update({ item_description_design: d })} />
           </section>
 
           {/* Item box border */}

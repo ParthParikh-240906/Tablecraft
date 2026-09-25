@@ -8,6 +8,7 @@ import { ResizableBox } from "./resizable-box";
 import { PreviewShell } from "./preview-shell";
 import { DesignNav } from "./design-nav";
 import { ColorField, DesignField, OpacityField } from "./design-fields";
+import { AnimationBuilder } from "@/components/AnimationBuilder";
 import { type OrgView } from "@/components/OrgPageView";
 import {
   LOCAL_FONTS,
@@ -204,11 +205,12 @@ export function CanvasPanel({
             <ColorField label="Logo color" value={settings.header.logo_color} onChange={(v) => updateSettings({ header: { ...settings.header, logo_color: v } })} />
             <div>
               <p className="text-xs font-mono text-[var(--ink-soft)] mb-1">Restaurant name</p>
-              <DesignField
+              <DesignField customFonts={settings.custom_fonts}
                 label=""
                 design={settings.header.design}
                 onChange={(d) => updateSettings({ header: { ...settings.header, design: d } })}
               />
+              <AnimationBuilder design={settings.header.design} onChange={(d) => updateSettings({ header: { ...settings.header, design: d } })} />
             </div>
             <div>
               <p className="text-xs font-mono text-[var(--ink-soft)] mb-1">Nav text (Menu / Cart)</p>
@@ -218,7 +220,7 @@ export function CanvasPanel({
                   onChange={(e) => updateSettings({ header: { ...settings.header, nav_design: { ...settings.header.nav_design, fontFamily: e.target.value } } })}
                   className="col-span-1 w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs"
                 >
-                  {LOCAL_FONTS.map((f) => (
+                  {[...LOCAL_FONTS, ...(settings.custom_fonts || [])].map((f) => (
                     <option key={f.value} value={f.value}>{f.name}</option>
                   ))}
                 </select>
@@ -241,7 +243,7 @@ export function CanvasPanel({
                   onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, fontFamily: e.target.value } } })}
                   className="col-span-1 w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs"
                 >
-                  {LOCAL_FONTS.map((f) => (
+                  {[...LOCAL_FONTS, ...(settings.custom_fonts || [])].map((f) => (
                     <option key={f.value} value={f.value}>{f.name}</option>
                   ))}
                 </select>
@@ -273,6 +275,48 @@ export function CanvasPanel({
                     className="w-full accent-[var(--accent)]" />
                 </div>
               </div>
+            </div>
+
+            {/* Header element order */}
+            <div className="pt-2 border-t border-[var(--rule)]">
+              <p className="text-xs font-mono uppercase tracking-wider text-[var(--ink-soft)] mb-2">Header layout order</p>
+              <ul className="space-y-1">
+                {(settings.header.header_elements ?? [
+                  { id: "h-logo", kind: "logo" as const },
+                  { id: "h-name", kind: "name" as const },
+                  { id: "h-menu", kind: "menu_link" as const },
+                  { id: "h-book", kind: "book_button" as const },
+                ]).map((el, i, arr) => (
+                  <li key={el.id} className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={i === 0}
+                      onClick={() => {
+                        const next = [...(settings.header.header_elements ?? arr)];
+                        [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                        updateSettings({ header: { ...settings.header, header_elements: next } });
+                      }}
+                      className="px-1.5 py-0.5 text-xs rounded border border-[var(--rule)] text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-25 disabled:cursor-not-allowed"
+                    >↑</button>
+                    <span className="text-xs text-[var(--ink)] flex-1 capitalize">
+                      {el.kind === "logo" && "🖼 Logo"}
+                      {el.kind === "name" && "🏷 Restaurant name"}
+                      {el.kind === "menu_link" && "📋 Menu link"}
+                      {el.kind === "book_button" && "📅 Book a table button"}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={i === arr.length - 1}
+                      onClick={() => {
+                        const next = [...(settings.header.header_elements ?? arr)];
+                        [next[i], next[i + 1]] = [next[i + 1], next[i]];
+                        updateSettings({ header: { ...settings.header, header_elements: next } });
+                      }}
+                      className="px-1.5 py-0.5 text-xs rounded border border-[var(--rule)] text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-25 disabled:cursor-not-allowed"
+                    >↓</button>
+                  </li>
+                ))}
+              </ul>
             </div>
           </section>
 

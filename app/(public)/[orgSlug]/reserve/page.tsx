@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org";
-import { defaultReservePageDesign, type ReservePageDesign } from "@/lib/design";
+import { defaultReservePageDesign, type ReservePageDesign, getShadowStyle } from "@/lib/design";
 import { BookingForm } from "./booking-form";
 
 // Cache for 60s — booking page content is mostly static per visit
@@ -9,7 +9,7 @@ export const revalidate = 60;
 
 /** Convert a TextDesign to inline styles (server-rendered). */
 function inline(
-  d: { fontFamily: string; fontSize: number; color: string; textAlign: string },
+  d: { fontFamily: string; fontSize: number; color: string; textAlign: string; shadow?: { color: string; direction: number; length: number; opacity?: number } },
   extra?: React.CSSProperties,
 ): React.CSSProperties {
   return {
@@ -17,6 +17,7 @@ function inline(
     fontSize: `${d.fontSize}px`,
     color: d.color,
     textAlign: d.textAlign as React.CSSProperties["textAlign"],
+    textShadow: getShadowStyle(d.shadow),
     ...extra,
   };
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrgBySlug, getMenuByOrg } from "@/lib/org";
-import { defaultMenuPageDesign, type MenuPageDesign, type TextDesign } from "@/lib/design";
+import { defaultMenuPageDesign, type MenuPageDesign, type TextDesign, getShadowStyle } from "@/lib/design";
 import { MenuItems } from "./menu-items";
 
 // Cache for 60s — menu content doesn't change that often
@@ -9,7 +9,7 @@ export const revalidate = 60;
 
 /** Convert a TextDesign to inline styles (server-rendered, no container queries). */
 function inline(
-  d: { fontFamily: string; fontSize: number; color: string; textAlign: string },
+  d: { fontFamily: string; fontSize: number; color: string; textAlign: string; shadow?: { color: string; direction: number; length: number; opacity?: number } },
   extra?: React.CSSProperties,
 ): React.CSSProperties {
   return {
@@ -17,6 +17,7 @@ function inline(
     fontSize: `${d.fontSize}px`,
     color: d.color,
     textAlign: d.textAlign as React.CSSProperties["textAlign"],
+    textShadow: getShadowStyle(d.shadow),
     ...extra,
   };
 }

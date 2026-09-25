@@ -7,6 +7,7 @@ import { ResizableBox } from "../resizable-box";
 import { PreviewShell } from "../preview-shell";
 import { DesignNav } from "../design-nav";
 import { ColorField, DesignField, OpacityField } from "../design-fields";
+import { AnimationBuilder } from "@/components/AnimationBuilder";
 import { type OrgView } from "@/components/OrgPageView";
 import {
   newHeroElement,
@@ -589,11 +590,12 @@ export function HeroPanel({
                     </div>
                   </div>
                   <ColorField label="Button background" value={sel.bgColor ?? "#f97316"} onChange={(v) => updateEl(sel.id, { bgColor: v })} />
-                  <DesignField
+                  <DesignField customFonts={settings.custom_fonts}
                     label=""
                     design={sel.design}
                     onChange={(d) => updateEl(sel.id, { design: d })}
                   />
+                  <AnimationBuilder design={sel.design} onChange={(d) => updateEl(sel.id, { design: d })} />
                 </>
               )}
               {sel.kind !== "shape" && sel.kind !== "image" && sel.kind !== "button" && (
@@ -611,11 +613,12 @@ export function HeroPanel({
                       />
                     </div>
                   )}
-                  <DesignField
+                  <DesignField customFonts={settings.custom_fonts}
                     label=""
                     design={sel.design}
                     onChange={(d) => updateEl(sel.id, { design: d })}
                   />
+                  <AnimationBuilder design={sel.design} onChange={(d) => updateEl(sel.id, { design: d })} />
                 </>
               )}
             </section>
