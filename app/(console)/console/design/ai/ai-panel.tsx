@@ -119,7 +119,7 @@ export function AiPanel({
 
           {/* AI Image Generator */}
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
               AI Image Generator
             </h3>
             <p className="text-xs text-[var(--ink-soft)]">
@@ -129,7 +129,7 @@ export function AiPanel({
             </p>
 
             <div>
-              <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+              <label className="block text-xs text-[var(--ink-soft)] mb-1">
                 Prompt
               </label>
               <textarea
@@ -142,7 +142,7 @@ export function AiPanel({
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+              <label className="block text-xs text-[var(--ink-soft)] mb-1">
                 Reference Image (optional)
               </label>
               {reference ? (
@@ -179,7 +179,7 @@ export function AiPanel({
 
           {result && (
             <section className="ticket p-5 space-y-3">
-              <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
+              <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
                 Result
               </h3>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -205,13 +205,13 @@ export function AiPanel({
                   Clear
                 </button>
               </div>
-              <p className="text-[10px] font-mono text-[var(--ink-faint)] break-all">{result}</p>
+              <p className="text-[10px] text-[var(--ink-faint)] break-all">{result}</p>
             </section>
           )}
 
           {/* AI Chatbot Configurables */}
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
               AI Chatbot
             </h3>
             <p className="text-xs text-[var(--ink-soft)]">
@@ -226,7 +226,7 @@ export function AiPanel({
             />
 
             <div>
-              <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+              <label className="block text-xs text-[var(--ink-soft)] mb-1">
                 Chatbot Logo
               </label>
               <div className="flex items-center gap-2">
@@ -273,7 +273,7 @@ export function AiPanel({
             />
 
             <div>
-              <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+              <label className="block text-xs text-[var(--ink-soft)] mb-1">
                 Text Size: {chatbot.text_size}px
               </label>
               <input
@@ -287,7 +287,7 @@ export function AiPanel({
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+              <label className="block text-xs text-[var(--ink-soft)] mb-1">
                 Font
               </label>
               <select
@@ -302,7 +302,7 @@ export function AiPanel({
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+              <label className="block text-xs text-[var(--ink-soft)] mb-1">
                 Border Width: {chatbot.border_width ?? 0}px
               </label>
               <input
@@ -324,12 +324,12 @@ export function AiPanel({
 
           {/* Custom Google Fonts */}
           <section className="ticket p-5 space-y-4">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
               Custom Google Fonts
             </h3>
             <div className="flex items-end gap-2">
               <div className="flex-1">
-                <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+                <label className="block text-xs text-[var(--ink-soft)] mb-1">
                   Google Font Name (e.g. Sixtfyfour, Space Mono)
                 </label>
                 <input

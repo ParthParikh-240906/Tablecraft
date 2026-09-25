@@ -105,7 +105,7 @@ export function CanvasPanel({
 
           {/* Page colors */}
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
               Page Colors
             </h3>
             <ColorField label="Page Background" value={settings.background_color} onChange={(v) => updateSettings({ background_color: v })} />
@@ -115,9 +115,9 @@ export function CanvasPanel({
 
           {/* Header */}
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Header</h3>
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Header</h3>
             <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-soft)] mb-1">
+              <label className="block text-xs font-medium text-[var(--ink-soft)] mb-1">
                 Logo
               </label>
               <div className="flex items-center gap-2">
@@ -188,7 +188,7 @@ export function CanvasPanel({
             </div>
             <ColorField label="Logo border color" value={settings.header.logo_border_color} onChange={(v) => updateSettings({ header: { ...settings.header, logo_border_color: v } })} />
             <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-soft)] mb-1">
+              <label className="block text-xs font-medium text-[var(--ink-soft)] mb-1">
                 Logo border thickness · {settings.header.logo_border_width}px
               </label>
               <input
@@ -204,7 +204,7 @@ export function CanvasPanel({
             <OpacityField label="Header Background Opacity (on scroll)" value={settings.header.opacity} onChange={(v) => updateSettings({ header: { ...settings.header, opacity: v } })} />
             <ColorField label="Logo color" value={settings.header.logo_color} onChange={(v) => updateSettings({ header: { ...settings.header, logo_color: v } })} />
             <div>
-              <p className="text-xs font-mono text-[var(--ink-soft)] mb-1">Restaurant name</p>
+              <p className="text-xs text-[var(--ink-soft)] mb-1">Restaurant name</p>
               <DesignField customFonts={settings.custom_fonts}
                 label=""
                 design={settings.header.design}
@@ -213,7 +213,7 @@ export function CanvasPanel({
               <AnimationBuilder design={settings.header.design} onChange={(d) => updateSettings({ header: { ...settings.header, design: d } })} />
             </div>
             <div>
-              <p className="text-xs font-mono text-[var(--ink-soft)] mb-1">Nav text (Menu / Cart)</p>
+              <p className="text-xs text-[var(--ink-soft)] mb-1">Nav text (Menu / Cart)</p>
               <div className="grid grid-cols-3 gap-2 items-end">
                 <select
                   value={settings.header.nav_design.fontFamily}
@@ -236,7 +236,7 @@ export function CanvasPanel({
               </div>
             </div>
             <div>
-              <p className="text-xs font-mono text-[var(--ink-soft)] mb-1">Book a table button</p>
+              <p className="text-xs text-[var(--ink-soft)] mb-1">Book a table button</p>
               <div className="grid grid-cols-3 gap-2 items-end">
                 <select
                   value={settings.header.cta_design.fontFamily}
@@ -263,13 +263,13 @@ export function CanvasPanel({
                   <ColorField label="Border" value={settings.header.cta_design.borderColor} onChange={(v) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, borderColor: v } } })} />
                 </div>
                 <div className="col-span-1">
-                  <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Radius: {settings.header.cta_design.borderRadius}</label>
+                  <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Radius: {settings.header.cta_design.borderRadius}</label>
                   <input type="range" min={0} max={9999} value={settings.header.cta_design.borderRadius}
                     onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, borderRadius: parseInt(e.target.value, 10) } } })}
                     className="w-full accent-[var(--accent)]" />
                 </div>
                 <div className="col-span-1">
-                  <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Width: {settings.header.cta_design.borderWidth}</label>
+                  <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Width: {settings.header.cta_design.borderWidth}</label>
                   <input type="range" min={0} max={8} value={settings.header.cta_design.borderWidth}
                     onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, borderWidth: parseInt(e.target.value, 10) } } })}
                     className="w-full accent-[var(--accent)]" />
@@ -279,7 +279,7 @@ export function CanvasPanel({
 
             {/* Header element order */}
             <div className="pt-2 border-t border-[var(--rule)]">
-              <p className="text-xs font-mono uppercase tracking-wider text-[var(--ink-soft)] mb-2">Header layout order</p>
+              <p className="text-xs font-medium text-[var(--ink-soft)] mb-2">Header layout order</p>
               <ul className="space-y-1">
                 {(settings.header.header_elements ?? [
                   { id: "h-logo", kind: "logo" as const },
@@ -322,10 +322,10 @@ export function CanvasPanel({
 
           {selectedIsHero && (
             <section className="ticket p-5 space-y-3">
-              <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
+              <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
                 Hero section
               </h3>
-              <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+              <label className="block text-xs text-[var(--ink-soft)] mb-1">
                 Hero band height (%)
               </label>
               <input
@@ -355,7 +355,7 @@ export function CanvasPanel({
             })} className="btn btn-outline text-xs px-2">
               {previewHeight === 640 ? "Extend canvas (1.5×)" : previewHeight === 960 ? "Extend canvas (2×)" : "Collapse canvas"}
             </button>
-            <span className="text-[10px] font-mono text-[var(--ink-faint)]">{previewHeight}px</span>
+            <span className="text-[10px] text-[var(--ink-faint)]">{previewHeight}px</span>
           </div>
           <PreviewShell
             settings={settings}

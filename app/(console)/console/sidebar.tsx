@@ -78,7 +78,7 @@ export function ConsoleSidebar({
             <h1 className="font-display font-semibold text-sm text-[var(--ink)] truncate">
               {currentOrg.name} Console
             </h1>
-            <p className="text-[11px] font-mono text-[var(--ink-faint)] truncate">
+            <p className="text-[11px] text-[var(--ink-faint)] truncate">
               {currentOrg.slug ? `/${currentOrg.slug}` : "Restaurant Operations"}
             </p>
           </div>
@@ -87,7 +87,7 @@ export function ConsoleSidebar({
 
       {/* ── Main Navigation ────────────────────────────────────────── */}
       <nav className={navCardClass}>
-        <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest text-[var(--ink-faint)]">
+        <div className="px-3 py-1.5 text-xs font-semibold text-[var(--ink-soft)] tracking-wide">
           Navigation
         </div>
 
@@ -142,7 +142,7 @@ export function ConsoleSidebar({
 
       {/* ── Theme Toggle Widget ────────────────────────────────────── */}
       <div className={cardClass.replace("p-4", "p-3").replace("space-y-", "") + " space-y-2"}>
-        <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-[var(--ink-faint)]">
+        <div className="flex items-center justify-between text-xs font-semibold text-[var(--ink-soft)] tracking-wide">
           <span>Theme Mode</span>
           <span className="text-[var(--accent)] font-semibold">{theme === "dark" ? "Dark 🌙" : "Light ☀️"}</span>
         </div>
@@ -177,7 +177,7 @@ export function ConsoleSidebar({
       {/* ── Restaurant Switcher Widget ──────────────────────────────── */}
       {userOrgs.length > 1 && (
         <div className={cardClass.replace("p-4", "p-3").replace("space-y-", "") + " space-y-2"}>
-          <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-[var(--ink-faint)]">
+          <div className="flex items-center justify-between text-xs font-semibold text-[var(--ink-soft)] tracking-wide">
             <span>Switch Restaurant</span>
             <Link href="/console/select" className="text-[var(--accent)] hover:underline text-[10px]">
               View All
@@ -212,8 +212,8 @@ export function ConsoleSidebar({
       <div className={cardClass.replace("p-4", "p-3")}>
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-mono text-[var(--ink-soft)] truncate">{staffEmail}</p>
-            <p className="text-[10px] text-[var(--ink-faint)] uppercase tracking-wider font-semibold">
+            <p className="text-[11px] text-[var(--ink-soft)] truncate">{staffEmail}</p>
+            <p className="text-[10px] text-[var(--ink-faint)] font-medium">
               Role: <span className="text-[var(--accent)]">{staffRole}</span>
             </p>
           </div>

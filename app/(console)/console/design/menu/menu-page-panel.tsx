@@ -66,15 +66,15 @@ export function MenuPagePanel({
           </div>
 
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Back Button ("Back to {orgName}")</h3>
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Back Button ("Back to {orgName}")</h3>
             <ColorField label="Color" value={menu.back_button_color ?? "#ffffff"} onChange={(v) => update({ back_button_color: v })} />
           </section>
 
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Page Title ("Menu")</h3>
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Page Title ("Menu")</h3>
             <ColorField label="Color" value={menu.title_design.color} onChange={(v) => update({ title_design: { ...menu.title_design, color: v } })} />
             <div>
-              <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Font size: {menu.title_design.fontSize}px</label>
+              <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Font size: {menu.title_design.fontSize}px</label>
               <input type="range" min={12} max={72} value={menu.title_design.fontSize}
                 onChange={(e) => update({ title_design: { ...menu.title_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
@@ -84,10 +84,10 @@ export function MenuPagePanel({
           </section>
 
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Subtitle</h3>
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Subtitle</h3>
             <ColorField label="Color" value={menu.subtitle_design.color} onChange={(v) => update({ subtitle_design: { ...menu.subtitle_design, color: v } })} />
             <div>
-              <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Font size: {menu.subtitle_design.fontSize}px</label>
+              <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Font size: {menu.subtitle_design.fontSize}px</label>
               <input type="range" min={10} max={40} value={menu.subtitle_design.fontSize}
                 onChange={(e) => update({ subtitle_design: { ...menu.subtitle_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
@@ -97,10 +97,10 @@ export function MenuPagePanel({
           </section>
 
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Category Heading</h3>
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Category Heading</h3>
             <ColorField label="Color" value={menu.category_design.color} onChange={(v) => update({ category_design: { ...menu.category_design, color: v } })} />
             <div>
-              <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Font size: {menu.category_design.fontSize}px</label>
+              <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Font size: {menu.category_design.fontSize}px</label>
               <input type="range" min={10} max={40} value={menu.category_design.fontSize}
                 onChange={(e) => update({ category_design: { ...menu.category_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
@@ -110,10 +110,10 @@ export function MenuPagePanel({
           </section>
 
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Item Name</h3>
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Item Name</h3>
             <ColorField label="Color" value={menu.item_name_design.color} onChange={(v) => update({ item_name_design: { ...menu.item_name_design, color: v } })} />
             <div>
-              <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Font size: {menu.item_name_design.fontSize}px</label>
+              <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Font size: {menu.item_name_design.fontSize}px</label>
               <input type="range" min={10} max={40} value={menu.item_name_design.fontSize}
                 onChange={(e) => update({ item_name_design: { ...menu.item_name_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
@@ -123,10 +123,10 @@ export function MenuPagePanel({
           </section>
 
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Item Price</h3>
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Item Price</h3>
             <ColorField label="Color" value={menu.item_price_design.color} onChange={(v) => update({ item_price_design: { ...menu.item_price_design, color: v } })} />
             <div>
-              <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Font size: {menu.item_price_design.fontSize}px</label>
+              <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Font size: {menu.item_price_design.fontSize}px</label>
               <input type="range" min={10} max={40} value={menu.item_price_design.fontSize}
                 onChange={(e) => update({ item_price_design: { ...menu.item_price_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
@@ -136,10 +136,10 @@ export function MenuPagePanel({
           </section>
 
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Item Description</h3>
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Item Description</h3>
             <ColorField label="Color" value={menu.item_description_design.color} onChange={(v) => update({ item_description_design: { ...menu.item_description_design, color: v } })} />
             <div>
-              <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Font size: {menu.item_description_design.fontSize}px</label>
+              <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Font size: {menu.item_description_design.fontSize}px</label>
               <input type="range" min={8} max={32} value={menu.item_description_design.fontSize}
                 onChange={(e) => update({ item_description_design: { ...menu.item_description_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
@@ -150,10 +150,10 @@ export function MenuPagePanel({
 
           {/* Item box border */}
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Menu Item Box Border</h3>
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Menu Item Box Border</h3>
             <ColorField label="Border color" value={menu.border_color} onChange={(v) => update({ border_color: v })} />
             <div>
-              <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Border width: {menu.border_width}px</label>
+              <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Border width: {menu.border_width}px</label>
               <input type="range" min={0} max={8} value={menu.border_width}
                 onChange={(e) => update({ border_width: parseInt(e.target.value, 10) })}
                 className="w-full accent-[var(--accent)]" />
@@ -166,7 +166,7 @@ export function MenuPagePanel({
         <div className="space-y-4">
           <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Live Preview</h2>
           <div className="rounded-lg overflow-hidden border border-[var(--rule)] bg-[var(--paper-raised)]">
-            <div className="flex items-center justify-between px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--ink-faint)] border-b border-[var(--rule)]">
+            <div className="flex items-center justify-between px-3 py-1.5 text-xs font-medium text-[var(--ink-soft)] border-b border-[var(--rule)]">
               <span>Menu page preview</span>
               <span>{orgName}</span>
             </div>

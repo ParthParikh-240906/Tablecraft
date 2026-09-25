@@ -117,7 +117,7 @@ export function ConfigPanel({
         {/* Advance Buffer Before Booking */}
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--ink)] mb-1">
+            <label className="block text-xs font-medium text-[var(--ink)] mb-1">
               Pre-Reservation Lock Buffer
             </label>
             <p className="text-xs text-[var(--ink-faint)]">
@@ -204,7 +204,7 @@ export function ConfigPanel({
         {!bookingConfig.no_time_limit && (
           <div className="space-y-3 pt-2">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--ink)] mb-1">
+              <label className="block text-xs font-medium text-[var(--ink)] mb-1">
                 Reservation Duration
               </label>
               <p className="text-xs text-[var(--ink-faint)]">
@@ -387,14 +387,14 @@ export function ConfigPanel({
         <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Owner Account</h2>
 
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--ink-faint)] mb-1">
+          <label className="block text-xs font-medium text-[var(--ink-faint)] mb-1">
             Owner email
           </label>
           <p className="text-sm text-[var(--ink)] font-mono">{ownerEmail}</p>
         </div>
 
         <div>
-          <label htmlFor="ownerPassword" className="block text-xs font-semibold uppercase tracking-wider text-[var(--ink-faint)] mb-1">
+          <label htmlFor="ownerPassword" className="block text-xs font-medium text-[var(--ink-faint)] mb-1">
             New password <span className="text-[var(--ink-faint)] font-normal normal-case">(optional)</span>
           </label>
           <input
@@ -436,7 +436,7 @@ export function ConfigPanel({
         <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Staff Account</h2>
 
         <div>
-          <label htmlFor="staffEmail" className="block text-xs font-semibold uppercase tracking-wider text-[var(--ink-faint)] mb-1">
+          <label htmlFor="staffEmail" className="block text-xs font-medium text-[var(--ink-faint)] mb-1">
             Staff email
           </label>
           <input
@@ -450,7 +450,7 @@ export function ConfigPanel({
         </div>
 
         <div>
-          <label htmlFor="staffPassword" className="block text-xs font-semibold uppercase tracking-wider text-[var(--ink-faint)] mb-1">
+          <label htmlFor="staffPassword" className="block text-xs font-medium text-[var(--ink-faint)] mb-1">
             New password <span className="text-[var(--ink-faint)] font-normal normal-case">(optional)</span>
           </label>
           <input

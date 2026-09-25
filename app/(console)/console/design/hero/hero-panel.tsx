@@ -295,7 +295,7 @@ export function HeroPanel({
 
           {/* Hero background */}
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
               Hero Background
             </h3>
             <div className="flex flex-wrap gap-2">
@@ -415,7 +415,7 @@ export function HeroPanel({
               <>
                 <ColorField label="Media border color" value={bg.border_color ?? "#000000"} onChange={(v) => updateBg({ border_color: v })} />
                 <div>
-                  <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Media border thickness: {bg.border_width ?? 0}px</label>
+                  <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Media border thickness: {bg.border_width ?? 0}px</label>
                   <input type="range" min={0} max={12} value={bg.border_width ?? 0}
                     onChange={(e) => updateBg({ border_width: parseInt(e.target.value, 10) })}
                     className="w-full accent-[var(--accent)]" />
@@ -431,7 +431,7 @@ export function HeroPanel({
 
           {/* Hero elements */}
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
               Hero Elements
             </h3>
             <div className="flex flex-wrap gap-2">
@@ -502,7 +502,7 @@ export function HeroPanel({
           {sel && (
             <section className="ticket p-5 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">
+                <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
                   Edit {KIND_LABELS[sel.kind]}
                 </h3>
                 <button type="button" onClick={() => removeEl(sel.id)} className="text-red-500 underline text-[10px]">
@@ -514,20 +514,20 @@ export function HeroPanel({
                   <ColorField label="Color" value={sel.color ?? "#141414"} onChange={(v) => updateEl(sel.id, { color: v })} />
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Border width: {sel.borderWidth ?? 0}px</label>
+                      <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Border width: {sel.borderWidth ?? 0}px</label>
                       <input type="range" min={0} max={12} value={sel.borderWidth ?? 0}
                         onChange={(e) => updateEl(sel.id, { borderWidth: parseInt(e.target.value, 10) })}
                         className="w-full accent-[var(--accent)]" />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Roundness: {sel.borderRadius ?? 0}% (50 = circle)</label>
+                      <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Roundness: {sel.borderRadius ?? 0}% (50 = circle)</label>
                       <input type="range" min={0} max={50} value={sel.borderRadius ?? 0}
                         onChange={(e) => updateEl(sel.id, { borderRadius: parseInt(e.target.value, 10) })}
                         className="w-full accent-[var(--accent)]" />
                     </div>
                     <ColorField label="Border color" value={sel.borderColor ?? "#ffffff"} onChange={(v) => updateEl(sel.id, { borderColor: v })} />
                     <div>
-                      <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Opacity: {sel.opacity ?? 100}%</label>
+                      <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Opacity: {sel.opacity ?? 100}%</label>
                       <input type="range" min={0} max={100} value={sel.opacity ?? 100}
                         onChange={(e) => updateEl(sel.id, { opacity: parseInt(e.target.value, 10) })}
                         className="w-full accent-[var(--accent)]" />
@@ -558,7 +558,7 @@ export function HeroPanel({
                   )}
                   <ColorField label="Border color" value={sel.borderColor ?? "#000000"} onChange={(v) => updateEl(sel.id, { borderColor: v })} />
                   <div>
-                    <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Border thickness: {sel.borderWidth ?? 0}px</label>
+                    <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Border thickness: {sel.borderWidth ?? 0}px</label>
                     <input type="range" min={0} max={12} value={sel.borderWidth ?? 0}
                       onChange={(e) => updateEl(sel.id, { borderWidth: parseInt(e.target.value, 10) })}
                       className="w-full accent-[var(--accent)]" />
@@ -569,7 +569,7 @@ export function HeroPanel({
               {sel.kind === "button" && (
                 <>
                   <div className="space-y-2">
-                    <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+                    <label className="block text-xs text-[var(--ink-soft)] mb-1">
                       Button type
                     </label>
                     <div className="flex gap-2">
@@ -602,7 +602,7 @@ export function HeroPanel({
                 <>
                   {sel && (sel.kind === "text" || sel.kind === "title") && (
                     <div className="space-y-2">
-                      <label className="block text-xs font-mono text-[var(--ink-soft)] mb-1">
+                      <label className="block text-xs text-[var(--ink-soft)] mb-1">
                         {sel.kind === "title" ? "Title text" : "Text content"}
                       </label>
                       <textarea
@@ -636,7 +636,7 @@ export function HeroPanel({
             })} className="btn btn-outline text-xs px-2">
               {previewHeight === 640 ? "Extend canvas (1.5×)" : previewHeight === 960 ? "Extend canvas (2×)" : "Collapse canvas"}
             </button>
-            <span className="text-[10px] font-mono text-[var(--ink-faint)]">{previewHeight}px</span>
+            <span className="text-[10px] text-[var(--ink-faint)]">{previewHeight}px</span>
           </div>
           <PreviewShell
             settings={settings}

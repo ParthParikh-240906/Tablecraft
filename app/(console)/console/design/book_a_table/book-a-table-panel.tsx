@@ -66,15 +66,15 @@ export function BookATablePanel({
           </div>
 
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Back Button ("Back to {orgName}")</h3>
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Back Button ("Back to {orgName}")</h3>
             <ColorField label="Color" value={reserve.back_button_color ?? "#ffffff"} onChange={(v) => update({ back_button_color: v })} />
           </section>
 
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Page Title ("Book a Table")</h3>
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Page Title ("Book a Table")</h3>
             <ColorField label="Color" value={reserve.title_design.color} onChange={(v) => update({ title_design: { ...reserve.title_design, color: v } })} />
             <div>
-              <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Font size: {reserve.title_design.fontSize}px</label>
+              <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Font size: {reserve.title_design.fontSize}px</label>
               <input type="range" min={12} max={72} value={reserve.title_design.fontSize}
                 onChange={(e) => update({ title_design: { ...reserve.title_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
@@ -84,10 +84,10 @@ export function BookATablePanel({
           </section>
 
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Subtitle</h3>
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Subtitle</h3>
             <ColorField label="Color" value={reserve.subtitle_design.color} onChange={(v) => update({ subtitle_design: { ...reserve.subtitle_design, color: v } })} />
             <div>
-              <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Font size: {reserve.subtitle_design.fontSize}px</label>
+              <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Font size: {reserve.subtitle_design.fontSize}px</label>
               <input type="range" min={10} max={40} value={reserve.subtitle_design.fontSize}
                 onChange={(e) => update({ subtitle_design: { ...reserve.subtitle_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
@@ -97,10 +97,10 @@ export function BookATablePanel({
           </section>
 
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Form Labels</h3>
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Form Labels</h3>
             <ColorField label="Color" value={reserve.label_design.color} onChange={(v) => update({ label_design: { ...reserve.label_design, color: v } })} />
             <div>
-              <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Font size: {reserve.label_design.fontSize}px</label>
+              <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Font size: {reserve.label_design.fontSize}px</label>
               <input type="range" min={8} max={28} value={reserve.label_design.fontSize}
                 onChange={(e) => update({ label_design: { ...reserve.label_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
@@ -110,10 +110,10 @@ export function BookATablePanel({
           </section>
 
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Submit Button Text</h3>
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Submit Button Text</h3>
             <ColorField label="Color" value={reserve.button_design.color} onChange={(v) => update({ button_design: { ...reserve.button_design, color: v } })} />
             <div>
-              <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Font size: {reserve.button_design.fontSize}px</label>
+              <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Font size: {reserve.button_design.fontSize}px</label>
               <input type="range" min={10} max={32} value={reserve.button_design.fontSize}
                 onChange={(e) => update({ button_design: { ...reserve.button_design, fontSize: parseInt(e.target.value, 10) } })}
                 className="w-full accent-[var(--accent)]" />
@@ -124,7 +124,7 @@ export function BookATablePanel({
 
           {/* Input colors */}
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Input Field Colors</h3>
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Input Field Colors</h3>
             <ColorField label="Input background" value={reserve.input_bg_color} onChange={(v) => update({ input_bg_color: v })} />
             <ColorField label="Input text" value={reserve.input_text_color} onChange={(v) => update({ input_text_color: v })} />
             <ColorField label="Input border" value={reserve.input_border_color} onChange={(v) => update({ input_border_color: v })} />
@@ -132,10 +132,10 @@ export function BookATablePanel({
 
           {/* Form box border */}
           <section className="ticket p-5 space-y-3">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">Booking Form Box Border</h3>
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Booking Form Box Border</h3>
             <ColorField label="Border color" value={reserve.border_color} onChange={(v) => update({ border_color: v })} />
             <div>
-              <label className="block text-[10px] font-mono text-[var(--ink-soft)] mb-1">Border width: {reserve.border_width}px</label>
+              <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Border width: {reserve.border_width}px</label>
               <input type="range" min={0} max={8} value={reserve.border_width}
                 onChange={(e) => update({ border_width: parseInt(e.target.value, 10) })}
                 className="w-full accent-[var(--accent)]" />
@@ -148,7 +148,7 @@ export function BookATablePanel({
         <div className="space-y-4">
           <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Live Preview</h2>
           <div className="rounded-lg overflow-hidden border border-[var(--rule)] bg-[var(--paper-raised)]">
-            <div className="flex items-center justify-between px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--ink-faint)] border-b border-[var(--rule)]">
+            <div className="flex items-center justify-between px-3 py-1.5 text-xs font-medium text-[var(--ink-soft)] border-b border-[var(--rule)]">
               <span>Book a table preview</span>
               <span>{orgName}</span>
             </div>

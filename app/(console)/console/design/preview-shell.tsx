@@ -33,7 +33,7 @@ export function PreviewShell({
 
   return (
     <div className="rounded-lg overflow-hidden border border-[var(--rule)] bg-[var(--paper-raised)]">
-      <div className="flex items-center justify-between px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--ink-faint)] border-b border-[var(--rule)]">
+      <div className="flex items-center justify-between px-3 py-1.5 text-xs font-medium text-[var(--ink-soft)] border-b border-[var(--rule)]">
         <span>Storefront preview</span>
         <span>{orgName}</span>
       </div>

@@ -495,7 +495,7 @@ export function BookingActionsList({
           <h2 className="font-medium text-sm text-[var(--ink)]">Add Walk-in / Manual Booking</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label htmlFor="bCustName" className="block text-xs uppercase tracking-wider font-semibold mb-1 text-[var(--ink-soft)]">
+              <label htmlFor="bCustName" className="block text-xs font-medium mb-1 text-[var(--ink-soft)]">
                 Guest Name
               </label>
               <input
@@ -509,7 +509,7 @@ export function BookingActionsList({
               />
             </div>
             <div>
-              <label htmlFor="bPartySize" className="block text-xs uppercase tracking-wider font-semibold mb-1 text-[var(--ink-soft)]">
+              <label htmlFor="bPartySize" className="block text-xs font-medium mb-1 text-[var(--ink-soft)]">
                 Party Size
               </label>
               <input
@@ -524,7 +524,7 @@ export function BookingActionsList({
               />
             </div>
             <div>
-              <label htmlFor="bDatetime" className="block text-xs uppercase tracking-wider font-semibold mb-1 text-[var(--ink-soft)]">
+              <label htmlFor="bDatetime" className="block text-xs font-medium mb-1 text-[var(--ink-soft)]">
                 Date & Time
               </label>
               <input
@@ -538,7 +538,7 @@ export function BookingActionsList({
               />
             </div>
             <div>
-              <label htmlFor="bTable" className="block text-xs uppercase tracking-wider font-semibold mb-1 text-[var(--ink-soft)]">
+              <label htmlFor="bTable" className="block text-xs font-medium mb-1 text-[var(--ink-soft)]">
                 Assign Available Table
               </label>
               <select
@@ -613,7 +613,7 @@ export function BookingActionsList({
 
       {/* Search & Filter Bar */}
       <div className="ticket p-4 mb-6 bg-[var(--paper-raised)] border border-[var(--rule)]">
-        <p className="text-xs uppercase tracking-wider font-semibold text-[var(--ink-soft)] mb-2">
+        <p className="text-xs font-semibold text-[var(--ink-soft)] mb-2">
           Search Bookings
         </p>
         <div className="grid gap-3 sm:grid-cols-2">

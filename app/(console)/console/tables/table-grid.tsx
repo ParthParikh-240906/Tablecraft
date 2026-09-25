@@ -272,7 +272,7 @@ export function TableGrid({ orgId }: { orgId: string }) {
           <h2 className="font-medium text-sm text-[var(--ink)]">Add New Table</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label htmlFor="tableLabel" className="block text-xs uppercase tracking-wider font-semibold mb-1 text-[var(--ink-soft)]">
+              <label htmlFor="tableLabel" className="block text-xs font-medium mb-1 text-[var(--ink-soft)]">
                 Table Name / Number
               </label>
               <input
@@ -286,7 +286,7 @@ export function TableGrid({ orgId }: { orgId: string }) {
               />
             </div>
             <div>
-              <label htmlFor="tableCapacity" className="block text-xs uppercase tracking-wider font-semibold mb-1 text-[var(--ink-soft)]">
+              <label htmlFor="tableCapacity" className="block text-xs font-medium mb-1 text-[var(--ink-soft)]">
                 Capacity (Seats)
               </label>
               <input
@@ -302,7 +302,7 @@ export function TableGrid({ orgId }: { orgId: string }) {
               />
             </div>
             <div>
-              <label htmlFor="tableType" className="block text-xs uppercase tracking-wider font-semibold mb-1 text-[var(--ink-soft)]">
+              <label htmlFor="tableType" className="block text-xs font-medium mb-1 text-[var(--ink-soft)]">
                 Type
               </label>
               <select
@@ -376,7 +376,7 @@ export function TableGrid({ orgId }: { orgId: string }) {
           </div>
 
                 <div className="pt-2 border-t border-[var(--rule)] flex flex-col gap-2">
-                  <span className="text-[10px] uppercase tracking-widest font-semibold text-[var(--ink-soft)]">
+                  <span className="text-[10px] font-semibold text-[var(--ink-soft)]">
                     Change Status:
                   </span>
                   <div className="grid grid-cols-3 gap-1.5">

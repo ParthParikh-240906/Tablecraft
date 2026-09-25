@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 /* =============================================================================
-   Tablecraft design system — premium restaurant tech
-   Deep espresso ground, warm brown layer, burnt-orange accent.
-   Playfair Display for editorial headings, Inter for crisp body text.
+   Tablecraft design system — warm restaurant operations console
+   Rich espresso backgrounds, readable warm ink, burnt-orange accent.
+   Playfair Display for editorial headings, Inter for clean body text.
    ============================================================================= */
 
 @font-face {
@@ -129,14 +129,13 @@ body {
 
 /* ---------- Type scale & component language ---------- */
 
-/* Small caps labels — the "section header" voice of a printed menu. */
+/* Small caps labels — warm, approachable section headers */
 .label-caps {
   font-family: var(--font-sans);
-  font-size: 0.625rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 0.6875rem;
   font-weight: 600;
-  opacity: 0.85;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
 }
 
 /* Serif display for headings — editorial, high-end restaurant feel. */
@@ -183,7 +182,7 @@ body {
   font-size: 0.875rem;
   font-weight: 600;
   padding: 0.625rem 1.25rem;
-  border-radius: 2px;
+  border-radius: 8px;
   transition: opacity 120ms ease, background-color 120ms ease, border-color 120ms ease;
   cursor: pointer;
 }
@@ -259,7 +258,7 @@ body {
   color: #fff;
   font-size: 0.875rem;
   font-weight: 600;
-  border-radius: 0 0 4px 4px;
+  border-radius: 0 0 8px 8px;
   transition: top 0.15s;
 }
 .skip-link:focus {
@@ -274,7 +273,7 @@ body {
   border: 1px solid var(--rule);
   padding: 0.625rem 0.875rem;
   font-size: 0.875rem;
-  border-radius: 2px;
+  border-radius: 8px;
   transition: border-color 120ms ease;
 }
 .input:focus {
@@ -285,29 +284,24 @@ body {
   color: var(--ink-faint);
 }
 
-/* Card: paper sheet, hairline border */
+/* Card: paper sheet, soft rounded border */
 .ticket {
   background: var(--paper-raised);
   border: 1px solid var(--rule);
-  border-radius: 2px;
+  border-radius: 10px;
 }
 
-/* Dark variant — raised cards on a layer-2 brown background */
+/* Dark variant — soft shadow, no harsh outline */
 .ticket--dark {
   background: var(--paper);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.5),
-    0 4px 24px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.10);
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
   transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
 .ticket--dark:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.5),
-    0 8px 32px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
 }
 
 /* Layer 2 background — top_layer.jpg texture */
@@ -347,51 +341,51 @@ body {
   }
 }
 
-/* Explicit light theme for restaurant microsites /[orgSlug] */
+/* Explicit light theme — warm cream, inviting */
 [data-theme="light"],
 .theme-light {
-  --paper: #f7f5f2;
-  --paper-raised: #ffffff;
-  --paper-overlay: #efebe5;
-  --layer2: #e8e3db;
+  --paper: #faf7f2;
+  --paper-raised: #fffcf8;
+  --paper-overlay: #f2ebe0;
+  --layer2: #ece5da;
 
-  --ink: #1a1614;
-  --ink-soft: #5c534b;
-  --ink-faint: #8a7f76;
+  --ink: #2a2018;
+  --ink-soft: #7a6b5d;
+  --ink-faint: #a09486;
 
-  --rule: #d8d0c8;
-  --rule-strong: #b8afa5;
+  --rule: #e4ddd2;
+  --rule-strong: #d4cdbf;
 
   --accent: #d45200;
   --accent-subtle: rgba(212, 82, 0, 0.08);
   --accent-border: rgba(212, 82, 0, 0.28);
 
-  --shadow-sm: 0 1px 3px rgba(26, 22, 20, 0.06), 0 1px 2px rgba(26, 22, 20, 0.04);
-  --shadow-md: 0 4px 16px rgba(26, 22, 20, 0.07), 0 1px 3px rgba(26, 22, 20, 0.05);
-  --shadow-lg: 0 12px 40px rgba(26, 22, 20, 0.10), 0 4px 12px rgba(26, 22, 20, 0.06);
+  --shadow-sm: 0 1px 4px rgba(42, 32, 24, 0.08), 0 1px 2px rgba(42, 32, 24, 0.04);
+  --shadow-md: 0 4px 16px rgba(42, 32, 24, 0.08), 0 1px 3px rgba(42, 32, 24, 0.05);
+  --shadow-lg: 0 12px 40px rgba(42, 32, 24, 0.10), 0 4px 12px rgba(42, 32, 24, 0.06);
 
-  --ink-emphasis: #1a1614;
+  --ink-emphasis: #2a2018;
 
   color-scheme: light;
-  --muted: #e8e3db;
-  --ink-muted: #5c534b;
+  --muted: #ece5da;
+  --ink-muted: #7a6b5d;
 }
 
 [data-theme="dark"],
 .theme-dark {
-  --paper: #060504;
-  --paper-raised: #0f0b09;
-  --paper-overlay: #1a1410;
-  --layer2: #121212;
-  --ink: #fefaf6;
-  --ink-soft: #b8a898;
-  --ink-faint: #7a6f64;
-  --rule: rgba(255, 255, 255, 0.07);
-  --rule-strong: rgba(255, 255, 255, 0.14);
+  --paper: #1c1610;
+  --paper-raised: #272018;
+  --paper-overlay: #2e2519;
+  --layer2: #221c14;
+  --ink: #f2e8dd;
+  --ink-soft: #d6c8b4;
+  --ink-faint: #a89884;
+  --rule: rgba(255, 255, 255, 0.12);
+  --rule-strong: rgba(255, 255, 255, 0.18);
   --accent: #d45200;
   --accent-glow: rgba(212, 82, 0, 0.35);
-  --muted: #1a1614;
-  --ink-muted: #7a6f64;
+  --muted: #1c1610;
+  --ink-muted: #a89884;
 }
 
 /* =============================================================================
@@ -401,7 +395,7 @@ body {
 .ticket--light {
   background: var(--paper-raised);
   border: 1px solid var(--rule);
-  border-radius: 3px;
+  border-radius: 10px;
   box-shadow: var(--shadow-sm);
   transition: box-shadow 150ms ease, border-color 150ms ease;
 }

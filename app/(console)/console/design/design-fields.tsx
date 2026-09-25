@@ -32,7 +32,7 @@ export function ColorField({
 
   return (
     <div>
-      <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-soft)] mb-1">
+      <label className="block label-caps mb-1">
         {label}
       </label>
       <div className="flex items-center gap-2">
@@ -49,7 +49,7 @@ export function ColorField({
           onBlur={(e) => commitHex(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") commitHex((e.target as HTMLInputElement).value); }}
           placeholder="#000000"
-          className="w-24 bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1 text-xs font-mono text-[var(--ink)]"
+          className="w-24 bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1 text-xs text-[var(--ink)]"
         />
       </div>
     </div>
@@ -67,7 +67,7 @@ export function OpacityField({
 }) {
   return (
     <div>
-      <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-soft)] mb-1">
+      <label className="block label-caps mb-1">
         {label} · {value}%
       </label>
       <input
@@ -97,7 +97,7 @@ export function DesignField({
   return (
     <div className="space-y-2">
       {label && (
-        <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-soft)]">
+        <label className="block label-caps">
           {label}
         </label>
       )}
@@ -135,7 +135,7 @@ export function DesignField({
               onChange={(e) => onChange({ ...design, color: e.target.value })}
               className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
             />
-            <span className="text-[10px] font-mono text-[var(--ink-soft)]">{design.color}</span>
+            <span className="text-[10px] text-[var(--ink-soft)]">{design.color}</span>
           </div>
         </div>
         <div className="col-span-1">
