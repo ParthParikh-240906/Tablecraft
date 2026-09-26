@@ -133,23 +133,24 @@ export default async function DashboardPage() {
                     className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-3 px-2 py-3 border-b border-[var(--rule)]"
                   >
                     <span className="text-xs text-[var(--ink-faint)]">{i + 1}</span>
-                    {org.logo_url ? (
-                      <img
-                        src={org.logo_url}
-                        alt={org.name}
-                        className="w-8 h-8 rounded-full object-cover border border-[var(--rule)] bg-[var(--paper-raised)]"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent-border)] flex items-center justify-center font-bold text-xs shrink-0">
-                        {org.name?.[0]?.toUpperCase() ?? "R"}
+                    <div className="flex items-center gap-3 min-w-0">
+                      {org.logo_url ? (
+                        <img
+                          src={org.logo_url}
+                          alt={org.name}
+                          className="w-8 h-8 rounded-full object-cover border border-[var(--rule)] bg-[var(--paper-raised)] shrink-0"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent-border)] flex items-center justify-center font-bold text-xs shrink-0">
+                          {org.name?.[0]?.toUpperCase() ?? "R"}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate">{org.name}</p>
+                        <p className="text-xs text-[var(--ink-faint)]">
+                          /{org.slug}
+                        </p>
                       </div>
-                    )}
-
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold truncate">{org.name}</p>
-                      <p className="text-xs text-[var(--ink-faint)]">
-                        /{org.slug}
-                      </p>
                     </div>
 
                     <Link
