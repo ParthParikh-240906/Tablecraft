@@ -41,13 +41,27 @@ export default async function ConsoleDesignPage({
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="font-display text-2xl font-bold mb-2 text-[var(--ink)]">
-        Design
-      </h1>
-      <p className="text-sm text-[var(--ink-soft)] mb-6">
-        Header, page colors, and the layer canvas. Hero content, content
-        sections, and AI images live on their own pages.
-      </p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="font-display text-2xl font-bold mb-1 text-[var(--ink)]">
+            Brand &amp; Design
+          </h1>
+          <p className="text-sm text-[var(--ink-soft)]">
+            Header, page colors, and the layer canvas. Hero content, content
+            sections, and AI images live on their own pages.
+          </p>
+        </div>
+        {data.org.slug && (
+          <a
+            href={`/${data.org.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-outline text-xs px-3 py-1.5"
+          >
+            Preview Site →
+          </a>
+        )}
+      </div>
       <CanvasPanel key={orgId}
         orgId={orgId}
         orgName={data.orgName}

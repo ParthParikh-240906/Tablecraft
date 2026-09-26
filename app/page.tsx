@@ -765,22 +765,176 @@ function ContactSection() {
   );
 }
 
+// ─── Testimonials ─────────────────────────────────────────────────────────────
+const TESTIMONIALS = [
+  {
+    quote: "Tablecraft cut our website setup from days to minutes. The AI chatbot handles 80% of our booking inquiries now.",
+    author: "Marco R.",
+    role: "Owner, Bella Cucina",
+  },
+  {
+    quote: "The kitchen queue changed how we handle rush hour. Staff finally have one screen for everything.",
+    author: "Sarah L.",
+    role: "Manager, The Golden Fork",
+  },
+  {
+    quote: "Scanning our printed menu with a photo took 30 seconds. We were live the same afternoon.",
+    author: "James K.",
+    role: "Owner, Street Kitchen",
+  },
+];
+
+function TestimonialCard({ t, index }: { t: typeof TESTIMONIALS[0]; index: number }) {
+  return (
+    <Reveal delay={index * 100}>
+      <div className="ticket ticket--dark p-6 flex flex-col h-full">
+        <p className="text-[var(--ink-soft)] text-sm leading-relaxed flex-1 mb-5">
+          &ldquo;{t.quote}&rdquo;
+        </p>
+        <div className="flex items-center gap-3 mt-auto">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+            style={{ background: "var(--accent)" }}
+          >
+            {t.author.charAt(0)}
+          </div>
+          <div>
+            <p className="text-sm font-medium text-[var(--ink)]">{t.author}</p>
+            <p className="text-xs text-[var(--ink-faint)]">{t.role}</p>
+          </div>
+        </div>
+      </div>
+    </Reveal>
+  );
+}
+
+function TestimonialsSection() {
+  return (
+    <section id="testimonials" className="max-w-5xl mx-auto px-4 py-20">
+      <Reveal>
+        <p className="label-caps text-center text-[var(--accent)] mb-4" style={{ fontSize: "0.875rem", letterSpacing: "0.1em" }}>Testimonials</p>
+      </Reveal>
+      <Reveal delay={80}>
+        <h2 className="font-display text-3xl md:text-4xl text-center mb-4 text-[var(--ink)]">
+          Loved by restaurant owners
+        </h2>
+      </Reveal>
+      <Reveal delay={120}>
+        <p className="text-center text-[var(--ink-soft)] max-w-lg mx-auto mb-10 text-base">
+          Real feedback from teams who switched to Tablecraft.
+        </p>
+      </Reveal>
+      <div className="grid md:grid-cols-3 gap-5">
+        {TESTIMONIALS.map((t, i) => (
+          <TestimonialCard key={i} t={t} index={i} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ─── CTA Section ──────────────────────────────────────────────────────────────
+function CTASection() {
+  return (
+    <section className="max-w-4xl mx-auto px-4 py-20 text-center">
+      <Reveal>
+        <h2 className="font-display text-3xl md:text-4xl mb-4 text-[var(--ink)]">
+          Ready to get started?
+        </h2>
+      </Reveal>
+      <Reveal delay={80}>
+        <p className="text-[var(--ink-soft)] text-lg mb-8 max-w-xl mx-auto">
+          Create your restaurant site in minutes. No credit card required to start.
+        </p>
+      </Reveal>
+      <Reveal delay={120}>
+        <div className="flex flex-wrap justify-center gap-4">
+          <Link href="/signup" className="btn btn-accent text-base px-10 py-4">
+            Sign up free
+          </Link>
+          <a href="#pricing" className="btn btn-outline text-base px-10 py-4">
+            View pricing
+          </a>
+        </div>
+      </Reveal>
+    </section>
+  );
+}
+
 // ─── Footer ───────────────────────────────────────────────────────────────────
 function Footer() {
   return (
-    <footer className="border-t border-white/30 py-10 px-4 text-center space-y-4">
-      <div className="flex flex-wrap justify-center gap-6 mb-4">
-        <Link href="/dashboard" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Back to dashboard</Link>
-        <a href="#pricing" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Pricing</a>
-        <Link href="/console/login" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Console</Link>
-        <Link href="/restaurants" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors">Directory</Link>
+    <footer className="border-t border-white/30 py-12 px-4">
+      <div className="max-w-6xl mx-auto grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        {/* Brand */}
+        <div className="lg:col-span-1">
+          <p className="font-display text-lg tracking-tight text-[var(--ink)] mb-3">Tablecraft</p>
+          <p className="text-xs text-[var(--ink-faint)] leading-relaxed">
+            AI-powered restaurant management platform. Websites, bookings, orders &amp; kitchen ops — all in one place.
+          </p>
+        </div>
+
+        {/* Product */}
+        <div>
+          <p className="text-[10px] uppercase tracking-wider font-semibold text-[var(--ink-faint)] mb-3">Product</p>
+          <ul className="space-y-2">
+            {[
+              { label: "Features", href: "#features" },
+              { label: "Pricing", href: "#pricing" },
+              { label: "Demo restaurants", href: "#restaurants" },
+              { label: "Setup guide", href: "/setup-guide" },
+            ].map(({ label, href }) => (
+              <li key={label}>
+                <a
+                  href={href}
+                  className="text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors"
+                >
+                  {label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Console */}
+        <div>
+          <p className="text-[10px] uppercase tracking-wider font-semibold text-[var(--ink-faint)] mb-3">Console</p>
+          <ul className="space-y-2">
+            {[
+              { label: "Sign in", href: "/console/login" },
+              { label: "Dashboard", href: "/dashboard" },
+              { label: "Directory", href: "/restaurants" },
+            ].map(({ label, href }) => (
+              <li key={label}>
+                <Link href={href} className="text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
+                  {label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Legal */}
+        <div>
+          <p className="text-[10px] uppercase tracking-wider font-semibold text-[var(--ink-faint)] mb-3">Legal</p>
+          <ul className="space-y-2">
+            {["Privacy Policy", "Terms of Service", "Contact"].map((label) => (
+              <li key={label}>
+                <span className="text-xs text-[var(--ink-faint)] cursor-not-allowed">{label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
-      <Link href="/console/login" className="block text-sm text-[var(--ink-soft)] hover:text-[var(--ink)] hover:underline transition-all">
-        Sign in to your console
-      </Link>
-      <p className="label-caps text-[color:var(--ink-faint)]">
-        <span className="text-[var(--accent)]">Tablecraft</span> · Built for restaurants
-      </p>
+
+      <div className="max-w-6xl mx-auto mt-10 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <p className="label-caps text-[color:var(--ink-faint)] text-xs">
+          &copy; {new Date().getFullYear()} Tablecraft. All rights reserved.
+        </p>
+        <p className="label-caps text-[color:var(--ink-faint)] text-xs">
+          <span className="text-[var(--accent)]">Tablecraft</span> &middot; Built for restaurants
+        </p>
+      </div>
     </footer>
   );
 }
@@ -797,8 +951,10 @@ export default function MarketingHomePage() {
           <FeaturesSection />
           <HowItWorksSection />
           <RestaurantsSection />
+          <TestimonialsSection />
           <PricingSection />
           <ContactSection />
+          <CTASection />
         </div>
       </div>
       <Footer />

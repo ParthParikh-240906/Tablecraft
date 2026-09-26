@@ -96,18 +96,23 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
     }
   }
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBorder = (status: string) => {
     switch (status) {
       case "pending":
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">Pending</span>;
-      case "paid":
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-500/20 text-green-400 border border-green-500/30">Paid</span>;
-      case "preparing":
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30">Preparing</span>;
-      case "ready":
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30">Ready</span>;
-      default:
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-500/20 text-gray-400 border border-gray-500/30">{status}</span>;
+      case "paid": return "border-l-amber-500";
+      case "preparing": return "border-l-blue-500";
+      case "ready": return "border-l-green-500";
+      default: return "border-l-[var(--rule)]";
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "pending":
+      case "paid": return "text-amber-400";
+      case "preparing": return "text-blue-400";
+      case "ready": return "text-green-400";
+      default: return "text-[var(--ink-faint)]";
     }
   };
 
@@ -142,23 +147,29 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
           <div key={order.id}>
             {/* Ticket card — clickable to expand */}
             <div
-              className={`ticket p-4 cursor-pointer transition-all border ${
+              className={`ticket p-4 cursor-pointer transition-all border-l-4 ${
                 isExpanded
-                  ? "border-[var(--accent)] bg-[var(--paper-overlay)]"
-                  : "border-[var(--rule)] bg-[var(--paper-raised)] hover:border-[var(--rule-strong)]"
+                  ? `border-[var(--accent)] bg-[var(--paper-overlay)]`
+                  : `border-[var(--rule)] bg-[var(--paper-raised)] hover:border-[var(--rule-strong)] ${getStatusBorder(order.status)}`
               }`}
               onClick={() => setExpandedId(isExpanded ? null : order.id)}
             >
               {/* Header row */}
               <div className="flex items-start justify-between gap-2 mb-3">
-                <div>
-                  <p className="font-display text-base font-bold text-[var(--ink)]">{order.customer_name.replace(/\s+Edit$/, "").replace(/^Table\s+/i, "")}</p>
-                  <p className="text-[10px] text-[var(--ink-faint)] mt-0.5">{timeStr} &middot; {ageMinutes}m ago</p>
+                <div className="min-w-0">
+                  <p className="font-display text-base font-bold text-[var(--ink)] truncate">
+                    {order.customer_name.replace(/\s+Edit$/, "").replace(/^Table\s+/i, "")}
+                  </p>
+                  <p className="text-[10px] text-[var(--ink-faint)] mt-0.5">
+                    {timeStr} &middot; {ageMinutes}m ago
+                  </p>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  {getStatusBadge(order.status)}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className={`text-[10px] font-semibold uppercase tracking-wider ${getStatusColor(order.status)}`}>
+                    {order.status}
+                  </span>
                   {order.customer_name.trimEnd().endsWith(" Edit") && (
-                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/15 text-amber-400">
+                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border border-amber-500/30 bg-amber-500/15 text-amber-400">
                       Edited
                     </span>
                   )}
@@ -210,9 +221,9 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
                       type="button"
                       disabled={updatingId === order.id}
                       onClick={(e) => { e.stopPropagation(); updateStatus(order.id, "preparing"); }}
-                      className="px-2.5 py-1 text-xs rounded border border-amber-600/30 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 font-medium"
+                      className="px-3 py-1.5 text-xs rounded border border-amber-600/30 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 font-medium transition-colors"
                     >
-                      🍳 Preparing
+                      Start Preparing
                     </button>
                   )}
                   {order.status === "preparing" && (
@@ -220,9 +231,9 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
                       type="button"
                       disabled={updatingId === order.id}
                       onClick={(e) => { e.stopPropagation(); updateStatus(order.id, "ready"); }}
-                      className="px-2.5 py-1 text-xs rounded border border-blue-600/30 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 font-medium"
+                      className="px-3 py-1.5 text-xs rounded border border-blue-600/30 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 font-medium transition-colors"
                     >
-                      🔔 Ready
+                      Mark Ready
                     </button>
                   )}
                   {order.status !== "cancelled" && order.status !== "completed" && (
@@ -230,7 +241,7 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
                       type="button"
                       disabled={updatingId === order.id}
                       onClick={(e) => { e.stopPropagation(); updateStatus(order.id, "cancelled"); }}
-                      className="px-2.5 py-1 text-xs rounded border border-red-600/30 text-red-400 bg-red-500/10 hover:bg-red-500/20"
+                      className="px-3 py-1.5 text-xs rounded border border-red-600/30 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors"
                     >
                       Cancel
                     </button>
@@ -240,10 +251,10 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
                       type="button"
                       disabled={deletingId === order.id}
                       onClick={(e) => { e.stopPropagation(); handleDelete(order.id); }}
-                      className="px-2.5 py-1 text-xs rounded border border-red-600/30 text-red-400 hover:bg-red-500/20"
+                      className="px-3 py-1.5 text-xs rounded border border-red-600/30 text-red-400 hover:bg-red-500/20 transition-colors"
                       title="Permanently delete"
                     >
-                      {deletingId === order.id ? "Deleting…" : "🗑 Delete"}
+                      {deletingId === order.id ? "Deleting..." : "Delete"}
                     </button>
                   )}
                 </div>

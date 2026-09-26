@@ -25,34 +25,34 @@ export function HeaderNav({ isOwner, userOrgs, fallbackSlug }: HeaderNavProps) {
 
   return (
     <>
-      <nav className="flex items-center gap-3">
-        <Link href={`/console${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-          Dashboard
+      <nav className="flex items-center gap-3 flex-wrap">
+        <Link href={`/console${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors text-xs">
+          Floor Plan
         </Link>
-        <Link href={`/console/tables${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
+        <Link href={`/console/tables${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors text-xs">
           Tables
         </Link>
-        <Link href={`/console/bookings${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-          Bookings
+        <Link href={`/console/bookings${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors text-xs">
+          Reservations
         </Link>
-        <Link href={`/console/orders${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
+        <Link href={`/console/orders${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors text-xs">
           Orders
         </Link>
-        <Link href={`/console/kitchen${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
+        <Link href={`/console/kitchen${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors text-xs">
           Kitchen
         </Link>
-        <Link href={`/console/menu${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
+        <Link href={`/console/menu${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors text-xs">
           Menu
         </Link>
         {isOwner && (
-          <Link href={`/console/design${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
-            Design
+          <Link href={`/console/design${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors text-xs">
+            Brand
           </Link>
         )}
       </nav>
       <span className="text-[var(--rule)]">|</span>
       {slug && (
-        <Link href={`/${slug}`} className="text-[var(--accent)] hover:underline font-medium">
+        <Link href={`/${slug}`} className="text-[var(--accent)] hover:underline font-medium text-xs">
           Public Storefront →
         </Link>
       )}

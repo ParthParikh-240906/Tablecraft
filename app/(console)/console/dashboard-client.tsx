@@ -52,6 +52,7 @@ export default function DashboardClient({
   initialOrders,
   tableLabelMap,
 }: DashboardClientProps) {
+  const [mounted, setMounted] = useState(false);
   const supabase = createClient();
   const [stats, setStats] = useState<DashboardStats>(() => calculateStats(
     initialTables,
@@ -59,6 +60,10 @@ export default function DashboardClient({
     initialOrders,
   ));
   const [todayDateStr, setTodayDateStr] = useState(todayDate);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Orders realtime (with polling fallback)
   const { orders, connected: ordersConnected } = useOrdersRealtime(orgId, initialOrders);
@@ -192,6 +197,44 @@ export default function DashboardClient({
     const dt = new Date(b.datetime).getTime();
     return dt < now.getTime();
   });
+
+  // Show skeleton until client hydrates
+  if (!mounted) {
+    return (
+      <div className="space-y-6">
+        {/* Header skeleton */}
+        <div className="mb-6 space-y-2">
+          <div className="h-7 w-48 bg-[var(--paper-raised)] rounded animate-pulse" />
+          <div className="h-4 w-32 bg-[var(--paper-raised)] rounded animate-pulse" />
+        </div>
+        {/* Stats cards skeleton */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="ticket p-4 bg-[var(--paper-raised)] border border-[var(--rule)] rounded-sm">
+              <div className="h-3 w-16 bg-[var(--ink-faint)]/20 rounded mb-2 animate-pulse" />
+              <div className="h-6 w-10 bg-[var(--ink-faint)]/30 rounded animate-pulse" />
+              <div className="h-3 w-12 bg-[var(--ink-faint)]/20 rounded mt-1.5 animate-pulse" />
+            </div>
+          ))}
+        </div>
+        {/* Content skeletons */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="ticket p-4 bg-[var(--paper-raised)] border border-[var(--rule)] rounded-sm">
+            <div className="h-4 w-24 bg-[var(--ink-faint)]/20 rounded mb-3 animate-pulse" />
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-10 bg-[var(--ink-faint)]/10 rounded mb-2 animate-pulse" />
+            ))}
+          </div>
+          <div className="ticket p-4 bg-[var(--paper-raised)] border border-[var(--rule)] rounded-sm">
+            <div className="h-4 w-24 bg-[var(--ink-faint)]/20 rounded mb-3 animate-pulse" />
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-10 bg-[var(--ink-faint)]/10 rounded mb-2 animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>

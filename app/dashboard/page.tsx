@@ -133,6 +133,17 @@ export default async function DashboardPage() {
                     className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-3 px-2 py-3 border-b border-[var(--rule)]"
                   >
                     <span className="text-xs text-[var(--ink-faint)]">{i + 1}</span>
+                    {org.logo_url ? (
+                      <img
+                        src={org.logo_url}
+                        alt={org.name}
+                        className="w-8 h-8 rounded-full object-cover border border-[var(--rule)] bg-[var(--paper-raised)]"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent-border)] flex items-center justify-center font-bold text-xs shrink-0">
+                        {org.name?.[0]?.toUpperCase() ?? "R"}
+                      </div>
+                    )}
 
                     <div className="min-w-0">
                       <p className="text-sm font-semibold truncate">{org.name}</p>
@@ -162,7 +173,7 @@ export default async function DashboardPage() {
               })}
             </div>
           ) : (
-            <div className="ticket p-10 text-center">
+            <div className="ticket p-8 text-center">
               <p className="text-[var(--ink-soft)] mb-4">You haven&apos;t created a restaurant yet.</p>
               <Link href="/signup" className="btn btn-accent text-sm">
                 Create your first restaurant →
@@ -179,21 +190,25 @@ export default async function DashboardPage() {
               Setup guide
             </Link>
           </div>
-            <div className="ticket p-5 space-y-2">
-              {[
-                { label: "Create a restaurant" },
-                { label: "Design Website" },
-                { label: "Add menu items" },
-                { label: "Set up tables" },
-                { label: "Make payment - Go live" },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center gap-3">
-                  <span className="text-sm text-[var(--accent)] shrink-0">•</span>
-                  <span className="text-sm text-[var(--ink)]">{item.label}</span>
-                </div>
-              ))}
-            </div>
-          </section>
+          <div className="ticket p-5 space-y-3">
+            {[
+              { label: "Create a restaurant", href: "/signup" },
+              { label: "Design Website", href: "/console/design" },
+              { label: "Add menu items", href: "/console/menu" },
+              { label: "Set up tables", href: "/console/tables" },
+              { label: "Make payment - Go live", href: "/console/pricing" },
+            ].map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="flex items-center gap-3 group"
+              >
+                <span className="text-sm text-[var(--accent)] shrink-0">→</span>
+                <span className="text-sm text-[var(--ink-soft)] group-hover:text-[var(--ink)] transition-colors">{item.label}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
 
         {/* ─── Pricing (marketing-style cards) ──────────────────────────────── */}
         <DashboardPricingSection />
