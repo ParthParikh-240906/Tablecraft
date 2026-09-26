@@ -211,12 +211,12 @@ body {
   background: var(--paper-overlay);
 }
 .btn-outline {
-  border: 1px solid var(--rule);
+  border: 1px solid var(--rule-strong);
   color: var(--ink);
-  background: transparent;
+  background: var(--paper-raised);
 }
 .btn-outline:hover {
-  background: var(--paper-raised);
+  background: var(--paper-overlay);
   border-color: var(--rule-strong);
 }
 .btn-outline-accent {
@@ -344,17 +344,17 @@ body {
 /* Explicit light theme — warm cream, inviting */
 [data-theme="light"],
 .theme-light {
-  --paper: #ffffff;
-  --paper-raised: #fffcf7;
-  --paper-overlay: #f5f0e8;
-  --layer2: #efe8dc;
+  --paper: #f3ede3;
+  --paper-raised: #eae2d5;
+  --paper-overlay: #e5dcd0;
+  --layer2: #dfd5c5;
 
   --ink: #1a1410;
   --ink-soft: #5c4a3a;
   --ink-faint: #8a7562;
 
-  --rule: #ddd5c8;
-  --rule-strong: #c8bfb0;
+  --rule: #c4b8a8;
+  --rule-strong: #a89888;
 
   --accent: #c44800;
   --accent-subtle: rgba(196, 72, 0, 0.07);

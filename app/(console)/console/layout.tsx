@@ -110,7 +110,7 @@ export default async function ConsoleLayout({
 
   return (
     <ConsoleThemeWrapper>
-      <header className="border-b border-[var(--rule)] bg-[var(--paper)]">
+      <header className="border-b border-[var(--rule)] bg-[var(--paper-raised)]">
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="label-caps text-[color:var(--accent)]">
