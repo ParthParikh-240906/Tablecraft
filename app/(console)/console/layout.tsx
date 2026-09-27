@@ -10,6 +10,8 @@ import { ConsoleSidebar } from "./sidebar";
 import { HeaderOrg } from "./header-org";
 import { HeaderNav } from "./header-nav";
 import type { SidebarOrgItem } from "./sidebar";
+import { MobileMenuButton } from "./mobile-menu-button";
+import { ConsoleSidebarOverlay } from "./console-sidebar-overlay";
 
 // Force per-request rendering so the header/sidebar reflect the current ?org=
 // param. Without this, the layout is cached as part of the App Shell and
@@ -168,39 +170,8 @@ export default async function ConsoleLayout({
       </div>
 
       {/* Mobile sidebar overlay */}
-      <div id="console-sidebar-overlay" className="hidden fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => {
-        const sidebar = document.getElementById("console-sidebar");
-        const overlay = document.getElementById("console-sidebar-overlay");
-        sidebar?.classList.add("hidden");
-        sidebar?.classList.remove("fixed", "inset-0", "z-50", "lg:block");
-        overlay?.classList.add("hidden");
-      }} />
+      <ConsoleSidebarOverlay />
 
     </ConsoleThemeWrapper>
-  );
-}
-
-// Mobile menu button — client component
-function MobileMenuButton() {
-  return (
-    <button
-      type="button"
-      className="lg:hidden p-2 text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors"
-      aria-label="Toggle menu"
-      onClick={() => {
-        const sidebar = document.getElementById("console-sidebar");
-        const overlay = document.getElementById("console-sidebar-overlay");
-        sidebar?.classList.toggle("hidden");
-        sidebar?.classList.toggle("fixed");
-        sidebar?.classList.toggle("inset-0");
-        sidebar?.classList.toggle("z-50");
-        sidebar?.classList.toggle("lg:block");
-        overlay?.classList.toggle("hidden");
-      }}
-    >
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-      </svg>
-    </button>
   );
 }

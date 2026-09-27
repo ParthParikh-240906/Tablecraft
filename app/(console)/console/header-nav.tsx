@@ -27,7 +27,7 @@ export function HeaderNav({ isOwner, userOrgs, fallbackSlug }: HeaderNavProps) {
     <>
       <nav className="flex items-center gap-3 flex-wrap">
         <Link href={`/console${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors text-xs">
-          Floor Plan
+          Dashboard
         </Link>
         <Link href={`/console/tables${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors text-xs">
           Tables
@@ -46,7 +46,7 @@ export function HeaderNav({ isOwner, userOrgs, fallbackSlug }: HeaderNavProps) {
         </Link>
         {isOwner && (
           <Link href={`/console/design${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors text-xs">
-            Brand
+            Design
           </Link>
         )}
       </nav>

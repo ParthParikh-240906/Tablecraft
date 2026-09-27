@@ -240,6 +240,13 @@ export const DEFAULT_TEXT_DESIGN: TextDesign = {
   textAlign: "center",
 };
 
+export const DEFAULT_NAME_DESIGN: TextDesign = {
+  fontFamily: "Playfair Display",
+  fontSize: 18,
+  color: "#f5f5f4",
+  textAlign: "center",
+};
+
 export function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -364,7 +371,7 @@ export function defaultHeaderDesign(): DesignSettingsV2["header"] {
 export function defaultHeroBackground(): HeroBackground {
   return {
     type: "color",
-    color: "#141414",
+    color: "#0a0a0a",
     opacity: 100,
     intervalMs: 4000,
   };
@@ -492,11 +499,11 @@ function normalizeHeader(h: any): DesignSettingsV2["header"] {
 
 export function hydrateSettings(raw: Record<string, any> | null | undefined): DesignSettingsV2 {
   const legacy = raw ?? {};
-  const name_design = { ...DEFAULT_TEXT_DESIGN, ...(legacy.name_design ?? {}), fontSize: legacy.name_design?.fontSize ?? 48, textAlign: "center" };
+  const name_design = { ...DEFAULT_NAME_DESIGN, ...(legacy.name_design ?? {}), fontSize: legacy.name_design?.fontSize ?? 48, textAlign: "center" };
   const tagline_design = { ...DEFAULT_TEXT_DESIGN, ...(legacy.tagline_design ?? {}), fontSize: legacy.tagline_design?.fontSize ?? 20, textAlign: "center" };
   const base: DesignSettingsV2 = {
     version: 2,
-    background_color: legacy.background_color ?? "#141414",
+    background_color: legacy.background_color ?? "#0a0a0a",
     text_color: legacy.text_color ?? "#f5f5f4",
     accent_color: legacy.accent_color ?? "#f97316",
     name_design,
@@ -523,7 +530,7 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
         : {
       background: {
         ...defaultHeroBackground(),
-        color: legacy.background_color ?? "#141414",
+        color: legacy.background_color ?? "#0a0a0a",
       },
       elements: [
         {
@@ -540,6 +547,14 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
           design: tagline_design,
           x: 25, y: 42, w: 50, h: 9,
         },
+        {
+          id: uid(),
+          kind: "button",
+          buttonType: "book",
+          bgColor: "#f97316",
+          design: { ...DEFAULT_TEXT_DESIGN, fontSize: 16, color: "#ffffff", textAlign: "center" },
+          x: 25, y: 55, w: 50, h: 8,
+        },
       ],
     },
     content: legacy.content?.blocks
@@ -551,7 +566,25 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
     booking_config: { ...defaultBookingConfig(), ...(legacy.booking_config ?? {}) },
   };
 
-  // Legacy page layers / canvas shapes ride along as hero elements
+  // Seed default content if empty (new restaurant with no content yet)
+  if (base.content.elements.length === 0 && !legacy.content) {
+    base.content.elements = [
+      {
+        id: uid(),
+        kind: "title",
+        content: "About Us",
+        design: { ...DEFAULT_TEXT_DESIGN, fontSize: 28, textAlign: "left" },
+        x: 10, y: 0, w: 80, h: 10,
+      },
+      {
+        id: uid(),
+        kind: "text",
+        content: "Welcome to our restaurant! We serve delicious food made with fresh ingredients.",
+        design: { ...DEFAULT_TEXT_DESIGN, fontSize: 16, textAlign: "left" },
+        x: 10, y: 12, w: 80, h: 20,
+      },
+    ];
+  }
   const legacyShapes = legacy.canvas?.shapes ?? legacy.canvas?.layers ?? legacy.page_layers;
   if (Array.isArray(legacyShapes) && legacyShapes.length > 0) {
     base.hero.elements.push(...legacyShapes.map(shapeToHeroElement));

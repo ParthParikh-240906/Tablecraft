@@ -115,7 +115,7 @@ export function ConsoleSidebar({
 
   // Navigation items with restaurant-first labels
   const navItems = [
-    { href: `/console${activeOrgParam}`, label: "Floor Plan", icon: <IconHome />, active: isHomeActive },
+    { href: `/console${activeOrgParam}`, label: "Dashboard", icon: <IconHome />, active: isHomeActive },
     { href: `/console/tables${activeOrgParam}`, label: "Tables", icon: <IconTable />, active: isTablesActive },
     { href: `/console/bookings${activeOrgParam}`, label: "Reservations", icon: <IconCalendar />, active: isBookingsActive },
     { href: `/console/orders${activeOrgParam}`, label: "Orders", icon: <IconReceipt />, active: isOrdersActive },
@@ -124,7 +124,7 @@ export function ConsoleSidebar({
   ];
 
   const ownerNavItems = [
-    { href: `/console/design${activeOrgParam}`, label: "Brand", icon: <IconPalette />, active: isDesignActive },
+    { href: `/console/design${activeOrgParam}`, label: "Design", icon: <IconPalette />, active: isDesignActive },
     { href: `/console/config${activeOrgParam}`, label: "Settings", icon: <IconSettings />, active: isConfigActive },
     { href: `/console/pricing${activeOrgParam}`, label: "Plan", icon: <IconTag />, active: isPricingActive },
   ];
@@ -214,7 +214,6 @@ export function ConsoleSidebar({
                 : "text-[var(--ink-faint)] hover:text-[var(--ink)]"
             }`}
           >
-            <span>{theme === "dark" ? "D" : "L"}</span>
             <span>Dark</span>
           </button>
           <button
@@ -226,7 +225,6 @@ export function ConsoleSidebar({
                 : "text-[var(--ink-faint)] hover:text-[var(--ink)]"
             }`}
           >
-            <span>{theme === "light" ? "L" : "D"}</span>
             <span>Light</span>
           </button>
         </div>
