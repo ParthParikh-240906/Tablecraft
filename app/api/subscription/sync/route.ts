@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     }
 
     const sub = subs.data[0] as Stripe.Subscription & { current_period_end?: number };
-    const plan = ((sub.metadata?.plan as "pro" | "max") || org.subscription_plan || "pro") as "pro" | "max";
+    const plan = ((sub.metadata?.plan as "pro" | "max") || org.subscription_plan || "free") as "pro" | "max";
     const periodEnd = sub.current_period_end
       ? new Date(sub.current_period_end * 1000).toISOString()
       : null;

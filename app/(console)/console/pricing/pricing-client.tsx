@@ -40,6 +40,7 @@ export function PricingClient({
   const [loadingPlan, setLoadingPlan] = useState<PaidPlanKey | "portal" | "cancel" | "sync" | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [hasCanceled, setHasCanceled] = useState(false);
+  const [portalUrl, setPortalUrl] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -66,6 +67,23 @@ export function PricingClient({
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedOrg = orgs.find((o) => o.id === selectedOrgId) || orgs[0];
+
+  // Fetch Stripe portal URL so the "Manage Billing" link can open in a new tab
+  useEffect(() => {
+    if (!selectedOrg?.slug) return;
+    let cancelled = false;
+    fetch("/api/subscription/manage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orgSlug: selectedOrg.slug }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && data.url) setPortalUrl(data.url);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedOrg?.slug]);
 
   // Aggregate metrics across all user-owned restaurants
   const totalCombinedEarnings = orgs.reduce((acc, o) => acc + o.totalEarningsAed, 0);
@@ -413,14 +431,25 @@ export function PricingClient({
                 )}
                 {selectedOrg.stripe_subscription_id && (
                   <>
-                    <button
-                      type="button"
-                      onClick={handleManageBilling}
-                      disabled={loadingPlan === "portal"}
-                      className="btn btn-outline text-xs py-1.5 px-3"
-                    >
-                      {loadingPlan === "portal" ? "Opening Stripe…" : "Manage Billing & Invoices →"}
-                    </button>
+                    {portalUrl ? (
+                      <a
+                        href={portalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-outline text-xs py-1.5 px-3"
+                      >
+                        Manage Billing & Invoices ↗
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleManageBilling}
+                        disabled={loadingPlan === "portal"}
+                        className="btn btn-outline text-xs py-1.5 px-3"
+                      >
+                        {loadingPlan === "portal" ? "Loading…" : "Manage Billing & Invoices →"}
+                      </button>
+                    )}
                     {selectedOrg.subscription_status !== "canceled" && (
                       <button
                         type="button"
@@ -445,18 +474,6 @@ export function PricingClient({
               Your subscription has been canceled. You can still use the {selectedOrg.plan.toUpperCase()} plan until{" "}
               <span className="font-mono font-semibold">{new Date(selectedOrg.currentPeriodEnd).toLocaleDateString()}</span>.
               After that date, your plan will switch to Free.
-            </p>
-          </div>
-        )}
-
-        {selectedOrg?.subscription_status === "canceled" && !hasCanceled && (
-          <div className="p-4 rounded bg-amber-500/10 border border-amber-500/30 text-amber-700 text-xs">
-            <p className="font-semibold mb-1">Subscription Expired</p>
-            <p>
-              Your subscription ended on{" "}
-              <span className="font-mono font-semibold">{selectedOrg.currentPeriodEnd ? new Date(selectedOrg.currentPeriodEnd).toLocaleDateString() : "—"}</span>.
-              You can still use the <span className="font-semibold">{selectedOrg.plan.toUpperCase()}</span> plan until{" "}
-              <span className="font-mono font-semibold">{selectedOrg.currentPeriodEnd ? new Date(selectedOrg.currentPeriodEnd).toLocaleDateString() : "—"}</span>.
             </p>
           </div>
         )}

@@ -180,7 +180,7 @@ export default function SignupPage() {
       if (selectedPlan) {
         setRedirecting(true);
         try {
-          const res = await fetch("/api/checkout/subscribe", {
+          const res = await fetch("/api/subscription/checkout", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ plan: selectedPlan, email, orgSlug: data.org.slug }),

@@ -67,7 +67,7 @@ export async function POST(request: Request) {
           : sub.status === "past_due"
             ? "past_due"
             : "canceled";
-      const plan = (sub.metadata?.plan as "pro" | "max") || "pro";
+      const plan = (sub.metadata?.plan as "pro" | "max") || "free";
       const periodEnd = sub.current_period_end
         ? new Date(sub.current_period_end * 1000).toISOString()
         : null;
