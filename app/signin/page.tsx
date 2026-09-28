@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const info = searchParams.get("info");
   const next = searchParams.get("next") ?? "/dashboard";
 
   const [email, setEmail] = useState("");
@@ -68,8 +69,13 @@ function SignInForm() {
               <div className="text-center">
                 <h1 className="font-display text-xl mb-1">Sign in to Tablecraft</h1>
                 <p className="text-sm text-[var(--ink-soft)]">
-                  {next.startsWith("/signup") ? "Sign in to create your restaurant" : "Access your dashboard and restaurants"}
+                  {next.startsWith("/restaurants/create") ? "Sign in to set up your restaurant" : "Access your dashboard and restaurants"}
                 </p>
+                {info === "account-created" && (
+                  <p className="text-sm text-green-400 mt-2 bg-green-900/30 rounded-sm px-3 py-1.5">
+                    Account created! Sign in with your email and password.
+                  </p>
+                )}
               </div>
 
               <button
@@ -142,9 +148,13 @@ function SignInForm() {
           </div>
         </div>
 
-        <p className="text-xs text-center text-[var(--ink-faint)]">
+        <p className="text-xs text-center text-[var(--ink-faint)] space-x-2">
           <Link href="/" className="hover:text-[var(--ink)] transition-colors">
             ← Back to Tablecraft
+          </Link>
+          <span className="text-[var(--ink-faint)]">·</span>
+          <Link href="/signup" className="hover:text-[var(--ink)] transition-colors">
+            Create account
           </Link>
         </p>
       </div>

@@ -37,7 +37,7 @@ export default function RestaurantsPage() {
           </Link>
           <div className="flex items-center gap-4">
             <Link
-              href="/signup"
+              href="/signin?next=/restaurants/create"
               className="btn btn-accent text-xs"
             >
               Start free

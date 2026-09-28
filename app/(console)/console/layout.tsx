@@ -70,14 +70,19 @@ export default async function ConsoleLayout({
     return (
       <div className="min-h-screen flex items-center justify-center px-4 bg-[var(--paper)] text-[var(--ink)]">
         <div className="max-w-md text-center ticket p-8">
-          <h1 className="font-display text-xl mb-2">Not a staff member</h1>
+          <h1 className="font-display text-xl mb-2">No restaurant linked</h1>
           <p className="text-sm text-[var(--ink-soft)] mb-6">
-            This account ({user.email}) isn't linked to a restaurant
-            staff role. Ask the restaurant owner to add you.
+            This account ({user.email}) isn&apos;t linked to a restaurant yet.
+            Create one to get started.
           </p>
-          <Link href="/" className="btn btn-outline text-xs">
-            ← Back to Tablecraft
-          </Link>
+          <div className="flex flex-col items-center gap-2">
+            <Link href="/restaurants/create" className="btn btn-accent text-xs">
+              Create your restaurant
+            </Link>
+            <Link href="/dashboard" className="btn btn-outline text-xs">
+              ← Back to Dashboard
+            </Link>
+          </div>
         </div>
       </div>
     );

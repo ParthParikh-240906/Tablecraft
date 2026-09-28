@@ -42,9 +42,10 @@ export default async function DashboardPage() {
     .select("org_id, role, organizations(id, name, slug, logo_url, theme_color, tagline, subscription_plan, subscription_status)")
     .eq("auth_user_id", user.id);
 
-  // Staff-only users must use the console — redirect them away from the dashboard.
+  // Staff-only users (have a staff row but no owner row) must use the console.
+  // Brand-new accounts with no staff rows at all stay on the dashboard.
   const isOwner = (staffRows ?? []).some((r: any) => r.role === 'owner');
-  if (!isOwner) {
+  if ((staffRows ?? []).length > 0 && !isOwner) {
     redirect("/console");
   }
 
@@ -108,7 +109,7 @@ export default async function DashboardPage() {
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display text-lg">My Restaurants</h2>
-            <Link href="/signup" className="btn btn-accent text-xs">
+            <Link href="/restaurants/create" className="btn btn-accent text-xs">
               + Create restaurant
             </Link>
           </div>
@@ -176,7 +177,7 @@ export default async function DashboardPage() {
           ) : (
             <div className="ticket p-8 text-center">
               <p className="text-[var(--ink-soft)] mb-4">You haven&apos;t created a restaurant yet.</p>
-              <Link href="/signup" className="btn btn-accent text-sm">
+              <Link href="/restaurants/create" className="btn btn-accent text-sm">
                 Create your first restaurant →
               </Link>
             </div>
@@ -193,7 +194,7 @@ export default async function DashboardPage() {
           </div>
           <div className="ticket p-5 space-y-3">
             {[
-              { label: "Create a restaurant", href: "/signup" },
+              { label: "Create a restaurant", href: "/restaurants/create" },
               { label: "Design Website", href: "/console/design" },
               { label: "Add menu items", href: "/console/menu" },
               { label: "Set up tables", href: "/console/tables" },
