@@ -419,12 +419,7 @@ function RestaurantCard({ org, index }: { org: Org; index: number }) {
 
   return (
     <Reveal delay={index * 80}>
-      <Link
-        href={`/${org.slug}`}
-        className="ticket ticket--dark p-4 block group transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
+      <div className="ticket ticket--dark p-4 block group transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg">
         <div className="flex items-center gap-2 mb-2">
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold font-display text-base shrink-0 transition-transform duration-300 group-hover:scale-110"
@@ -444,12 +439,26 @@ function RestaurantCard({ org, index }: { org: Org; index: number }) {
             )}
           </div>
         </div>
-        <p className="text-[10px] text-[var(--ink-faint)] mb-2">/{org.slug}</p>
+        <p className="text-[10px] text-[var(--ink-faint)] mb-3">/{org.slug}</p>
         <div
-          className="h-px transition-all duration-300"
+          className="h-px transition-all duration-300 mb-3"
           style={{ width: hovered ? "100%" : "0%", backgroundColor: color }}
         />
-      </Link>
+        <div className="flex gap-2">
+          <Link
+            href={`/${org.slug}`}
+            className="flex-1 btn btn-outline text-xs py-1.5"
+          >
+            Visit Storefront
+          </Link>
+          <a
+            href={`/api/demo/redirect?org=${org.slug}`}
+            className="flex-1 btn btn-accent text-xs py-1.5 whitespace-nowrap"
+          >
+            Demo Console
+          </a>
+        </div>
+      </div>
     </Reveal>
   );
 }
@@ -480,7 +489,7 @@ function RestaurantsSection() {
       </Reveal>
       <Reveal delay={160}>
         <p className="text-center text-[var(--ink-soft)] max-w-lg mx-auto mb-10 text-lg leading-relaxed">
-          Preview our demo sites below. Sign in to see and manage your own restaurant.
+          Preview our demo sites below. Click Demo Console to explore the operator console — no login required.
         </p>
       </Reveal>
 

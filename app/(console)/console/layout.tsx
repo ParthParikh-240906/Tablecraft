@@ -12,6 +12,9 @@ import { HeaderNav } from "./header-nav";
 import type { SidebarOrgItem } from "./sidebar";
 import { MobileMenuButton } from "./mobile-menu-button";
 import { ConsoleSidebarOverlay } from "./console-sidebar-overlay";
+import { DemoModeProvider } from "./demo-mode-provider";
+
+const DEMO_EMAIL = "demo@tablecraft.app";
 
 // Force per-request rendering so the header/sidebar reflect the current ?org=
 // param. Without this, the layout is cached as part of the App Shell and
@@ -21,11 +24,6 @@ export const dynamic = "force-dynamic";
 /**
  * Console layout: resolves the logged-in staff member's organization.
  * Auth gating happens in middleware.ts; this adds the staff check.
- *
- * Multi-restaurant support:
- *   - Reads the `selected_org` cookie (set by middleware when ?org=<id> is present).
- *   - If the user has multiple restaurants and no selection is active,
- *     redirects to /console/select so they can choose.
  */
 export default async function ConsoleLayout({
   children,
@@ -46,8 +44,6 @@ export default async function ConsoleLayout({
   }
 
   // Resolve org in priority order: URL param > middleware header > cookie > default.
-  // resolveOrgIdForUser accepts either a UUID or a slug, validates ownership,
-  // and returns null (fallthrough) when the value isn't authorized for this user.
   let resolvedOrgId: string | undefined;
   const urlOrgParam = params.org || null;
   if (urlOrgParam) {
@@ -88,8 +84,6 @@ export default async function ConsoleLayout({
     );
   }
 
-  // If user has multiple restaurants and no selection is persisted,
-  // redirect them to the org selector page.
   if (result.isMultiOrg) {
     redirect("/console/select");
   }
@@ -111,17 +105,19 @@ export default async function ConsoleLayout({
     })
     .filter(Boolean);
 
-  // Use the resolved org (from header/cookie) for nav links and header display
   const activeOrgId = resolvedOrgId || staffRow.org_id;
   const org = userOrgs.find((o) => o?.id === activeOrgId) || userOrgs[0] || null;
   const orgParam = activeOrgId ? `?org=${activeOrgId}` : "";
 
+  // Check if this is a demo session
+  const isDemoOrg = staffRow.email === DEMO_EMAIL;
+
   return (
     <ConsoleThemeWrapper>
+      {isDemoOrg && <DemoModeProvider isDemo={isDemoOrg} orgId={activeOrgId} orgSlug={org?.slug ?? ""} />}
       <header className="border-b border-[var(--rule)] bg-[var(--paper-raised)]">
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            {/* Mobile menu button */}
             <MobileMenuButton />
             <div>
               <p className="label-caps text-[color:var(--accent)]">
@@ -145,11 +141,13 @@ export default async function ConsoleLayout({
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-[var(--ink-faint)] hidden sm:inline">{staffRow.email}</span>
                 <span className={`px-2 py-0.5 rounded-sm border text-[10px] font-medium uppercase tracking-wider ${
-                  staffRow.role === 'owner'
+                  isDemoOrg
+                    ? 'border-yellow-500/40 text-yellow-600 bg-yellow-50'
+                    : staffRow.role === 'owner'
                     ? 'border-[var(--accent-border)] text-[var(--accent)] bg-[var(--accent-subtle)]'
                     : 'border-[var(--rule)] text-[var(--ink-soft)]'
                 }`}>
-                  {staffRow.role}
+                  {isDemoOrg ? 'DEMO' : staffRow.role}
                 </span>
               </div>
               <LogoutButton />
@@ -166,6 +164,7 @@ export default async function ConsoleLayout({
               staffRole={staffRow.role}
               userOrgs={userOrgs as any}
               activeOrgId={activeOrgId}
+              isDemo={isDemoOrg}
             />
           )}
           <div className="ticket flex-1 w-full rounded-sm border border-[var(--rule)] bg-[var(--paper-raised)] overflow-hidden">
@@ -174,9 +173,7 @@ export default async function ConsoleLayout({
         </div>
       </div>
 
-      {/* Mobile sidebar overlay */}
       <ConsoleSidebarOverlay />
-
     </ConsoleThemeWrapper>
   );
 }

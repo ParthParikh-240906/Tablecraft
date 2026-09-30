@@ -5,20 +5,36 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
+const DEMO_EMAIL = "demo@tablecraft.app";
+const DEMO_PASSWORD = "demo123";
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orgSlug = searchParams.get("org");
   const rawNext = searchParams.get("next") ?? "/console";
-  // Preserve the org context so middleware sets the selected_org cookie on redirect.
   const next = orgSlug
     ? `${rawNext.startsWith("/") ? rawNext : "/"}${rawNext.includes("?") ? "&" : "?"}org=${orgSlug}`
     : rawNext;
 
-  const [email, setEmail] = useState(orgSlug === "rasam" ? "owner@rasam.test" : orgSlug === "demo-diner" ? "owner@demodiner.test" : "");
+  const [email, setEmail] = useState(orgSlug === "rasam" ? "owner@rasam.test" : orgSlug === "demo-diner" ? DEMO_EMAIL : "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoError, setDemoError] = useState<string | null>(null);
+
+  // Check if this org is a demo org
+  const [isDemoOrg, setIsDemoOrg] = useState(false);
+
+  useState(() => {
+    if (orgSlug) {
+      fetch(`/api/demo/check?slug=${orgSlug}`)
+        .then((r) => r.json())
+        .then((data) => setIsDemoOrg(data.isDemo ?? false))
+        .catch(() => {});
+    }
+  });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,8 +48,6 @@ function LoginForm() {
     });
 
     if (authError) {
-      // Fallback: the entered password may be a standalone console password
-      // (stored in staff_users.console_password_hash, separate from Supabase auth).
       try {
         const res = await fetch("/api/console/login", {
           method: "POST",
@@ -46,7 +60,7 @@ function LoginForm() {
           return;
         }
       } catch {
-        // fall through to generic error below
+        // fall through
       }
 
       setError("Invalid email or password. Please try again.");
@@ -56,6 +70,38 @@ function LoginForm() {
 
     router.push(next);
     router.refresh();
+  }
+
+  async function handleDemoLogin() {
+    if (!orgSlug || demoLoading) return;
+    setDemoLoading(true);
+    setDemoError(null);
+
+    try {
+      const res = await fetch("/api/demo/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgSlug }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setDemoError(data.error ?? "Demo login failed");
+        setDemoLoading(false);
+        return;
+      }
+
+      // Navigate to the magiclink which will create the Supabase session
+      if (data.magicLink) {
+        window.location.href = data.magicLink;
+      } else {
+        setDemoError("No magic link returned");
+        setDemoLoading(false);
+      }
+    } catch {
+      setDemoError("Demo login failed. Please try again.");
+      setDemoLoading(false);
+    }
   }
 
   return (
@@ -112,6 +158,32 @@ function LoginForm() {
           {submitting ? "Signing in…" : "Sign in with Email"}
         </button>
 
+        {isDemoOrg && (
+          <>
+            <div className="relative flex py-2 items-center">
+              <div className="flex-grow border-t border-[var(--rule)]"></div>
+              <span className="flex-shrink mx-3 text-[11px] text-[var(--ink-faint)] uppercase tracking-wider">
+                Or
+              </span>
+              <div className="flex-grow border-t border-[var(--rule)]"></div>
+            </div>
+            <button
+              type="button"
+              onClick={handleDemoLogin}
+              disabled={demoLoading}
+              className="btn btn-outline w-full flex items-center justify-center gap-2 text-xs font-medium"
+            >
+              {demoLoading ? "Loading…" : "🧪 Try Demo Console"}
+            </button>
+            {demoError && (
+              <p className="text-xs text-red-400 text-center">{demoError}</p>
+            )}
+            <p className="text-xs text-center text-[var(--ink-faint)]">
+              Free access for 3 minutes — changes auto-reset on inactivity
+            </p>
+          </>
+        )}
+
         <div className="relative flex py-2 items-center">
           <div className="flex-grow border-t border-[var(--rule)]"></div>
           <span className="flex-shrink mx-3 text-[11px] text-[var(--ink-faint)] uppercase tracking-wider">
@@ -128,28 +200,16 @@ function LoginForm() {
               provider: "google",
               options: {
                 redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-                              },
+              },
             });
           }}
           className="btn btn-outline w-full flex items-center justify-center gap-2 text-xs font-medium"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">
-            <path
-              fill="#EA4335"
-              d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"
-            />
-            <path
-              fill="#4285F4"
-              d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3 0-.8.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15.2s.7 5.5 1.9 7.9l3.7-2.9z"
-            />
-            <path
-              fill="#34A853"
-              d="M12 23.5c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16.5C3.7 20.2 7.5 23.5 12 23.5z"
-            />
+            <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z" />
+            <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z" />
+            <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3 0-.8.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15.2s.7 5.5 1.9 7.9l3.7-2.9z" />
+            <path fill="#34A853" d="M12 23.5c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16.5C3.7 20.2 7.5 23.5 12 23.5z" />
           </svg>
           Continue with Google
         </button>

@@ -56,6 +56,14 @@ export function HeaderNav({ isOwner, userOrgs, fallbackSlug }: HeaderNavProps) {
           Public Storefront →
         </Link>
       )}
+      {isOwner && (
+        <>
+          <span className="text-[var(--rule)]">|</span>
+          <Link href="/dashboard" className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors text-xs">
+            Sign-in Dashboard
+          </Link>
+        </>
+      )}
     </>
   );
 }

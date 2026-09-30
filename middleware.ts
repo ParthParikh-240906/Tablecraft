@@ -2,6 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+const DEMO_EMAIL = "demo@tablecraft.app";
+
 /**
  * Gates /console and /dashboard routes behind Supabase Auth and refreshes sessions.
  * Public site routes are untouched.
@@ -12,6 +14,7 @@ export async function middleware(request: NextRequest) {
   const isConsole = pathname.startsWith("/console");
   const isLoginPage = pathname === "/console/login";
   const isDashboard = pathname === "/dashboard";
+  const isDemoApi = pathname.startsWith("/api/demo/");
 
   let response = NextResponse.next({ request });
 
@@ -40,23 +43,24 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Allow demo API routes without auth
+  if (isDemoApi) {
+    return response;
+  }
+
   // If user is already logged in and visits the login page, redirect to console
   // preserving any ?org= param so the selected_org cookie gets set correctly.
   if (user && isLoginPage) {
     const consoleUrl = request.nextUrl.clone();
     consoleUrl.pathname = "/console";
-    // Keep the ?org= param (or whatever other query params were present)
     consoleUrl.search = request.nextUrl.search;
     return NextResponse.redirect(consoleUrl);
   }
 
   // Set selected_org cookie when ?org= param is present on console routes.
-  // This lets users with multiple restaurants persist their choice across
-  // navigation within the console without relying on URL params.
   const orgParam = request.nextUrl.searchParams.get("org");
   if (isConsole && !isLoginPage && orgParam) {
     let resolvedOrgId = orgParam;
-    // If the param looks like a slug (not a UUID), resolve it to a UUID.
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgParam);
     if (!isUUID) {
       try {
@@ -71,16 +75,32 @@ export async function middleware(request: NextRequest) {
         // fall through — store the raw param, layout will validate
       }
     }
-    // Only set the cookie if we resolved to a UUID — avoid persisting stale slugs.
     const isResolvedUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedOrgId);
-    const response = NextResponse.next({ request });
+    const resp = NextResponse.next({ request });
     if (isResolvedUUID) {
-      response.cookies.set("selected_org", resolvedOrgId, {
+      resp.cookies.set("selected_org", resolvedOrgId, {
         path: "/",
-        maxAge: 60 * 60 * 24 * 365, // 1 year
+        maxAge: 60 * 60 * 24 * 365,
       });
+      resp.headers.set("x-console-selected-org", resolvedOrgId);
+      // Mark demo orgs so the frontend can show demo UI
+      if (user) {
+        try {
+          const { data: staff } = await supabase
+            .from("staff_users")
+            .select("id")
+            .eq("org_id", resolvedOrgId)
+            .eq("email", DEMO_EMAIL)
+            .maybeSingle();
+          if (staff) {
+            resp.headers.set("x-demo-org", resolvedOrgId);
+          }
+        } catch {
+          // ignore
+        }
+      }
     }
-    return response;
+    return resp;
   }
 
   // If unauthenticated user tries to access protected console paths

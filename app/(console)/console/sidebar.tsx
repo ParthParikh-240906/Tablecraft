@@ -17,6 +17,7 @@ interface ConsoleSidebarProps {
   userOrgs: SidebarOrgItem[];
   activeOrgId: string;
   isOwner?: boolean;
+  isDemo?: boolean;
 }
 
 export function ConsoleSidebar({
@@ -25,16 +26,13 @@ export function ConsoleSidebar({
   userOrgs,
   activeOrgId,
   isOwner = true,
+  isDemo = false,
 }: ConsoleSidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { theme, setTheme } = useConsoleTheme();
 
-  // URL param is always fresh (reads current URL); layout prop is stale
-  // because the layout cache doesn't vary on searchParams in Next.js 16.
   const orgIdFromUrl = searchParams.get("org");
-  // Prefer the URL param for highlighting; fall back to the prop (resolved UUID).
-  // The URL param may be a slug — match against both id and slug.
   const activeOrgIdFromProps = orgIdFromUrl || activeOrgId;
   const activeOrgParam = activeOrgIdFromProps ? `?org=${activeOrgIdFromProps}` : "";
   const currentOrg =
@@ -64,7 +62,6 @@ export function ConsoleSidebar({
   const activeLinkClass = "bg-[var(--accent-subtle)] text-[var(--accent)] font-semibold border border-[var(--accent-border)]";
   const inactiveLinkClass = "text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--paper-overlay)]";
 
-  // SVG icon helpers (Lucide-style, no emojis)
   const IconHome = () => (
     <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -113,7 +110,6 @@ export function ConsoleSidebar({
     </svg>
   );
 
-  // Navigation items with restaurant-first labels
   const navItems = [
     { href: `/console${activeOrgParam}`, label: "Dashboard", icon: <IconHome />, active: isHomeActive },
     { href: `/console/tables${activeOrgParam}`, label: "Tables", icon: <IconTable />, active: isTablesActive },
@@ -131,6 +127,19 @@ export function ConsoleSidebar({
 
   return (
     <aside id="console-sidebar" className="hidden lg:block w-64 shrink-0 space-y-6">
+      {/* ── Demo Banner in Sidebar ─────────────────────────────────── */}
+      {isDemo && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-sm p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-base">🧪</span>
+            <span className="text-xs font-semibold text-yellow-800">Demo Mode</span>
+          </div>
+          <p className="text-[10px] text-yellow-600">
+            Changes auto-reset after 3 min of inactivity
+          </p>
+        </div>
+      )}
+
       {/* ── Dynamic Title Header ───────────────────────────────────── */}
       <div className={cardClass}>
         <div className="flex items-center gap-3">
@@ -162,7 +171,6 @@ export function ConsoleSidebar({
           Operations
         </div>
 
-        {/* Dynamic navigation items */}
         {navItems.map((item) => (
           <Link
             key={item.label}
@@ -176,7 +184,7 @@ export function ConsoleSidebar({
           </Link>
         ))}
 
-        {isOwner && (
+        {!isDemo && isOwner && (
           <>
             <div className="border-t border-[var(--rule)] my-2" />
             <div className="px-3 py-1.5 text-xs font-semibold text-[var(--ink-soft)] tracking-wide">
@@ -199,39 +207,41 @@ export function ConsoleSidebar({
       </nav>
 
       {/* ── Theme Toggle Widget ────────────────────────────────────── */}
-      <div className={cardClass.replace("p-4", "p-3").replace("space-y-", "") + " space-y-2"}>
-        <div className="flex items-center justify-between text-xs font-semibold text-[var(--ink-soft)] tracking-wide">
-          <span>Theme Mode</span>
-          <span className="text-[var(--accent)] font-semibold">{theme === "dark" ? "Dark" : "Light"}</span>
+      {!isDemo && (
+        <div className={cardClass.replace("p-4", "p-3").replace("space-y-", "") + " space-y-2"}>
+          <div className="flex items-center justify-between text-xs font-semibold text-[var(--ink-soft)] tracking-wide">
+            <span>Theme Mode</span>
+            <span className="text-[var(--accent)] font-semibold">{theme === "dark" ? "Dark" : "Light"}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5 p-1 bg-[var(--paper)] rounded border border-[var(--rule)]">
+            <button
+              type="button"
+              onClick={() => setTheme("dark")}
+              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded text-xs font-medium transition-all ${
+                theme === "dark"
+                  ? "bg-[var(--paper-raised)] text-[var(--ink)] shadow-sm border border-[var(--rule)] font-semibold"
+                  : "text-[var(--ink-faint)] hover:text-[var(--ink)]"
+              }`}
+            >
+              <span>Dark</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme("light")}
+              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded text-xs font-medium transition-all ${
+                theme === "light"
+                  ? "bg-[var(--paper-raised)] text-[var(--ink)] shadow-sm border border-[var(--rule)] font-semibold"
+                  : "text-[var(--ink-faint)] hover:text-[var(--ink)]"
+              }`}
+            >
+              <span>Light</span>
+            </button>
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-1.5 p-1 bg-[var(--paper)] rounded border border-[var(--rule)]">
-          <button
-            type="button"
-            onClick={() => setTheme("dark")}
-            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded text-xs font-medium transition-all ${
-              theme === "dark"
-                ? "bg-[var(--paper-raised)] text-[var(--ink)] shadow-sm border border-[var(--rule)] font-semibold"
-                : "text-[var(--ink-faint)] hover:text-[var(--ink)]"
-            }`}
-          >
-            <span>Dark</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setTheme("light")}
-            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded text-xs font-medium transition-all ${
-              theme === "light"
-                ? "bg-[var(--paper-raised)] text-[var(--ink)] shadow-sm border border-[var(--rule)] font-semibold"
-                : "text-[var(--ink-faint)] hover:text-[var(--ink)]"
-            }`}
-          >
-            <span>Light</span>
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* ── Restaurant Switcher Widget ──────────────────────────────── */}
-      {userOrgs.length > 1 && (
+      {!isDemo && userOrgs.length > 1 && (
         <div className={cardClass.replace("p-4", "p-3").replace("space-y-", "") + " space-y-2"}>
           <div className="flex items-center justify-between text-xs font-semibold text-[var(--ink-soft)] tracking-wide">
             <span>Switch Restaurant</span>
