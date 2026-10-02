@@ -5,7 +5,7 @@ import { DesignNav } from "../design-nav";
 import { ColorField, DesignField } from "../design-fields";
 import { AnimationBuilder } from "@/components/AnimationBuilder";
 import { SiteHeader } from "@/components/SiteHeader";
-import { defaultMenuPageDesign, type DesignSettingsV2, type MenuPageDesign } from "@/lib/design";
+import { defaultMenuPageDesign, type DesignSettingsV2, type MenuPageDesign, getShadowStyle } from "@/lib/design";
 
 export function MenuPagePanel({
   orgId,
@@ -44,11 +44,12 @@ export function MenuPagePanel({
 
   const previewScale = 0.85;
 
-  const text = (d: { fontFamily: string; fontSize: number; color: string; textAlign: string }, extra?: React.CSSProperties): React.CSSProperties => ({
+  const text = (d: { fontFamily: string; fontSize: number; color: string; textAlign: string; shadow?: { color: string; direction: number; length: number; opacity?: number } }, extra?: React.CSSProperties): React.CSSProperties => ({
     fontFamily: d.fontFamily,
     fontSize: `${d.fontSize * previewScale}px`,
     color: d.color,
     textAlign: d.textAlign as React.CSSProperties["textAlign"],
+    textShadow: getShadowStyle(d.shadow, 0.5),
     ...extra,
   });
 

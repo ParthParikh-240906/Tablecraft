@@ -120,12 +120,14 @@ function HeroText({
   tagline,
   heroPx,
   onGrow,
+  mode,
 }: {
   el: HeroElement;
   orgName: string;
   tagline: string | null;
   heroPx: number;
   onGrow?: (id: string, h: number) => void;
+  mode?: "preview" | "site";
 }) {
   const s = el.design;
   if (el.kind === "logo") return null; // rendered separately
@@ -151,6 +153,7 @@ function HeroText({
       <AnimatedText
         design={s}
         style={{ display: "inline" }}
+        preview={mode === "preview"}
       >
         <span className="whitespace-pre-line">{text}</span>
       </AnimatedText>
@@ -284,6 +287,7 @@ function ContentVisual({
     <AnimatedText
       text={text}
       design={s}
+      preview={mode === "preview"}
       className={`w-full h-full overflow-hidden leading-relaxed whitespace-pre-line ${el.kind === "title" ? "font-bold" : ""}`}
       style={{ fontFamily: s.fontFamily, fontSize: fS(s.fontSize), color: s.color, textAlign: s.textAlign }}
     />
@@ -327,6 +331,8 @@ export function OrgPageView({
       ? cw / heroBg.aspectRatio
       : cw * heroRect.h * 0.008;
   const contentMax = Math.max(...contentEls.map((e) => e.y + e.h), 100 - heroRect.h, 40);
+  const previewCanvasUnits = previewHeight ? (previewHeight / 640) * 100 : 100;
+  const sectionHeightUnits = Math.max(contentMax + 10, mode === "preview" ? previewCanvasUnits : 0, 100);
 
   const heroHeight =
     heroBg.type === "image" && heroBg.aspectRatio && heroBg.aspectRatio > 0
@@ -341,10 +347,6 @@ export function OrgPageView({
         containerType: "inline-size",
         backgroundColor: colors.bg,
         color: colors.text,
-        // In preview the canvas is a fixed-height coordinate space; content
-        // blocks are anchored to the design canvas (cvH units), so extending
-        // the preview only adds scroll room below — nothing stretches.
-        ...(previewHeight && mode === "preview" ? { height: `${previewHeight}px` } : {}),
       }}
     >
       {/* Header — sticky, with page-text-colored bottom border */}
@@ -415,6 +417,7 @@ export function OrgPageView({
                   tagline={org.tagline}
                   heroPx={heroPx}
                   onGrow={onGrowHero}
+                  mode={mode}
                 />
               </div>
             ),
@@ -426,12 +429,11 @@ export function OrgPageView({
         )}
       </section>
 
-      {/* Content section — height = content extent + ~2 lines of breathing
-          room so the last line never sits flush against the section edge. */}
+      {/* Content section — height = content extent + extended preview room */}
       {contentEls.length > 0 && (
         <section
           className="relative w-full"
-          style={{ height: cvH(contentMax + 5), minHeight: 280, zIndex: 5 }}
+          style={{ height: cvH(sectionHeightUnits), minHeight: 280, zIndex: 5 }}
         >
           {contentEls.map((el) => (
             <div
@@ -454,13 +456,10 @@ export function OrgPageView({
               />
             </div>
           ))}
-          {/* Console overlay slot: drag/resize boxes. Fixed to the design
-              canvas height (cvH(100)) so box coordinates match OrgPageView's
-              cvH-based positioning (y% of overlay === cvH(y) in org). */}
+          {/* Console overlay slot: drag/resize boxes spanning full section */}
           {mode === "preview" && (
             <div
-              className="absolute z-30 pointer-events-none"
-              style={{ top: 0, left: 0, width: "100%", height: cvH(100) }}
+              className="absolute inset-0 z-30 pointer-events-none"
               data-panel-overlays="content"
             />
           )}

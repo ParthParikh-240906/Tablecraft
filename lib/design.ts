@@ -31,11 +31,12 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } {
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
 
-export function getShadowStyle(shadow?: TextDesign['shadow']): string | undefined {
+export function getShadowStyle(shadow?: TextDesign['shadow'], scale: number = 1): string | undefined {
   if (!shadow || shadow.length === 0) return undefined;
   const rad = shadow.direction * (Math.PI / 180);
-  const x = Math.round(Math.cos(rad) * shadow.length);
-  const y = Math.round(Math.sin(rad) * shadow.length);
+  const len = shadow.length * scale;
+  const x = Number((Math.cos(rad) * len).toFixed(2));
+  const y = Number((Math.sin(rad) * len).toFixed(2));
   const opacity = shadow.opacity ?? 1;
   const { r, g, b } = hexToRgb(shadow.color);
   return `${x}px ${y}px 1px rgba(${r},${g},${b},${opacity})`;

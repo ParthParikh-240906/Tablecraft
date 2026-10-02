@@ -63,9 +63,15 @@ function ContentOverlay({
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   if (!slot) return null;
 
+  const cvH = (pct: number) => `calc(${((pct * 0.8) / 100).toFixed(5)} * 100cqw)`;
+
   const toPct = (e: React.PointerEvent) => {
     const pr = wrapperRef.current!.getBoundingClientRect();
-    return { x: ((e.clientX - pr.left) / pr.width) * 100, y: ((e.clientY - pr.top) / pr.height) * 100 };
+    const unitH = pr.width * 0.008;
+    return {
+      x: ((e.clientX - pr.left) / pr.width) * 100,
+      y: (e.clientY - pr.top) / unitH,
+    };
   };
 
   const intersect = (m: { x0: number; y0: number; x1: number; y1: number }) => {
@@ -115,13 +121,14 @@ function ContentOverlay({
         <ResizableBox
           key={el.id}
           rect={{ x: el.x, y: el.y, w: el.w, h: el.h }}
+          unit="cvH"
           onChange={(r) => onUpdate(el.id, r)}
           selected={selected.includes(el.id)}
           onSelect={(ev) => onSelect(el.id, ev.shiftKey || ev.metaKey || ev.ctrlKey)}
           onMove={(dx, dy) => onMoveMany(dx, dy, startRectsRef.current)}
           multiMode={selected.length > 1 && selected.includes(el.id)}
           zIndex={31}
-          maxY={400}
+          maxY={1000}
           label={KIND_LABELS[el.kind]}
         />
       ))}
@@ -130,9 +137,9 @@ function ContentOverlay({
           className="absolute border-2 border-sky-400/80 bg-sky-400/10 pointer-events-none"
           style={{
             left: `${Math.min(marquee.x0, marquee.x1)}%`,
-            top: `${Math.min(marquee.y0, marquee.y1)}%`,
+            top: cvH(Math.min(marquee.y0, marquee.y1)),
             width: `${Math.abs(marquee.x1 - marquee.x0)}%`,
-            height: `${Math.abs(marquee.y1 - marquee.y0)}%`,
+            height: cvH(Math.abs(marquee.y1 - marquee.y0)),
           }}
         />
       )}
@@ -274,7 +281,7 @@ export function ContentPanel({
     };
     const bw = b.x1 - b.x0, bh = b.y1 - b.y0;
     const nx = bw >= 100 ? b.x0 + dx : Math.min(100 - bw, Math.max(0, b.x0 + dx));
-    const ny = bh >= 400 ? b.y0 + dy : Math.min(400 - bh, Math.max(0, b.y0 + dy));
+    const ny = bh >= 1000 ? b.y0 + dy : Math.min(1000 - bh, Math.max(0, b.y0 + dy));
     const adx = nx - b.x0, ady = ny - b.y0;
     const startById = new Map(startRects.map((e) => [e.id, e]));
     updateSettings({

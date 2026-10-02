@@ -12,20 +12,23 @@ export function AnimatedText({
   className,
   style,
   children,
+  preview = false,
 }: {
   text?: string;
   design?: TextDesign;
   className?: string;
   style?: React.CSSProperties;
   children?: React.ReactNode;
+  preview?: boolean;
 }) {
   const content = children ?? text;
-  
+  const shadowScale = preview ? 0.5 : 1;
+
   if (!design?.animation || design.animation.type === "none") {
     return (
-      <div 
-        className={className} 
-        style={{ ...style, textShadow: getShadowStyle(design?.shadow) }}
+      <div
+        className={className}
+        style={{ ...style, textShadow: getShadowStyle(design?.shadow, shadowScale) }}
       >
         {content}
       </div>
@@ -41,13 +44,13 @@ export function AnimatedText({
       initial="initial"
       animate="animate"
       variants={variant}
-      transition={{ 
-        duration: anim.duration, 
+      transition={{
+        duration: anim.duration,
         delay: anim.delay,
         ease: "easeOut"
       }}
       className={className}
-      style={{ ...style, textShadow: getShadowStyle(design.shadow) }}
+      style={{ ...style, textShadow: getShadowStyle(design.shadow, shadowScale) }}
     >
       {content}
     </motion.div>

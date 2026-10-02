@@ -28,6 +28,7 @@ export function ResizableBox({
   positionStyle,
   multiMode = false,
   onMove,
+  unit = "pct",
 }: {
   rect: Rect;
   onChange: (r: Rect) => void;
@@ -44,6 +45,7 @@ export function ResizableBox({
    *  absolute rect, and resize handles are hidden (group move only). */
   multiMode?: boolean;
   onMove?: (dx: number, dy: number) => void;
+  unit?: "pct" | "cvH";
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ mode: string; startX: number; startY: number; startRect: Rect } | null>(null);
@@ -63,7 +65,9 @@ export function ResizableBox({
     const pr = parent.getBoundingClientRect();
 
     const dx = ((e.clientX - startX) / pr.width) * 100;
-    const dy = ((e.clientY - startY) / pr.height) * 100;
+    const dy = unit === "cvH"
+      ? (e.clientY - startY) / (pr.width * 0.008)
+      : ((e.clientY - startY) / pr.height) * 100;
 
     if (mode === "move" && multiMode) {
       if (onMove) onMove(dx, dy);
@@ -80,55 +84,80 @@ export function ResizableBox({
       if (mode.includes("n")) { next.y = startRect.y + dy; next.h = startRect.h - dy; }
       if (mode.includes("s")) { next.h = startRect.h + dy; }
     }
-    onChange(clampRect(next, 3));
+    onChange(clampRect(next, 3, maxY));
   };
 
   const onPointerUp = () => {
     drag.current = null;
   };
 
+  const posStyle: React.CSSProperties = unit === "cvH"
+    ? {
+        left: positionStyle?.left ?? `${rect.x}%`,
+        top: positionStyle?.top ?? `calc(${((rect.y * 0.8) / 100).toFixed(5)} * 100cqw)`,
+        width: positionStyle?.width ?? `${rect.w}%`,
+        height: positionStyle?.height ?? `calc(${((rect.h * 0.8) / 100).toFixed(5)} * 100cqw)`,
+        ...positionStyle,
+      }
+    : {
+        left: positionStyle?.left ?? `${rect.x}%`,
+        top: positionStyle?.top ?? `${rect.y}%`,
+        width: positionStyle?.width ?? `${rect.w}%`,
+        height: positionStyle?.height ?? `${rect.h}%`,
+        ...positionStyle,
+      };
+
   return (
     <div
       ref={boxRef}
       className={`absolute ${className}`}
       style={{
-        ...positionStyle,
-        left: positionStyle?.left ?? `${rect.x}%`,
-        top: positionStyle?.top ?? `${rect.y}%`,
-        width: positionStyle?.width ?? `${rect.w}%`,
-        height: positionStyle?.height ?? `${rect.h}%`,
+        ...posStyle,
         zIndex,
-        cursor: "move",
+        pointerEvents: "none",
       }}
-      onPointerDown={(e) => onPointerDown(e, "move")}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
     >
-      <div
-        className={`absolute inset-0 pointer-events-none transition-colors ${
-          selected ? "border-2 border-sky-400/90 bg-sky-400/10" : "border border-white/25 hover:border-white/50"
-        }`}
-      >
-        {selected &&
-          !multiMode &&
-          HANDLES.map((h) => (
-            <span
-              key={h.key}
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                onPointerDown(e, h.key);
-              }}
-              className="absolute h-[10px] w-[10px] rounded-full bg-white border-2 border-sky-500 shadow pointer-events-auto"
-              style={h.style}
-            />
-          ))}
-      </div>
-      {label && selected && (
-        <span className="absolute -top-6 left-0 text-[10px] font-mono uppercase tracking-wider bg-sky-500 text-white px-1.5 py-0.5 rounded whitespace-nowrap">
-          {label}
-        </span>
+      {/* Visual outline + drag surface — only shown when selected */}
+      {selected && (
+        <div
+          className="absolute inset-0 border-2 border-sky-400 bg-sky-400/10 pointer-events-auto cursor-move select-none"
+          onPointerDown={(e) => onPointerDown(e, "move")}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+        >
+          {label && (
+            <span className="absolute -top-5 left-0 px-1.5 py-0.5 rounded bg-sky-500 text-white text-[10px] font-mono tracking-wide uppercase shadow select-none">
+              {label}
+            </span>
+          )}
+        </div>
       )}
-      <div className="absolute inset-0 overflow-hidden">{children}</div>
+
+      {/* Resize handles — hidden in multi-select mode so dragging moves the group */}
+      {selected &&
+        !multiMode &&
+        HANDLES.map((h) => (
+          <div
+            key={h.key}
+            style={h.style}
+            className="absolute h-[10px] w-[10px] rounded-full bg-white border-2 border-sky-500 shadow pointer-events-auto"
+            onPointerDown={(e) => onPointerDown(e, h.key)}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+          />
+        ))}
+
+      {/* Unselected click target — allows clicking the box to select it */}
+      {!selected && (
+        <div
+          className="absolute inset-0 pointer-events-auto cursor-pointer hover:border hover:border-sky-400/60 transition-colors"
+          onPointerDown={(e) => onPointerDown(e, "move")}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+        />
+      )}
+
+      {children}
     </div>
   );
 }
