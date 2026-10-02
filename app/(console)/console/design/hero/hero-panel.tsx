@@ -16,6 +16,8 @@ import {
   type HeroElement,
   type HeroElementKind,
   type LayerType,
+  type HeroTemplateStyle,
+  buildHeroTemplate,
 } from "@/lib/design";
 
 const KIND_LABELS: Record<string, string> = {
@@ -87,6 +89,7 @@ function HeroOverlay({
         startRectsRef.current = elements;
       }}
       onPointerDown={(e) => {
+        startRectsRef.current = elements;
         if (e.target !== e.currentTarget) return;
         const p = toPct(e);
         marqueeRef.current = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
@@ -157,6 +160,13 @@ export function HeroPanel({
   const [selected, setSelected] = useState<string[]>([]);
   const [adding, setAdding] = useState<HeroElementKind | null>(null);
   const [previewHeight, setPreviewHeight] = useState(640);
+  const [activeHeroTemplate, setActiveHeroTemplate] = useState<HeroTemplateStyle | null>(
+    (settings.hero as any)?.template ?? null,
+  );
+  useEffect(() => {
+    const t = (settings.hero as any)?.template as HeroTemplateStyle | undefined;
+    if (t && t !== activeHeroTemplate) setActiveHeroTemplate(t);
+  }, [settings.hero]);
   useEffect(() => {
     try {
       const stored = Number(localStorage.getItem("tablecraft_preview_height"));
@@ -429,6 +439,51 @@ export function HeroPanel({
             />
           </section>
 
+          {/* Templates */}
+          <section className="ticket p-5 space-y-3">
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
+              Hero Templates
+            </h3>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { style: "full-image" as const, label: "Full Image", desc: "Big image + centered title" },
+                { style: "text-left" as const, label: "Text Left", desc: "Color bg, image right, text left" },
+                { style: "text-right" as const, label: "Text Right", desc: "Color bg, image left, text right" },
+              ]).map((t) => {
+                const isActive = activeHeroTemplate === t.style;
+                return (
+                  <button
+                    key={t.style}
+                    type="button"
+                    onClick={() => {
+                      const els = buildHeroTemplate(t.style, org);
+                      const elIds = els.map((e) => e.id);
+                      setActiveHeroTemplate(t.style);
+                      updateSettings({
+                        hero: { ...settings.hero, elements: els, template: t.style },
+                      });
+                      setSelected(elIds);
+                    }}
+                    disabled={saving}
+                    className={`p-3 text-left rounded border transition-all ${
+                      isActive
+                        ? "border-[var(--accent)] bg-[var(--accent)]/10"
+                        : "border-[var(--rule)] hover:border-[var(--ink-soft)]"
+                    }`}
+                  >
+                    <div className="text-xs font-semibold text-[var(--ink)]">{t.label}</div>
+                    <div className="text-[10px] text-[var(--ink-soft)] mt-0.5">{t.desc}</div>
+                    {isActive && (
+                      <div className="text-[10px] text-[var(--accent)] mt-1">
+                        {saving ? "Applying…" : "✓ Active"}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
           {/* Hero elements */}
           <section className="ticket p-5 space-y-3">
             <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
@@ -600,10 +655,10 @@ export function HeroPanel({
               )}
               {sel.kind !== "shape" && sel.kind !== "image" && sel.kind !== "button" && (
                 <>
-                  {sel && (sel.kind === "text" || sel.kind === "title") && (
+                  {sel && (sel.kind === "text" || sel.kind === "title" || sel.kind === "tagline") && (
                     <div className="space-y-2">
                       <label className="block text-xs text-[var(--ink-soft)] mb-1">
-                        {sel.kind === "title" ? "Title text" : "Text content"}
+                        {sel.kind === "title" ? "Title text" : sel.kind === "tagline" ? "Tagline text" : "Text content"}
                       </label>
                       <textarea
                         rows={3}

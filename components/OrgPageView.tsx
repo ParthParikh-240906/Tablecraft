@@ -455,7 +455,8 @@ export function OrgPageView({
             </div>
           ))}
           {/* Console overlay slot: drag/resize boxes. Fixed to the design
-              canvas height (cvH(100)) so box coordinates are design units. */}
+              canvas height (cvH(100)) so box coordinates match OrgPageView's
+              cvH-based positioning (y% of overlay === cvH(y) in org). */}
           {mode === "preview" && (
             <div
               className="absolute z-30 pointer-events-none"

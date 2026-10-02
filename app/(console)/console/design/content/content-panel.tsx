@@ -14,6 +14,8 @@ import {
   type ContentElement,
   type ContentElementKind,
   type DesignSettingsV2,
+  type ContentTemplateStyle,
+  buildContentTemplate,
 } from "@/lib/design";
 
 const KIND_LABELS: Record<string, string> = {
@@ -83,6 +85,7 @@ function ContentOverlay({
         startRectsRef.current = elements;
       }}
       onPointerDown={(e) => {
+        startRectsRef.current = elements;
         if (e.target !== e.currentTarget) return;
         const p = toPct(e);
         marqueeRef.current = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
@@ -153,6 +156,13 @@ export function ContentPanel({
   const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
   const [selected, setSelected] = useState<string[]>([]);
   const [previewHeight, setPreviewHeight] = useState(640);
+  const [activeContentTemplate, setActiveContentTemplate] = useState<ContentTemplateStyle | null>(
+    (settings.content as any)?.template ?? null,
+  );
+  useEffect(() => {
+    const t = (settings.content as any)?.template as ContentTemplateStyle | undefined;
+    if (t && t !== activeContentTemplate) setActiveContentTemplate(t);
+  }, [settings.content]);
   useEffect(() => {
     try {
       const stored = Number(localStorage.getItem("tablecraft_preview_height"));
@@ -290,6 +300,54 @@ export function ContentPanel({
             Word-style rectangle you can move and resize. Full font/color/size
             controls inside each rectangle.
           </p>
+
+          {/* Templates */}
+          <section className="ticket p-5 space-y-3">
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
+              Content Templates
+            </h3>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { style: "about" as const, label: "About Us", desc: "Title + text + image right" },
+                { style: "location" as const, label: "Location", desc: "Centered title + 2 text boxes" },
+              ]).map((t) => {
+                const isActive = activeContentTemplate === t.style;
+                return (
+                  <button
+                    key={t.style}
+                    type="button"
+                    onClick={() => {
+                      const newEls = buildContentTemplate(t.style, orgContent);
+                      const newIds = newEls.map((e) => e.id);
+                      setActiveContentTemplate(t.style);
+                      updateSettings({
+                        content: {
+                          ...settings.content,
+                          elements: [...elements, ...newEls],
+                          template: t.style,
+                        },
+                      });
+                      setSelected((prev) => prev.length === 0 ? newIds : [...prev, ...newIds]);
+                    }}
+                    disabled={saving}
+                    className={`p-3 text-left rounded border transition-all ${
+                      isActive
+                        ? "border-[var(--accent)] bg-[var(--accent)]/10"
+                        : "border-[var(--rule)] hover:border-[var(--ink-soft)]"
+                    }`}
+                  >
+                    <div className="text-xs font-semibold text-[var(--ink)]">{t.label}</div>
+                    <div className="text-[10px] text-[var(--ink-soft)] mt-0.5">{t.desc}</div>
+                    {isActive && (
+                      <div className="text-[10px] text-[var(--accent)] mt-1">
+                        {saving ? "Applying…" : "✓ Active"}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
           <section className="ticket p-5 space-y-3">
             <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">

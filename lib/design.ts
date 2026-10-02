@@ -197,9 +197,11 @@ export interface DesignSettingsV2 {
   hero: {
     background: HeroBackground;
     elements: HeroElement[];
+    template?: string;
   };
   content: {
     elements: ContentElement[];
+    template?: string;
   };
   chatbot?: ChatbotDesign;
   menu_page?: MenuPageDesign;
@@ -744,4 +746,65 @@ export function buildDefaultContentElements(input: {
     });
   }
   return els;
+}
+
+// ─── Template factories ───────────────────────────────────────────────────────
+
+export type HeroTemplateStyle = 'full-image' | 'text-left' | 'text-right';
+export type ContentTemplateStyle = 'about' | 'location';
+
+export function buildHeroTemplate(style: HeroTemplateStyle, org?: Record<string, any>): HeroElement[] {
+  const baseDesign = { ...DEFAULT_TEXT_DESIGN, fontSize: 48, color: "#f5f5f4", textAlign: "center" as const };
+  const taglineDesign = { ...DEFAULT_TEXT_DESIGN, fontSize: 18, color: "#f5f5f4", textAlign: "left" as const };
+
+  if (style === 'full-image') {
+    return [
+      { ...newHeroElement('title', 48), x: 20, y: 42, w: 60, h: 12, design: baseDesign, content: "Your Restaurant Name" },
+    ];
+  }
+
+  if (style === 'text-left') {
+    return [
+      { ...newHeroElement('title', 44), x: 8, y: 32, w: 45, h: 12, design: { ...baseDesign, textAlign: "left" as const, fontSize: 44 }, content: "Restaurant Name" },
+      { ...newHeroElement('tagline', 18), x: 8, y: 48, w: 45, h: 8, design: taglineDesign, content: org?.tagline ?? "Your tagline here" },
+      { ...newHeroElement('image', 30), x: 58, y: 18, w: 38, h: 60, design: baseDesign },
+    ];
+  }
+
+  // text-right
+  return [
+    { ...newHeroElement('image', 30), x: 4, y: 18, w: 38, h: 60, design: baseDesign },
+    { ...newHeroElement('title', 44), x: 48, y: 32, w: 45, h: 12, design: { ...baseDesign, textAlign: "left" as const, fontSize: 44 }, content: "Restaurant Name" },
+    { ...newHeroElement('tagline', 18), x: 48, y: 48, w: 45, h: 8, design: taglineDesign, content: org?.tagline ?? "Your tagline here" },
+  ];
+}
+
+export function buildContentTemplate(style: ContentTemplateStyle, org?: Record<string, any>): ContentElement[] {
+  const titleDesign = { ...DEFAULT_TEXT_DESIGN, fontSize: 30, color: "#f5f5f4" };
+  const bodyDesign = { ...DEFAULT_TEXT_DESIGN, fontSize: 16, color: "#f5f5f4" };
+
+  if (style === 'about') {
+    return [
+      { id: uid(), kind: "title", x: 10, y: 0, w: 55, h: 10, design: { ...titleDesign, textAlign: "left" }, content: org?.about_title ?? "About Us" },
+      { id: uid(), kind: "text", x: 10, y: 12, w: 55, h: 25, design: { ...bodyDesign, textAlign: "left" }, content: org?.about_text ?? "Tell us about your restaurant…" },
+      { id: uid(), kind: "image", x: 68, y: 5, w: 30, h: 40, design: bodyDesign },
+    ];
+  }
+
+  if (style === 'location') {
+    const contactBody = org
+      ? [org.contact_phone, org.contact_email, org.contact_address].filter(Boolean).map((x) => `• ${x}`).join("\n")
+      : "Phone, email, hours…";
+    return [
+      { id: uid(), kind: "title", x: 10, y: 0, w: 80, h: 10, design: { ...titleDesign, textAlign: "center" }, content: org?.contact_heading ?? "Find Us" },
+      { id: uid(), kind: "text", x: 5, y: 14, w: 42, h: 15, design: { ...bodyDesign, textAlign: "left" }, content: org?.location ?? "Enter your address…" },
+      { id: uid(), kind: "text", x: 53, y: 14, w: 42, h: 15, design: { ...bodyDesign, textAlign: "left" }, content: contactBody },
+    ];
+  }
+
+  // about (default fallback)
+  return [
+    { id: uid(), kind: "title", x: 10, y: 0, w: 80, h: 10, design: { ...titleDesign, textAlign: "center" }, content: "Book a Table" },
+    { id: uid(), kind: "button", x: 35, y: 14, w: 30, h: 8, design: { ...bodyDesign, textAlign: "center" } as any, buttonType: "book" },
+  ];
 }
