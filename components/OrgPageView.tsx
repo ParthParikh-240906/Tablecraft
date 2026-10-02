@@ -284,7 +284,7 @@ function ContentVisual({
     <AnimatedText
       text={text}
       design={s}
-      className={`w-full h-full overflow-hidden leading-relaxed ${el.kind === "title" ? "font-bold" : ""}`}
+      className={`w-full h-full overflow-hidden leading-relaxed whitespace-pre-line ${el.kind === "title" ? "font-bold" : ""}`}
       style={{ fontFamily: s.fontFamily, fontSize: fS(s.fontSize), color: s.color, textAlign: s.textAlign }}
     />
   );

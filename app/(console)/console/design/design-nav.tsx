@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 const LINKS = [
   { href: "/console/design", label: "Header" },
@@ -14,6 +14,10 @@ const LINKS = [
 
 export function DesignNav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const orgParam = searchParams.get("org");
+  const query = orgParam ? `?org=${encodeURIComponent(orgParam)}` : "";
+
   return (
     <nav className="flex flex-wrap items-center gap-2 mb-6">
       {LINKS.map((l) => {
@@ -21,7 +25,7 @@ export function DesignNav() {
         return (
           <Link
             key={l.href}
-            href={l.href}
+            href={`${l.href}${query}`}
             className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors border ${
               active
                 ? "bg-[var(--accent)] border-[var(--accent)] text-white"

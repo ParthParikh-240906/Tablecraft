@@ -6,6 +6,7 @@ import { useDesign } from "../use-design";
 import { ResizableBox } from "../resizable-box";
 import { PreviewShell } from "../preview-shell";
 import { DesignNav } from "../design-nav";
+import { CanvasHeightControl } from "../canvas-height-control";
 import { ColorField, DesignField, OpacityField } from "../design-fields";
 import { AnimationBuilder } from "@/components/AnimationBuilder";
 import { type OrgView } from "@/components/OrgPageView";
@@ -170,21 +171,45 @@ export function HeroPanel({
   useEffect(() => {
     try {
       const stored = Number(localStorage.getItem("tablecraft_preview_height"));
-      if ([640, 960, 1280].includes(stored)) setPreviewHeight(stored);
+      if (stored >= 640 && stored <= 3200) setPreviewHeight(stored);
     } catch {}
-  }, []);
-
-  // Esc clears the selection.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelected([]);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   const bg = settings.hero.background;
   const elements = settings.hero.elements;
+
+  // Esc clears selection; Backspace / Delete removes selected elements.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelected([]);
+        return;
+      }
+      if (e.key === "Backspace" || e.key === "Delete") {
+        const target = e.target as HTMLElement | null;
+        if (
+          target &&
+          (target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable)
+        ) {
+          return;
+        }
+        if (selected.length > 0) {
+          e.preventDefault();
+          updateSettings({
+            hero: {
+              ...settings.hero,
+              elements: elements.filter((el) => !selected.includes(el.id)),
+            },
+          });
+          setSelected([]);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected, elements, settings.hero, updateSettings]);
 
   const updateBg = (patch: Partial<HeroBackground>) => {
     updateSettings({ hero: { ...settings.hero, background: { ...bg, ...patch } } });
@@ -683,16 +708,10 @@ export function HeroPanel({
         {/* ── Preview ──────────────────────────────────────────── */}
         <div className="space-y-4">
           <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Live Preview</h2>
-          <div className="flex items-center gap-2 mb-2">
-            <button type="button" onClick={() => setPreviewHeight((h) => {
-              const next = h === 640 ? 960 : h === 960 ? 1280 : 640;
-              try { localStorage.setItem("tablecraft_preview_height", String(next)); } catch {}
-              return next;
-            })} className="btn btn-outline text-xs px-2">
-              {previewHeight === 640 ? "Extend canvas (1.5×)" : previewHeight === 960 ? "Extend canvas (2×)" : "Collapse canvas"}
-            </button>
-            <span className="text-[10px] text-[var(--ink-faint)]">{previewHeight}px</span>
-          </div>
+          <CanvasHeightControl
+            previewHeight={previewHeight}
+            setPreviewHeight={setPreviewHeight}
+          />
           <PreviewShell
             settings={settings}
             org={org}

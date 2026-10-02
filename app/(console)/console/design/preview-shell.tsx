@@ -38,8 +38,8 @@ export function PreviewShell({
         <span>{orgName}</span>
       </div>
       <div
-        className={`${hClass} overflow-y-auto relative scroll-smooth`}
-        style={{ backgroundColor: settings.background_color, color: settings.text_color }}
+        className="overflow-y-auto relative scroll-smooth transition-[height] duration-200"
+        style={{ height: `${previewHeight}px`, backgroundColor: settings.background_color, color: settings.text_color }}
       >
         <OrgPageView
           mode="preview"

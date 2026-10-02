@@ -6,6 +6,7 @@ import { useDesign } from "../use-design";
 import { ResizableBox } from "../resizable-box";
 import { PreviewShell } from "../preview-shell";
 import { DesignNav } from "../design-nav";
+import { CanvasHeightControl } from "../canvas-height-control";
 import { ColorField, DesignField, OpacityField } from "../design-fields";
 import { AnimationBuilder } from "@/components/AnimationBuilder";
 import { type OrgView } from "@/components/OrgPageView";
@@ -166,20 +167,43 @@ export function ContentPanel({
   useEffect(() => {
     try {
       const stored = Number(localStorage.getItem("tablecraft_preview_height"));
-      if ([640, 960, 1280].includes(stored)) setPreviewHeight(stored);
+      if (stored >= 640 && stored <= 3200) setPreviewHeight(stored);
     } catch {}
   }, []);
 
-  // Esc clears the selection.
+  const elements = settings.content.elements;
+
+  // Esc clears selection; Backspace / Delete removes selected elements.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelected([]);
+      if (e.key === "Escape") {
+        setSelected([]);
+        return;
+      }
+      if (e.key === "Backspace" || e.key === "Delete") {
+        const target = e.target as HTMLElement | null;
+        if (
+          target &&
+          (target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable)
+        ) {
+          return;
+        }
+        if (selected.length > 0) {
+          e.preventDefault();
+          updateSettings({
+            content: {
+              elements: elements.filter((el) => !selected.includes(el.id)),
+            },
+          });
+          setSelected([]);
+        }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  const elements = settings.content.elements;
+  }, [selected, elements, updateSettings]);
 
   // Resolve bound content for the textarea editor (site shows the same resolution).
   const resolveText = (el: ContentElement): string => {
@@ -309,7 +333,7 @@ export function ContentPanel({
             <div className="grid grid-cols-3 gap-2">
               {([
                 { style: "about" as const, label: "About Us", desc: "Title + text + image right" },
-                { style: "location" as const, label: "Location", desc: "Centered title + 2 text boxes" },
+                { style: "location" as const, label: "Location & Contact", desc: "Centered title + 2 text boxes" },
               ]).map((t) => {
                 const isActive = activeContentTemplate === t.style;
                 return (
@@ -548,16 +572,10 @@ export function ContentPanel({
         {/* ── Preview ──────────────────────────────────────────── */}
         <div className="space-y-4">
           <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Live Preview</h2>
-          <div className="flex items-center gap-2 mb-2">
-            <button type="button" onClick={() => setPreviewHeight((h) => {
-              const next = h === 640 ? 960 : h === 960 ? 1280 : 640;
-              try { localStorage.setItem("tablecraft_preview_height", String(next)); } catch {}
-              return next;
-            })} className="btn btn-outline text-xs px-2">
-              {previewHeight === 640 ? "Extend canvas (1.5×)" : previewHeight === 960 ? "Extend canvas (2×)" : "Collapse canvas"}
-            </button>
-            <span className="text-[10px] text-[var(--ink-faint)]">{previewHeight}px</span>
-          </div>
+          <CanvasHeightControl
+            previewHeight={previewHeight}
+            setPreviewHeight={setPreviewHeight}
+          />
           <PreviewShell
             settings={settings}
             org={orgContent}

@@ -255,7 +255,12 @@ export function ConsoleSidebar({
               return (
                 <Link
                   key={org.id}
-                  href={`${pathname}${activeOrgParam.replace(/org=[^&]*/, `org=${org.id}`) || `?org=${org.id}`}`}
+                  href={`${pathname}${activeOrgParam ? activeOrgParam.replace(/org=[^&]*/, `org=${org.id}`) : `?org=${org.id}`}`}
+                  onClick={() => {
+                    try {
+                      document.cookie = `selected_org=${org.id}; path=/; max-age=31536000; SameSite=Lax`;
+                    } catch {}
+                  }}
                   className={`flex items-center gap-2.5 px-2.5 py-2 rounded text-xs transition-colors ${
                     isSelected
                       ? `${activeLinkClass}`

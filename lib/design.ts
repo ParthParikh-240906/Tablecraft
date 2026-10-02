@@ -792,13 +792,19 @@ export function buildContentTemplate(style: ContentTemplateStyle, org?: Record<s
   }
 
   if (style === 'location') {
-    const contactBody = org
+    const contactLines = org
       ? [org.contact_phone, org.contact_email, org.contact_address].filter(Boolean).map((x) => `• ${x}`).join("\n")
-      : "Phone, email, hours…";
+      : "";
+    const locationContent = org?.location
+      ? `Location :\n${org.location}`
+      : "Location :\nEnter your address…";
+    const contactContent = contactLines
+      ? `Contact :\n${contactLines}`
+      : "Contact :\nPhone, email, hours…";
     return [
-      { id: uid(), kind: "title", x: 10, y: 0, w: 80, h: 10, design: { ...titleDesign, textAlign: "center" }, content: org?.contact_heading ?? "Find Us" },
-      { id: uid(), kind: "text", x: 5, y: 14, w: 42, h: 15, design: { ...bodyDesign, textAlign: "left" }, content: org?.location ?? "Enter your address…" },
-      { id: uid(), kind: "text", x: 53, y: 14, w: 42, h: 15, design: { ...bodyDesign, textAlign: "left" }, content: contactBody },
+      { id: uid(), kind: "title", x: 10, y: 0, w: 80, h: 10, design: { ...titleDesign, textAlign: "center" }, content: org?.contact_heading ?? "Location & Contact" },
+      { id: uid(), kind: "text", x: 5, y: 14, w: 42, h: 15, design: { ...bodyDesign, textAlign: "left" }, content: locationContent },
+      { id: uid(), kind: "text", x: 53, y: 14, w: 42, h: 15, design: { ...bodyDesign, textAlign: "left" }, content: contactContent },
     ];
   }
 
