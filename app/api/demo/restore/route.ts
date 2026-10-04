@@ -45,10 +45,12 @@ export async function POST(request: Request) {
     }
 
     const snapshotId = latestSnap[0].session_id;
-    const typesToRestore: Array<"menu_items" | "tables" | "bookings" | "orders" | "booking_tables"> =
+
+    // Restore data tables
+    const tableTypes: Array<"menu_items" | "tables" | "bookings" | "orders" | "booking_tables"> =
       ["menu_items", "tables", "bookings", "orders", "booking_tables"];
 
-    for (const type of typesToRestore) {
+    for (const type of tableTypes) {
       // Delete all current data
       await admin.from(type).delete().eq("org_id", orgId);
 
@@ -67,6 +69,22 @@ export async function POST(request: Request) {
           typeSnap.snapshot_data.map(({ id, ...rest }: any) => rest)
         );
       }
+    }
+
+    // Restore design_settings (stored on organizations table, not a separate table)
+    const { data: designSnap } = await admin
+      .from("demo_snapshots")
+      .select("snapshot_data")
+      .eq("org_id", orgId)
+      .eq("session_id", snapshotId)
+      .eq("snapshot_type", "design_settings")
+      .maybeSingle();
+
+    if (designSnap?.snapshot_data) {
+      await admin
+        .from("organizations")
+        .update({ design_settings: designSnap.snapshot_data })
+        .eq("id", orgId);
     }
 
     // Delete all snapshot records for this org

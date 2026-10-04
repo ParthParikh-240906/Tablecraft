@@ -72,9 +72,20 @@ export function DemoModeProvider({ isDemo, orgId, orgSlug }: DemoModeProviderPro
   }, [isDemo, orgId, router]);
 
   async function handleExitDemo() {
-    await fetch("/api/demo/logout", { method: "POST" });
-    router.push("/");
-    router.refresh();
+    setIsRestoring(true);
+    try {
+      await fetch("/api/demo/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId }),
+      });
+    } catch {
+      // ignore restore errors
+    } finally {
+      await fetch("/api/demo/logout", { method: "POST" });
+      router.push("/");
+      router.refresh();
+    }
   }
 
   if (!isDemo) return null;

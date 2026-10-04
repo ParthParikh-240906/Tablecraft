@@ -80,6 +80,19 @@ export async function POST(request: Request) {
       snapshot_data: bt ?? [],
     });
 
+    // Snapshot design_settings (stored on organizations table)
+    const { data: orgData } = await admin
+      .from("organizations")
+      .select("design_settings")
+      .eq("id", orgId)
+      .maybeSingle();
+    await admin.from("demo_snapshots").insert({
+      org_id: orgId,
+      session_id: sessionId,
+      snapshot_type: "design_settings",
+      snapshot_data: orgData?.design_settings ?? null,
+    });
+
     return NextResponse.json({ snapshotId: sessionId });
   } catch (err) {
     console.error("demo/snapshot: unexpected error", err);
