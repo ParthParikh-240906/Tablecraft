@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -26,15 +26,18 @@ function LoginForm() {
 
   // Check if this org is a demo org
   const [isDemoOrg, setIsDemoOrg] = useState(false);
+  const [demoCheckError, setDemoCheckError] = useState<string | null>(null);
 
-  useState(() => {
-    if (orgSlug) {
-      fetch(`/api/demo/check?slug=${orgSlug}`)
-        .then((r) => r.json())
-        .then((data) => setIsDemoOrg(data.isDemo ?? false))
-        .catch(() => {});
-    }
-  });
+  useEffect(() => {
+    if (!orgSlug) return;
+    setDemoCheckError(null);
+    fetch(`/api/demo/check?slug=${encodeURIComponent(orgSlug)}`)
+      .then((r) => r.json().catch(() => null))
+      .then((data) => setIsDemoOrg(data?.isDemo ?? false))
+      .catch(() => {
+        setDemoCheckError("Could not check demo availability — demo login may be hidden. Try again.");
+      });
+  }, [orgSlug]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,10 +45,18 @@ function LoginForm() {
     setSubmitting(true);
 
     const supabase = createClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    let authError: { message: string } | null = null;
+    try {
+      const res = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      authError = res.error;
+    } catch {
+      setError("Network error — could not sign in. Check connection and retry.");
+      setSubmitting(false);
+      return;
+    }
 
     if (authError) {
       try {
@@ -54,13 +65,20 @@ function LoginForm() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: email.trim(), password, orgSlug }),
         });
-        const data = await res.json();
-        if (res.ok && data.url) {
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.url) {
           window.location.href = data.url;
           return;
         }
+        if (!res.ok && res.status >= 500) {
+          setError("Server error — please try again in a moment.");
+          setSubmitting(false);
+          return;
+        }
       } catch {
-        // fall through
+        setError("Network error — could not sign in. Check connection and retry.");
+        setSubmitting(false);
+        return;
       }
 
       setError("Invalid email or password. Please try again.");
@@ -68,8 +86,14 @@ function LoginForm() {
       return;
     }
 
-    router.push(next);
-    router.refresh();
+    try {
+      router.push(next);
+      router.refresh();
+    } catch {
+      setError("Signed in, but navigation failed — please retry.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleDemoLogin() {
@@ -178,6 +202,9 @@ function LoginForm() {
             {demoError && (
               <p className="text-xs text-red-400 text-center">{demoError}</p>
             )}
+            {demoCheckError && (
+              <p className="text-xs text-amber-400 text-center">{demoCheckError}</p>
+            )}
             <p className="text-xs text-center text-[var(--ink-faint)]">
               Free access for 3 minutes — changes auto-reset on inactivity
             </p>
@@ -195,13 +222,20 @@ function LoginForm() {
         <button
           type="button"
           onClick={async () => {
-            const supabase = createClient();
-            await supabase.auth.signInWithOAuth({
-              provider: "google",
-              options: {
-                redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-              },
-            });
+            setError(null);
+            try {
+              const supabase = createClient();
+              const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/console";
+              const { error: oauthError } = await supabase.auth.signInWithOAuth({
+                provider: "google",
+                options: {
+                  redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`,
+                },
+              });
+              if (oauthError) setError(`Google sign-in failed: ${oauthError.message}. Try again.`);
+            } catch {
+              setError("Network error — Google sign-in failed. Try again.");
+            }
           }}
           className="btn btn-outline w-full flex items-center justify-center gap-2 text-xs font-medium"
         >

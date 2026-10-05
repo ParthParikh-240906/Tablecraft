@@ -76,9 +76,10 @@ export function CanvasPanel({
   paragraphs: { id: string; title: string | null; content: string | null }[];
 }) {
   const router = useRouter();
-  const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
+  const { settings, updateSettings, saving, saved, saveError, retrySave } = useDesign(initialSettings, orgId);
   const [selected, setSelected] = useState<string | "hero" | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
   const [previewHeight, setPreviewHeight] = useState(640);
   useEffect(() => {
     try {
@@ -100,9 +101,16 @@ export function CanvasPanel({
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Design</h2>
             <span className="text-xs text-[var(--ink-faint)]">
-              {saving ? "Saving…" : saved ? "✓ Saved" : ""}
+              {saving ? "Saving…" : saveError ? "⚠ Not saved" : saved ? "✓ Saved" : ""}
             </span>
           </div>
+          {saveError && (
+            <div className="rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300 flex items-center justify-between gap-2">
+              <span>{saveError}</span>
+              <button type="button" onClick={() => retrySave()} className="underline shrink-0">Retry</button>
+            </div>
+          )}
+
 
           {/* Page colors */}
           <section className="ticket p-5 space-y-3">
@@ -140,6 +148,8 @@ export function CanvasPanel({
                     onChange={async (e) => {
                       const f = e.target.files?.[0];
                       if (!f) return;
+                      setLogoError(null);
+                      if (f.size > 5 * 1024 * 1024) { setLogoError("Logo exceeds 5MB — compress and try again."); e.target.value = ""; return; }
                       setLogoUploading(true);
                       try {
                         const form = new FormData();
@@ -149,9 +159,11 @@ export function CanvasPanel({
                         if (res.ok) {
                           router.refresh();
                         } else {
-                          const data = await res.json();
-                          alert(data.error ?? "Logo upload failed");
+                          const data = await res.json().catch(() => null);
+                          setLogoError(data?.error ?? `Logo upload failed (${res.status}). Try again.`);
                         }
+                      } catch {
+                        setLogoError("Network error — logo not uploaded. Try again.");
                       } finally {
                         setLogoUploading(false);
                       }
@@ -163,6 +175,7 @@ export function CanvasPanel({
                     type="button"
                     disabled={logoUploading}
                     onClick={async () => {
+                      setLogoError(null);
                       setLogoUploading(true);
                       try {
                         const res = await fetch("/api/design/logo", {
@@ -173,9 +186,11 @@ export function CanvasPanel({
                         if (res.ok) {
                           router.refresh();
                         } else {
-                          const data = await res.json();
-                          alert(data.error ?? "Failed to clear logo");
+                          const data = await res.json().catch(() => null);
+                          setLogoError(data?.error ?? `Failed to clear logo (${res.status}). Try again.`);
                         }
+                      } catch {
+                        setLogoError("Network error — logo not cleared. Try again.");
                       } finally {
                         setLogoUploading(false);
                       }
@@ -186,6 +201,9 @@ export function CanvasPanel({
                   </button>
                 )}
               </div>
+              {logoError && (
+                <p className="text-xs text-red-400 border border-red-800 bg-red-950/40 p-2 rounded-sm mt-2">{logoError}</p>
+              )}
             </div>
             <ColorField label="Logo border color" value={settings.header.logo_border_color} onChange={(v) => updateSettings({ header: { ...settings.header, logo_border_color: v } })} />
             <div>

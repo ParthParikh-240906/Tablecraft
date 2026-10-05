@@ -43,7 +43,6 @@ export function ConsoleOrdersSection({ orgId, initialOrders }: ConsoleOrdersSect
           orgId={orgId}
           onOrderUpdated={() => {
             setEditingOrder(null);
-            setTimeout(() => setShowAddModal(false), 400);
           }}
           onClose={() => setEditingOrder(null)}
         />

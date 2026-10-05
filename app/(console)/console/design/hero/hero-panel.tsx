@@ -157,10 +157,11 @@ export function HeroPanel({
   org: OrgView;
   paragraphs: { id: string; title: string | null; content: string | null }[];
 }) {
-  const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
+  const { settings, updateSettings, saving, saved, saveError, retrySave } = useDesign(initialSettings, orgId);
   const [selected, setSelected] = useState<string[]>([]);
   const [adding, setAdding] = useState<HeroElementKind | null>(null);
   const [previewHeight, setPreviewHeight] = useState(640);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [activeHeroTemplate, setActiveHeroTemplate] = useState<HeroTemplateStyle | null>(
     (settings.hero as any)?.template ?? null,
   );
@@ -296,21 +297,40 @@ export function HeroPanel({
     updateSettings({ hero: { ...settings.hero, elements: arr } });
   };
 
-  const uploadSingle = async (file: File) => {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("org_id", orgId);
-    const res = await fetch("/api/design/photos/upload", { method: "POST", body: form });
-    return res.ok ? ((await res.json()).url as string) : null;
+  const uploadSingle = async (file: File): Promise<string | null> => {
+    setUploadError(null);
+    if (file.size > 5 * 1024 * 1024) { setUploadError("Image exceeds 5MB — compress and try again."); return null; }
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("org_id", orgId);
+      const res = await fetch("/api/design/photos/upload", { method: "POST", body: form });
+      if (res.ok) return ((await res.json()).url as string);
+      const data = await res.json().catch(() => null);
+      setUploadError(data?.error ?? `Image upload failed (${res.status}). Try again.`);
+      return null;
+    } catch {
+      setUploadError("Network error — image not uploaded. Try again.");
+      return null;
+    }
   };
 
-  const uploadVideo = async (file: File) => {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("org_id", orgId);
-    const res = await fetch("/api/design/video", { method: "POST", body: form });
-    const data = await res.json();
-    return res.ok ? (data.url as string) : (alert(data.error ?? "Upload failed"), null);
+  const uploadVideo = async (file: File): Promise<string | null> => {
+    setUploadError(null);
+    if (file.size > 50 * 1024 * 1024) { setUploadError("Video exceeds 50MB — compress and try again."); return null; }
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("org_id", orgId);
+      const res = await fetch("/api/design/video", { method: "POST", body: form });
+      const data = await res.json().catch(() => null);
+      if (res.ok) return (data.url as string);
+      setUploadError(data?.error ?? `Video upload failed (${res.status}). Try again.`);
+      return null;
+    } catch {
+      setUploadError("Network error — video not uploaded. Try again.");
+      return null;
+    }
   };
 
   const sel = selected.length === 1 ? (elements.find((e) => e.id === selected[0]) ?? null) : null;
@@ -324,9 +344,22 @@ export function HeroPanel({
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Hero</h2>
             <span className="text-xs text-[var(--ink-faint)]">
-              {saving ? "Saving…" : saved ? "✓ Saved" : ""}
+              {saving ? "Saving…" : saveError ? "⚠ Not saved" : saved ? "✓ Saved" : ""}
             </span>
           </div>
+          {uploadError && (
+            <div className="rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300 flex items-center justify-between gap-2">
+              <span>{uploadError}</span>
+              <button type="button" onClick={() => setUploadError(null)} className="underline shrink-0">Dismiss</button>
+            </div>
+          )}
+          {saveError && (
+            <div className="rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300 flex items-center justify-between gap-2">
+              <span>{saveError}</span>
+              <button type="button" onClick={() => retrySave()} className="underline shrink-0">Retry</button>
+            </div>
+          )}
+
 
           {/* Hero background */}
           <section className="ticket p-5 space-y-3">

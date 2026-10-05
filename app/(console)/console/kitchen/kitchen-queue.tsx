@@ -43,14 +43,16 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
     created_at: o.created_at,
     items: o.items,
   }));
-  const { orders: realtimeOrders, connected } = useOrdersRealtime(orgId, initialOrdersRecord);
+  const { orders: realtimeOrders } = useOrdersRealtime(orgId, initialOrdersRecord);
   const orders = filterKitchenOrders(realtimeOrders);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   async function updateStatus(orderId: string, newStatus: string) {
     setUpdatingId(orderId);
+    setActionError(null);
     try {
       const res = await fetch("/api/orders/status", {
         method: "POST",
@@ -63,11 +65,11 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
           setExpandedId(null);
         }
       } else {
-        const data = await res.json();
-        alert(data.error || "Failed to update order status");
+        const data = await res.json().catch(() => null);
+        setActionError(data?.error || `Failed to update order status (${res.status}). Try again.`);
       }
     } catch {
-      alert("Network error updating status");
+      setActionError("Network error updating status — check connection and retry.");
     } finally {
       setUpdatingId(null);
     }
@@ -76,6 +78,7 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
   async function handleDelete(orderId: string) {
     if (!confirm("Delete this order permanently?")) return;
     setDeletingId(orderId);
+    setActionError(null);
     try {
       const res = await fetch("/api/orders/delete", {
         method: "DELETE",
@@ -86,11 +89,11 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
         // Hook will pick up the change via realtime/polling
         setExpandedId(null);
       } else {
-        const data = await res.json();
-        alert(data.error || "Failed to delete order");
+        const data = await res.json().catch(() => null);
+        setActionError(data?.error || `Failed to delete order (${res.status}). Try again.`);
       }
     } catch {
-      alert("Network error deleting order");
+      setActionError("Network error deleting order — check connection and retry.");
     } finally {
       setDeletingId(null);
     }
@@ -121,27 +124,28 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
       <div className="ticket p-12 text-center text-[var(--ink-soft)]">
         <p className="font-display text-lg mb-1">No open tickets</p>
         <p className="text-xs">Kitchen is quiet — all orders completed.</p>
-        <p className={`text-[10px] mt-2 ${connected ? "text-green-400" : "text-amber-400"}`}>
-          {connected ? "● Live sync" : "◐ Polling…"}
-        </p>
       </div>
     );
   }
 
   return (
     <div>
-      {/* Connection status bar */}
       <div className="mb-3 flex items-center gap-2">
-        <span className={`text-[10px] px-2 py-0.5 rounded-full border ${connected ? "bg-green-500/15 text-green-400 border-green-500/30" : "bg-amber-500/15 text-amber-400 border-amber-500/30"}`}>
-          {connected ? "● Live" : "◐ Polling"}
-        </span>
         <span className="text-[10px] text-[var(--ink-faint)]">{orders.length} open ticket{orders.length > 1 ? "s" : ""}</span>
       </div>
+      {actionError && (
+        <div className="mb-3 rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300 flex items-center justify-between gap-2">
+          <span>{actionError}</span>
+          <button type="button" onClick={() => setActionError(null)} className="underline shrink-0">Dismiss</button>
+        </div>
+      )}
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {orders.map((order) => {
         const isExpanded = expandedId === order.id;
-        const timeStr = new Date(order.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-        const ageMinutes = Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000);
+        const createdDate = new Date(order.created_at);
+        const validDate = !isNaN(createdDate.getTime());
+        const timeStr = validDate ? createdDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
+        const ageMinutes = validDate ? Math.floor((Date.now() - createdDate.getTime()) / 60000) : null;
 
         return (
           <div key={order.id}>
@@ -161,7 +165,7 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
                     {order.customer_name.replace(/\s+Edit$/, "").replace(/^Table\s+/i, "")}
                   </p>
                   <p className="text-[10px] text-[var(--ink-faint)] mt-0.5">
-                    {timeStr} &middot; {ageMinutes}m ago
+                    {timeStr} &middot; {ageMinutes === null ? "time unknown" : `${ageMinutes}m ago`}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -178,6 +182,9 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
 
               {/* Items preview (collapsed) */}
               <div className="space-y-1 text-xs text-[var(--ink-soft)]">
+                {order.items.length === 0 && (
+                  <p className="text-[var(--ink-faint)]">No items on this ticket.</p>
+                )}
                 {order.items.slice(0, 3).map((item, i) => (
                   <p key={i}><span className="text-[var(--accent)] font-bold">{item.quantity}x</span> {item.name}</p>
                 ))}
@@ -197,20 +204,27 @@ export function KitchenQueue({ initialOrders, orgId }: { initialOrders: Order[];
               <div className="mt-2 ticket p-4 border border-[var(--accent)] bg-[var(--paper-overlay)] space-y-3">
                 {/* Full items list */}
                 <div className="border-t border-b border-[var(--rule)] py-2 space-y-1.5 text-xs">
-                  {order.items.map((item, i) => (
-                    <div key={i} className="flex justify-between text-[var(--ink)]">
-                      <span>
-                        <span className="text-[var(--accent)] font-bold mr-1.5">{item.quantity}x</span>
-                        {item.name}
-                      </span>
-                      <span className="text-[var(--ink-soft)]">AED {(item.price * item.quantity).toFixed(2)}</span>
-                    </div>
-                  ))}
+                  {order.items.length === 0 && (
+                    <p className="text-[var(--ink-faint)]">No items on this ticket.</p>
+                  )}
+                  {order.items.map((item, i) => {
+                    const priceNum = Number(item.price);
+                    const line = Number.isFinite(priceNum) ? (priceNum * item.quantity).toFixed(2) : "0.00";
+                    return (
+                      <div key={i} className="flex justify-between text-[var(--ink)]">
+                        <span>
+                          <span className="text-[var(--accent)] font-bold mr-1.5">{item.quantity}x</span>
+                          {item.name}
+                        </span>
+                        <span className="text-[var(--ink-soft)]">AED {line}</span>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-[var(--ink-faint)] font-mono">ID: {order.id.slice(0, 8)}…</span>
-                  <span className="font-bold text-[var(--ink)]">AED {Number(order.total).toFixed(2)}</span>
+                  <span className="font-bold text-[var(--ink)]">AED {(() => { const n = Number(order.total); return Number.isFinite(n) ? n.toFixed(2) : "0.00"; })()}</span>
                 </div>
 
                 {/* Action buttons */}

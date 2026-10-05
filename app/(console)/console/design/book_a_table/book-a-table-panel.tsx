@@ -16,7 +16,7 @@ export function BookATablePanel({
   orgName: string;
   initialSettings: DesignSettingsV2;
 }) {
-  const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
+  const { settings, updateSettings, saving, saved, saveError, retrySave } = useDesign(initialSettings, orgId);
   const reserve: ReservePageDesign = settings.reserve_page ?? defaultReservePageDesign();
   const colors = {
     bg: settings.background_color,
@@ -62,9 +62,16 @@ export function BookATablePanel({
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Book a Table Page</h2>
             <span className="text-xs text-[var(--ink-faint)]">
-              {saving ? "Saving…" : saved ? "✓ Saved" : ""}
+              {saving ? "Saving…" : saveError ? "⚠ Not saved" : saved ? "✓ Saved" : ""}
             </span>
           </div>
+          {saveError && (
+            <div className="rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300 flex items-center justify-between gap-2">
+              <span>{saveError}</span>
+              <button type="button" onClick={() => retrySave()} className="underline shrink-0">Retry</button>
+            </div>
+          )}
+
 
           <section className="ticket p-5 space-y-3">
             <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Back Button ("Back to {orgName}")</h3>

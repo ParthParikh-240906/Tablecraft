@@ -17,6 +17,7 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
     initialOrders.filter((o) => o.status !== "paid" && o.status !== "cancelled"),
   );
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     setOrders(initialOrders.filter((o) => o.status !== "paid" && o.status !== "cancelled"));
@@ -24,6 +25,7 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
 
   async function updateStatus(orderId: string, newStatus: string) {
     setUpdatingId(orderId);
+    setActionError(null);
     try {
       const res = await fetch("/api/orders/status", {
         method: "POST",
@@ -32,7 +34,12 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
       });
       if (res.ok) {
         setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)));
+      } else {
+        const data = await res.json().catch(() => null);
+        setActionError(data?.error ?? `Failed to update order status (${res.status}). Try again.`);
       }
+    } catch {
+      setActionError("Network error — order status not updated. Check connection and retry.");
     } finally {
       setUpdatingId(null);
     }
@@ -40,6 +47,7 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
 
   async function handleDelete(orderId: string) {
     if (!confirm("Delete this order permanently?")) return;
+    setActionError(null);
     try {
       const res = await fetch("/api/orders/delete", {
         method: "DELETE",
@@ -47,18 +55,32 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
         body: JSON.stringify({ orderId }),
       });
       if (res.ok) setOrders((prev) => prev.filter((o) => o.id !== orderId));
-    } catch {}
+      else {
+        const data = await res.json().catch(() => null);
+        setActionError(data?.error ?? `Failed to delete order (${res.status}). Try again.`);
+      }
+    } catch {
+      setActionError("Network error — order not deleted. Check connection and retry.");
+    }
   }
 
   function handlePrint(group: OrderRecord[]) {
     const allItems = group.flatMap((o) => (Array.isArray(o.items) ? o.items : []));
-    const grandTotal = group.reduce((s, o) => s + Number(o.total), 0);
+    const grandTotal = group.reduce((s, o) => s + (Number(o.total) || 0), 0);
     const name = group.find((o) => !o.parent_order_id)?.customer_name ?? "Order";
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const itemsHtml = allItems
-      .map((item) => `<tr><td>${item.quantity}x ${item.name}</td><td style="text-align:right">AED ${(item.price * item.quantity).toFixed(2)}</td></tr>`)
+      .map((item) => {
+        const price = Number(item.price);
+        const line = Number.isFinite(price) ? (price * item.quantity).toFixed(2) : "0.00";
+        return `<tr><td>${item.quantity}x ${esc(item.name)}</td><td style="text-align:right">AED ${line}</td></tr>`;
+      })
       .join("");
     const printWindow = window.open("", "_blank", "width=400,height=600");
-    if (!printWindow) return;
+    if (!printWindow) {
+      setActionError("Popup blocked — allow popups to print the receipt.");
+      return;
+    }
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -107,7 +129,8 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
     const items: OrderItem[] = Array.isArray(order.items) ? order.items : [];
     const cleanName = order.customer_name.replace(/\s+Edit$/, "");
     const label = cleanName.replace(/^Table\s+/i, "");
-    const total = Number(order.total).toFixed(2);
+    const totalNum = Number(order.total);
+    const total = Number.isFinite(totalNum) ? totalNum.toFixed(2) : "0.00";
     const sc = statusCls[order.status] ?? "bg-gray-600/12 text-gray-700 border-gray-600/25";
     const sl = statusLabel[order.status] ?? order.status;
 
@@ -178,6 +201,9 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
             {label}
           </p>
           <div className="space-y-1 text-xs text-[var(--ink-soft)]">
+            {items.length === 0 && (
+              <p className="text-[var(--ink-faint)]">No items on this order.</p>
+            )}
             {items.map((item, i) => (
               <p key={i}>
                 <span className="text-[var(--accent)] font-mono font-bold">{item.quantity}x</span>{" "}
@@ -212,6 +238,12 @@ export function OrdersDashboard({ initialOrders, orgId, onEdit }: OrdersDashboar
 
   return (
     <div className="space-y-3">
+      {actionError && (
+        <div className="rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300 flex items-center justify-between gap-2">
+          <span>{actionError}</span>
+          <button type="button" onClick={() => setActionError(null)} className="underline shrink-0">Dismiss</button>
+        </div>
+      )}
       {groups.size === 0 ? (
         <div className={`${theme === "light" ? "ticket--light p-8" : "ticket p-8"} text-center text-[var(--ink-soft)]`}>
           <p className="font-display text-base mb-1">No active orders</p>

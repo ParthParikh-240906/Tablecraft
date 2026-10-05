@@ -15,7 +15,7 @@ export function AiPanel({
   initialSettings: DesignSettingsV2;
   orgName: string;
 }) {
-  const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
+  const { settings, updateSettings, saving, saved, saveError, retrySave } = useDesign(initialSettings, orgId);
   const [prompt, setPrompt] = useState("");
   const [reference, setReference] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
@@ -25,6 +25,8 @@ export function AiPanel({
   const [newFontWeight, setNewFontWeight] = useState("400");
   const [fontStatus, setFontStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [addingFont, setAddingFont] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const FONT_WEIGHTS = ["100", "200", "300", "400", "500", "600", "700", "800", "900"];
 
@@ -146,7 +148,9 @@ export function AiPanel({
   const handleReference = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { setError("Reference image exceeds 5MB — compress and try again."); e.target.value = ""; return; }
     const reader = new FileReader();
+    reader.onerror = () => setError("Could not read reference image — try another file.");
     reader.onloadend = () => setReference(reader.result as string);
     reader.readAsDataURL(file);
   };
@@ -173,8 +177,10 @@ export function AiPanel({
 
   const download = async () => {
     if (!result) return;
+    setDownloadError(null);
     try {
       const res = await fetch(result);
+      if (!res.ok) throw new Error(`status ${res.status}`);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -185,7 +191,11 @@ export function AiPanel({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      window.open(result, "_blank");
+      try {
+        window.open(result, "_blank");
+      } catch {
+        setDownloadError("Could not download image — copy the image URL manually.");
+      }
     }
   };
 
@@ -233,9 +243,16 @@ export function AiPanel({
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-semibold text-[var(--ink)]">AI Tools</h2>
             <span className="text-xs text-[var(--ink-faint)]">
-              {saving ? "Saving…" : saved ? "✓ Saved" : ""}
+              {saving ? "Saving…" : saveError ? "⚠ Not saved" : saved ? "✓ Saved" : ""}
             </span>
           </div>
+          {saveError && (
+            <div className="rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300 flex items-center justify-between gap-2">
+              <span>{saveError}</span>
+              <button type="button" onClick={() => retrySave()} className="underline shrink-0">Retry</button>
+            </div>
+          )}
+
 
           {/* AI Image Generator */}
           <section className="ticket p-5 space-y-3">
@@ -367,13 +384,22 @@ export function AiPanel({
                     onChange={async (e) => {
                       const f = e.target.files?.[0];
                       if (!f) return;
-                      const form = new FormData();
-                      form.append("file", f);
-                      form.append("org_id", orgId);
-                      const res = await fetch("/api/design/photos/upload", { method: "POST", body: form });
-                      if (res.ok) {
-                        const data = await res.json();
-                        updateChatbot({ logo_url: data.url });
+                      setLogoError(null);
+                      if (f.size > 5 * 1024 * 1024) { setLogoError("Logo exceeds 5MB — compress and try again."); e.target.value = ""; return; }
+                      try {
+                        const form = new FormData();
+                        form.append("file", f);
+                        form.append("org_id", orgId);
+                        const res = await fetch("/api/design/photos/upload", { method: "POST", body: form });
+                        if (res.ok) {
+                          const data = await res.json();
+                          updateChatbot({ logo_url: data.url });
+                        } else {
+                          const data = await res.json().catch(() => null);
+                          setLogoError(data?.error ?? `Logo upload failed (${res.status}). Try again.`);
+                        }
+                      } catch {
+                        setLogoError("Network error — logo not uploaded. Try again.");
                       }
                     }}
                   />
@@ -384,6 +410,12 @@ export function AiPanel({
                   </button>
                 )}
               </div>
+              {logoError && (
+                <p className="text-xs text-red-400 border border-red-800 bg-red-950/40 p-2 rounded-sm">{logoError}</p>
+              )}
+              {downloadError && (
+                <p className="text-xs text-red-400 border border-red-800 bg-red-950/40 p-2 rounded-sm">{downloadError}</p>
+              )}
             </div>
 
             <ColorField

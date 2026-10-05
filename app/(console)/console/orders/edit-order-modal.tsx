@@ -31,6 +31,7 @@ export function EditOrderModal({ order, orgId, onOrderUpdated, onClose }: EditOr
   const [extraItems, setExtraItems] = useState<OrderedItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [menuError, setMenuError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Parse table label from customer_name for the extra order name
@@ -46,7 +47,10 @@ export function EditOrderModal({ order, orgId, onOrderUpdated, onClose }: EditOr
       .select("id, name, price")
       .eq("org_id", orgId)
       .eq("available", true)
-      .then(({ data }) => setAllMenuItems(data ?? []));
+      .then(({ data, error }) => {
+        if (error) setMenuError(`Could not load menu: ${error.message}.`);
+        else setAllMenuItems((data ?? []) as MenuItem[]);
+      });
   }, [orgId, supabase]);
 
   useEffect(() => {
@@ -54,7 +58,7 @@ export function EditOrderModal({ order, orgId, onOrderUpdated, onClose }: EditOr
   }, []);
 
   const filteredMenuItems = allMenuItems.filter((item) =>
-    item.name.toLowerCase().startsWith(searchQuery.toLowerCase()),
+    item.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   function addItem(menuItem: MenuItem) {
@@ -92,14 +96,14 @@ export function EditOrderModal({ order, orgId, onOrderUpdated, onClose }: EditOr
     setError(null);
 
     try {
-      // Step 1: Update the original order's total (preserve its items)
-      const originalTotal = order.items.reduce((s, i) => s + (i.price ?? 0) * i.quantity, 0);
+      // Step 1: Update the original order (preserve its items)
+      const currentItems = Array.isArray(order.items) ? order.items : [];
       const res = await fetch("/api/orders/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orderId: order.id,
-          items: order.items.map((i) => ({ id: i.id, quantity: i.quantity })),
+          items: currentItems.map((i) => ({ id: i.id, quantity: i.quantity })),
         }),
       });
       const data = await res.json();
@@ -149,7 +153,10 @@ export function EditOrderModal({ order, orgId, onOrderUpdated, onClose }: EditOr
         <div className="mb-4">
           <p className="label-caps text-[var(--ink-faint)] mb-2">Current Items</p>
           <div className="border border-[var(--rule)] rounded-sm bg-[var(--paper)] overflow-hidden opacity-70">
-            {order.items.map((item, idx) => (
+            {(!Array.isArray(order.items) || order.items.length === 0) && (
+              <p className="text-xs text-[var(--ink-faint)] px-3 py-2">No items on the original order — add extras below.</p>
+            )}
+            {(Array.isArray(order.items) ? order.items : []).map((item, idx) => (
               <div key={idx} className="flex items-center justify-between px-3 py-2 border-b border-[var(--rule)] last:border-b-0 text-sm">
                 <div className="flex items-center gap-3">
                   <span className="text-[var(--ink)] font-medium w-24 truncate">{item.name}</span>

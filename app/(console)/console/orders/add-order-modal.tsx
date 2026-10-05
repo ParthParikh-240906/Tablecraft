@@ -31,22 +31,39 @@ export function AddOrderModal({ orgId, onOrderCreated, onClose }: AddOrderModalP
   const [items, setItems] = useState<OrderedItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadingData, setLoadingData] = useState(true);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    supabase
-      .from("tables")
-      .select("id, label")
-      .eq("org_id", orgId)
-      .order("label")
-      .then(({ data }) => setTables((data ?? []) as any));
-
-    supabase
-      .from("menu_items")
-      .select("id, name, price")
-      .eq("org_id", orgId)
-      .eq("available", true)
-      .then(({ data }) => setAllMenuItems(data ?? []));
+    if (!orgId) { setLoadError("No restaurant selected."); setLoadingData(false); return; }
+    let cancelled = false;
+    setLoadingData(true);
+    Promise.all([
+      supabase
+        .from("tables")
+        .select("id, label")
+        .eq("org_id", orgId)
+        .order("label")
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          if (error) setLoadError(`Could not load tables: ${error.message}.`);
+          else setTables((data ?? []) as any);
+        }),
+      supabase
+        .from("menu_items")
+        .select("id, name, price")
+        .eq("org_id", orgId)
+        .eq("available", true)
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          if (error) setLoadError(`Could not load menu: ${error.message}.`);
+          else setAllMenuItems((data ?? []) as MenuItem[]);
+        }),
+    ]).finally(() => {
+      if (!cancelled) setLoadingData(false);
+    });
+    return () => { cancelled = true; };
   }, [orgId, supabase]);
 
   useEffect(() => {
@@ -54,7 +71,7 @@ export function AddOrderModal({ orgId, onOrderCreated, onClose }: AddOrderModalP
   }, []);
 
   const filteredMenuItems = allMenuItems.filter((item) =>
-    item.name.toLowerCase().startsWith(searchQuery.toLowerCase()),
+    item.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   function toggleTable(tableId: string) {
@@ -139,9 +156,15 @@ export function AddOrderModal({ orgId, onOrderCreated, onClose }: AddOrderModalP
       <div className="relative w-full max-w-lg ticket p-6 bg-[var(--paper-raised)] border border-[var(--rule-strong)] rounded-sm shadow-2xl">
         <h2 className="font-display text-xl text-[var(--ink)] mb-5">Add Table Order</h2>
 
+        {loadError && <p className="text-xs text-red-400 border border-red-800 bg-red-950/40 p-2 rounded-sm mb-3">{loadError}</p>}
         {/* Table selector — checkboxes */}
         <div className="mb-4">
           <label className="label-caps text-[var(--ink-faint)] mb-1.5 block">Tables</label>
+          {loadingData ? (
+            <p className="text-xs text-[var(--ink-faint)] mb-2">Loading tables…</p>
+          ) : tables.length === 0 ? (
+            <p className="text-xs text-amber-400 mb-2">No tables found — add tables first, or check connection.</p>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             {tables.map((t) => (
               <button
@@ -186,6 +209,12 @@ export function AddOrderModal({ orgId, onOrderCreated, onClose }: AddOrderModalP
                 </li>
               ))}
             </ul>
+          )}
+          {!searchQuery && loadingData && (
+            <p className="text-xs mt-1 text-[var(--ink-faint)]">Loading menu…</p>
+          )}
+          {!searchQuery && !loadingData && allMenuItems.length === 0 && (
+            <p className="text-xs text-amber-400 mt-1">No available menu items — add menu items first.</p>
           )}
           {searchQuery && filteredMenuItems.length === 0 && (
             <p className="text-xs text-[var(--ink-faint)] mt-1">No items match &ldquo;{searchQuery}&rdquo;</p>

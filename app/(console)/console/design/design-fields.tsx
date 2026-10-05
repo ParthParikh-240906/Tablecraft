@@ -15,6 +15,7 @@ export function ColorField({
   onChange: (v: string) => void;
 }) {
   const [hexDraft, setHexDraft] = useState<string | null>(null);
+  const [hexError, setHexError] = useState(false);
 
   const commitHex = (raw: string) => {
     const t = raw.trim();
@@ -25,8 +26,12 @@ export function ColorField({
         : t.toLowerCase();
       onChange(full);
       setHexDraft(null);
+      setHexError(false);
     } else if (t === "") {
       setHexDraft(null);
+      setHexError(false);
+    } else {
+      setHexError(true);
     }
   };
 
@@ -52,6 +57,9 @@ export function ColorField({
           className="w-24 bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1 text-xs text-[var(--ink)]"
         />
       </div>
+      {hexError && (
+        <p className="text-[10px] text-amber-400 mt-1">Invalid hex — use #RGB or #RRGGBB.</p>
+      )}
     </div>
   );
 }

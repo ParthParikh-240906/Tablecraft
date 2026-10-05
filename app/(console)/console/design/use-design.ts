@@ -12,8 +12,36 @@ export function useDesign(initialSettings: DesignSettingsV2, orgId: string) {
   const [settings, setSettings] = useState(initialSettings);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestRef = useRef(initialSettings);
+
+  const retrySave = useCallback(async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const res = await fetch("/api/design/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ org_id: orgId, design_settings: latestRef.current }),
+      });
+      if (!res.ok) {
+        let msg = `Save failed (${res.status})`;
+        try {
+          const data = await res.json();
+          if (data?.error) msg = data.error;
+        } catch { /* keep default */ }
+        setSaveError(msg);
+        return;
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      setSaveError("Network error — changes not saved. Check connection and retry.");
+    } finally {
+      setSaving(false);
+    }
+  }, [orgId]);
 
   const updateSettings = useCallback(
     (patch: Partial<DesignSettingsV2>) => {
@@ -21,24 +49,15 @@ export function useDesign(initialSettings: DesignSettingsV2, orgId: string) {
       latestRef.current = next;
       setSettings(next);
       setSaved(false);
+      setSaveError(null);
 
       clearTimeout(timerRef.current!);
-      timerRef.current = setTimeout(async () => {
-        setSaving(true);
-        try {
-          await fetch("/api/design/settings", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ org_id: orgId, design_settings: latestRef.current }),
-          });
-        } catch { /* next edit retries */ }
-        setSaving(false);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
+      timerRef.current = setTimeout(() => {
+        void retrySave();
       }, 450);
     },
-    [orgId],
+    [retrySave],
   );
 
-  return { settings, updateSettings, saving, saved };
+  return { settings, updateSettings, saving, saved, saveError, retrySave };
 }
