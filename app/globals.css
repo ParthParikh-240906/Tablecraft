@@ -3,7 +3,9 @@
 /* =============================================================================
    Tablecraft design system — warm restaurant operations console
    Rich espresso backgrounds, readable warm ink, burnt-orange accent.
-   Playfair Display for editorial headings, Inter for clean body text.
+   Playfair Display / Instrument Serif / Calistoga for display,
+   Inter / DM Sans / Manrope for UI body, Space Grotesk for techy
+   headings, JetBrains Mono for prices and ticket labels.
    ============================================================================= */
 
 @font-face {
@@ -51,34 +53,40 @@
   font-style: italic;
 }
 @font-face {
-  font-family: 'Tangerine';
-  src: url('/fonts/Tangerine/Tangerine-Regular.ttf') format('truetype');
-  font-weight: 400;
+  font-family: 'DM Sans';
+  src: url('/fonts/DM_Sans/DMSans-Variable.ttf') format('truetype');
+  font-weight: 100 1000;
   font-style: normal;
 }
 @font-face {
-  font-family: 'Tangerine';
-  src: url('/fonts/Tangerine/Tangerine-Bold.ttf') format('truetype');
-  font-weight: 700;
+  font-family: 'DM Sans';
+  src: url('/fonts/DM_Sans/DMSans-Italic-Variable.ttf') format('truetype');
+  font-weight: 100 1000;
+  font-style: italic;
+}
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/Manrope/Manrope-Variable.ttf') format('truetype');
+  font-weight: 200 800;
   font-style: normal;
 }
 @font-face {
-  font-family: 'Playpen Sans';
-  src: url('/fonts/Playpen_Sans/PlaypenSans-VariableFont_wght.ttf') format('truetype');
-  font-weight: 400 800;
+  font-family: 'Space Grotesk';
+  src: url('/fonts/Space_Grotesk/SpaceGrotesk-Variable.ttf') format('truetype');
+  font-weight: 300 700;
   font-style: normal;
 }
 @font-face {
-  font-family: 'Sansita Swashed';
-  src: url('/fonts/Sansita_Swashed/SansitaSwashed-VariableFont_wght.ttf') format('truetype');
-  font-weight: 400 900;
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrains_Mono/JetBrainsMono-Variable.ttf') format('truetype');
+  font-weight: 100 800;
   font-style: normal;
 }
 @font-face {
-  font-family: 'Rubik Doodle Shadow';
-  src: url('/fonts/Rubik_Doodle_Shadow/RubikDoodleShadow-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrains_Mono/JetBrainsMono-Italic-Variable.ttf') format('truetype');
+  font-weight: 100 800;
+  font-style: italic;
 }
 
 :root {

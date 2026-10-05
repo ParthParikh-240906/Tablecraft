@@ -222,7 +222,7 @@ export function CanvasPanel({
                   className="col-span-1 w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs"
                 >
                   {[...LOCAL_FONTS, ...(settings.custom_fonts || [])].map((f) => (
-                    <option key={f.value} value={f.value}>{f.name}</option>
+                    <option key={`${f.name}::${f.value}`} value={f.value}>{f.name}</option>
                   ))}
                 </select>
                 <input
@@ -245,7 +245,7 @@ export function CanvasPanel({
                   className="col-span-1 w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs"
                 >
                   {[...LOCAL_FONTS, ...(settings.custom_fonts || [])].map((f) => (
-                    <option key={f.value} value={f.value}>{f.name}</option>
+                    <option key={`${f.name}::${f.value}`} value={f.value}>{f.name}</option>
                   ))}
                 </select>
                 <input

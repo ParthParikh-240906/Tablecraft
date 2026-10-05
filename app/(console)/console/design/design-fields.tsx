@@ -90,7 +90,7 @@ export function DesignField({
 }: {
   label: string;
   design: TextDesign;
-  customFonts?: { name: string; value: string }[];
+  customFonts?: { name: string; value: string; url?: string; weight?: number }[];
   onChange: (d: TextDesign) => void;
 }) {
   const fonts = [...LOCAL_FONTS, ...customFonts];

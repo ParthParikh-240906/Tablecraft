@@ -147,7 +147,10 @@ export function SiteHeader({
     <>
       {settings.custom_fonts && settings.custom_fonts.length > 0 && (
         <style dangerouslySetInnerHTML={{
-          __html: settings.custom_fonts.map((f) => `@import url('${f.url}');`).join('\n')
+          // Self-hosted entries carry rewritten @font-face CSS (no Google
+          // contact, no visitor IP leak). Legacy Google-URL entries fall back
+          // to @import until they are migrated via the AI panel.
+          __html: settings.custom_fonts.map((f) => f.css ?? `@import url('${f.url}');`).join('\n')
         }} />
       )}
       <header
