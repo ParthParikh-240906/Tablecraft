@@ -44,8 +44,14 @@ export default function CreateRestaurantPage() {
   // Lock email to session user on mount
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user }, error }) => {
+      if (error) {
+        setError("Could not verify your sign-in — please refresh and try again.");
+        return;
+      }
       if (user) setEmail(user.email ?? "");
+    }).catch(() => {
+      setError("Could not verify your sign-in — please refresh and try again.");
     });
   }, []);
 
@@ -59,9 +65,9 @@ export default function CreateRestaurantPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ description: aiDescription.trim(), orgName: orgName || undefined }),
       });
-      const data = await res.json();
-      if (data.error) {
-        setAiError(data.error);
+      const data = await res.json().catch(() => null);
+      if (!res.ok || data?.error) {
+        setAiError(data?.error ?? "Failed to generate content — please try again.");
         return;
       }
       if (data.tagline) setTagline(data.tagline);
@@ -135,9 +141,9 @@ export default function CreateRestaurantPage() {
         body: formData,
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(data.error ?? "Could not create your restaurant");
+        setError(data?.error ?? "Could not create your restaurant");
         setSubmitting(false);
         setUploading(false);
         return;
@@ -149,16 +155,33 @@ export default function CreateRestaurantPage() {
           const res = await fetch("/api/subscription/checkout", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ plan: selectedPlan, email, orgSlug: data.org.slug }),
+            body: JSON.stringify({ plan: selectedPlan, email, orgSlug: data?.org?.slug }),
           });
-          const checkoutData = await res.json();
-          if (checkoutData.url) {
+          const checkoutData = await res.json().catch(() => null);
+          if (!res.ok) {
+            setError(checkoutData?.error ?? "Payment setup failed — your restaurant was created, but checkout did not start. Continue from the dashboard.");
+            setRedirecting(false);
+            setSubmitting(false);
+            setUploading(false);
+            router.push("/dashboard");
+            router.refresh();
+            return;
+          }
+          if (checkoutData?.url) {
             window.location.href = checkoutData.url;
             return;
           }
+          setError("Payment setup did not return a checkout link — continue from the dashboard.");
+          setRedirecting(false);
         } catch {
-          // Fall through to normal redirect
+          setError("Payment setup failed — your restaurant was created. Continue from the dashboard to retry payment.");
+          setRedirecting(false);
         }
+        setSubmitting(false);
+        setUploading(false);
+        router.push("/dashboard");
+        router.refresh();
+        return;
       }
 
       router.push("/dashboard");

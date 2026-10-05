@@ -12,6 +12,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orgSlug = searchParams.get("org");
+  const callbackError = searchParams.get("error");
   const rawNext = searchParams.get("next") ?? "/console";
   const next = orgSlug
     ? `${rawNext.startsWith("/") ? rawNext : "/"}${rawNext.includes("?") ? "&" : "?"}org=${orgSlug}`
@@ -19,7 +20,13 @@ function LoginForm() {
 
   const [email, setEmail] = useState(orgSlug === "rasam" ? "owner@rasam.test" : orgSlug === "demo-diner" ? DEMO_EMAIL : "");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    callbackError === "auth_callback_failed"
+      ? "Google sign-in failed. Please try again."
+      : callbackError === "magiclink_failed"
+        ? "That sign-in link expired or is invalid. Please sign in again."
+        : null,
+  );
   const [submitting, setSubmitting] = useState(false);
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoError, setDemoError] = useState<string | null>(null);
@@ -32,8 +39,15 @@ function LoginForm() {
     if (!orgSlug) return;
     setDemoCheckError(null);
     fetch(`/api/demo/check?slug=${encodeURIComponent(orgSlug)}`)
-      .then((r) => r.json().catch(() => null))
-      .then((data) => setIsDemoOrg(data?.isDemo ?? false))
+      .then(async (r) => {
+        const data = await r.json().catch(() => null);
+        if (!r.ok) {
+          setDemoCheckError("Could not check demo availability — demo login may be hidden. Try again.");
+          setIsDemoOrg(false);
+          return;
+        }
+        setIsDemoOrg(data?.isDemo ?? false);
+      })
       .catch(() => {
         setDemoCheckError("Could not check demo availability — demo login may be hidden. Try again.");
       });
@@ -59,6 +73,14 @@ function LoginForm() {
     }
 
     if (authError) {
+      const msg = /rate.?limit|too many/i.test(authError.message)
+        ? "Too many attempts. Please wait a minute and try again."
+        : null;
+      if (msg) {
+        setError(msg);
+        setSubmitting(false);
+        return;
+      }
       try {
         const res = await fetch("/api/console/login", {
           method: "POST",
@@ -107,10 +129,10 @@ function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orgSlug }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        setDemoError(data.error ?? "Demo login failed");
+        setDemoError(data?.error ?? "Demo login failed");
         setDemoLoading(false);
         return;
       }

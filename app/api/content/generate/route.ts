@@ -17,9 +17,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { description, orgName } = body;
+  const { description, orgName } = body ?? {};
   if (!description || typeof description !== "string" || !description.trim()) {
     return NextResponse.json({ error: "description is required" }, { status: 400 });
+  }
+  if (description.length > 1000) {
+    return NextResponse.json({ error: "description must be under 1000 characters" }, { status: 400 });
+  }
+  if (orgName !== undefined && (typeof orgName !== "string" || orgName.length > 100)) {
+    return NextResponse.json({ error: "orgName must be under 100 characters" }, { status: 400 });
   }
 
   const apiKey = process.env.AGNES_API_KEY;
@@ -63,12 +69,11 @@ export async function POST(request: Request) {
 
     const result = JSON.parse(jsonMatch);
     return NextResponse.json({
-      tagline: String(result.tagline ?? "").trim(),
-      about: String(result.about ?? "").trim(),
+      tagline: String(result.tagline ?? "").slice(0, 200).trim(),
+      about: String(result.about ?? "").slice(0, 2000).trim(),
     });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[CONTENT GENERATE] Failed:", message);
-    return NextResponse.json({ error: "Failed to generate content" }, { status: 500 });
+  } catch (err) {
+    console.error("[CONTENT GENERATE] Failed:", err);
+    return NextResponse.json({ error: "Could not generate content. Please try again." }, { status: 500 });
   }
 }

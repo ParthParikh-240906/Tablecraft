@@ -46,6 +46,12 @@ export function MenuItems({
   menuDesign: MenuPageDesign;
   shapes?: ShapeElement[];
 }) {
+  const safeGrouped = Array.isArray(grouped) ? grouped : [];
+  function formatPrice(price: unknown): string {
+    const n = Number(price);
+    if (!Number.isFinite(n)) return "AED —";
+    return `AED ${n.toFixed(2)}`;
+  }
   return (
     <div className="relative">
       {/* Background shapes (rendered first = behind everything) */}
@@ -65,7 +71,7 @@ export function MenuItems({
       ))}
 
       <div className="space-y-10" style={{ position: "relative", zIndex: 1 }}>
-        {grouped.map(({ category, items }) => (
+        {safeGrouped.map(({ category, items }) => (
           <section
             key={category}
             className="rounded-lg p-5"
@@ -98,7 +104,7 @@ export function MenuItems({
                     )}
                   </div>
                   <span style={{ ...inline(menuDesign.item_price_design, { fontWeight: 600, whiteSpace: "nowrap" }) }}>
-                    AED {Number(item.price).toFixed(2)}
+                    {formatPrice(item.price)}
                   </span>
                 </li>
               ))}

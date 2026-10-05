@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { getMonthlyPriceId, type PlanKey } from "@/lib/pricing";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOwnerForSlug } from "@/lib/api-auth";
 
 /**
  * POST /api/subscription/checkout
@@ -11,8 +12,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Used by existing orgs that want to upgrade, or as a fallback path.
  */
 export async function POST(request: Request) {
+  let body: unknown;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+  try {
     const { plan, email, orgSlug, orgId } = body as {
       plan: PlanKey;
       email?: string;
@@ -26,6 +32,18 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+    if (email !== undefined && (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+      return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
+    }
+    if (orgId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId)) {
+      return NextResponse.json({ error: "Invalid orgId" }, { status: 400 });
+    }
+
+    // When an existing org is specified, the caller must own it.
+    if (orgSlug) {
+      const auth = await requireOwnerForSlug(orgSlug);
+      if ("response" in auth) return auth.response;
+    }
 
     const monthlyPriceId = await getMonthlyPriceId(stripe, plan);
     const supabase = createAdminClient();
@@ -34,8 +52,10 @@ export async function POST(request: Request) {
     const origin =
       process.env.NEXT_PUBLIC_APP_URL ||
       request.headers.get("origin") ||
-      `${request.headers.get("x-forwarded-proto")}://${request.headers.get("x-forwarded-host")}` ||
       "";
+    if (!origin) {
+      return NextResponse.json({ error: "Server is misconfigured. Please try again later." }, { status: 500 });
+    }
 
     // Find existing Stripe customer ID (by orgId first, then orgSlug)
     let customerId: string | undefined;
@@ -81,15 +101,23 @@ export async function POST(request: Request) {
 
     // Store customer ID on the org
     if (orgId) {
-      await supabase
+      const { error: updateError } = await supabase
         .from("organizations")
         .update({ stripe_customer_id: stripeCustomer.id })
         .eq("id", orgId);
+      if (updateError) {
+        console.error("checkout: org update failed", updateError);
+        return NextResponse.json({ error: "Could not start checkout. Please try again." }, { status: 500 });
+      }
     } else if (orgSlug) {
-      await supabase
+      const { error: updateError } = await supabase
         .from("organizations")
         .update({ stripe_customer_id: stripeCustomer.id })
         .eq("slug", orgSlug);
+      if (updateError) {
+        console.error("checkout: org update failed", updateError);
+        return NextResponse.json({ error: "Could not start checkout. Please try again." }, { status: 500 });
+      }
     }
 
     // Check if customer already has an active subscription (upgrade case)
@@ -134,10 +162,10 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ url: session.url, sessionId: session.id });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Subscription checkout creation failed:", err);
     return NextResponse.json(
-      { error: err.message || "Failed to create subscription checkout" },
+      { error: "Could not start checkout. Please try again." },
       { status: 500 },
     );
   }

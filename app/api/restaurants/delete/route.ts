@@ -22,35 +22,43 @@ export async function POST(req: Request) {
   if (!orgId) {
     return NextResponse.json({ error: "Missing restaurant id" }, { status: 400 });
   }
-
-  // 1. Must be signed in
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId)) {
+    return NextResponse.json({ error: "Invalid restaurant id" }, { status: 400 });
   }
 
-  // 2. Must own this restaurant (staff_users row for this org + this user)
-  const admin = createAdminClient();
-  const { data: staffRows, error: staffError } = await admin
-    .from("staff_users")
-    .select("role")
-    .eq("org_id", orgId)
-    .eq("auth_user_id", user.id);
-  const staff = staffRows?.[0] ?? null;
+  try {
+    // 1. Must be signed in
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+    }
 
-  if (staffError || !staff) {
-    return NextResponse.json({ error: "You don't own this restaurant" }, { status: 403 });
-  }
+    // 2. Must own this restaurant (owner role required — staff cannot delete)
+    const admin = createAdminClient();
+    const { data: staffRows, error: staffError } = await admin
+      .from("staff_users")
+      .select("role")
+      .eq("org_id", orgId)
+      .eq("auth_user_id", user.id);
+    const staff = staffRows?.[0] ?? null;
 
-  // 3. Delete the org (foreign keys cascade)
-  const { error: deleteError } = await admin.from("organizations").delete().eq("id", orgId);
-  if (deleteError) {
-    console.error("restaurant delete failed", deleteError);
+    if (staffError || !staff || staff.role !== "owner") {
+      return NextResponse.json({ error: "Only the restaurant owner can delete this restaurant" }, { status: 403 });
+    }
+
+    // 3. Delete the org (foreign keys cascade)
+    const { error: deleteError } = await admin.from("organizations").delete().eq("id", orgId);
+    if (deleteError) {
+      console.error("restaurant delete failed", deleteError);
+      return NextResponse.json({ error: "Could not delete restaurant" }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("restaurant delete unhandled", err);
     return NextResponse.json({ error: "Could not delete restaurant" }, { status: 500 });
   }
-
-  return NextResponse.json({ ok: true });
 }

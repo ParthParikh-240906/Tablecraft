@@ -9,45 +9,73 @@ function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const info = searchParams.get("info");
+  const authErrorParam = searchParams.get("error");
   const next = searchParams.get("next") ?? "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    authErrorParam === "auth_callback_failed"
+      ? "Google sign-in failed. Please try again."
+      : authErrorParam === "magiclink_failed"
+        ? "That sign-in link expired or is invalid. Please try again."
+        : null,
+  );
   const [submitting, setSubmitting] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
 
-    const supabase = createClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    try {
+      const supabase = createClient();
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
-    if (authError) {
-      setError("Invalid email or password. Please try again.");
+      if (authError) {
+        const msg = /rate.?limit|too many/i.test(authError.message)
+          ? "Too many attempts. Please wait a minute and try again."
+          : "Invalid email or password. Please try again.";
+        setError(msg);
+        return;
+      }
+
+      try {
+        router.push(next);
+        router.refresh();
+      } catch {
+        setError("Signed in, but navigation failed — please retry.");
+      }
+    } catch {
+      setError("Network error — could not sign in. Check connection and retry.");
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    router.push(next);
-    router.refresh();
   }
 
   async function handleGoogleSignIn() {
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-              },
-    });
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+                },
+      });
 
-    if (error) {
-      setError("Google sign-in failed. Please try again.");
+      if (error) {
+        setError("Google sign-in failed. Please try again.");
+      }
+    } catch {
+      setError("Network error — Google sign-in failed. Try again.");
+    } finally {
+      setGoogleLoading(false);
     }
   }
 
@@ -81,7 +109,8 @@ function SignInForm() {
               <button
                 type="button"
                 onClick={handleGoogleSignIn}
-                className="btn btn-outline w-full flex items-center justify-center gap-2 text-sm font-medium"
+                disabled={googleLoading || submitting}
+                className="btn btn-outline w-full flex items-center justify-center gap-2 text-sm font-medium disabled:opacity-50"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z" />

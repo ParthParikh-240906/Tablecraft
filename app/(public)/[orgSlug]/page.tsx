@@ -15,6 +15,9 @@ export async function generateMetadata({
   params: Promise<{ orgSlug: string }>;
 }): Promise<Metadata> {
   const { orgSlug } = await params;
+  if (!orgSlug || !/^[a-z0-9-]{1,80}$/i.test(orgSlug)) {
+    return { title: "Restaurant Not Found" };
+  }
   const { org } = await getOrgAndParagraphs(orgSlug);
 
   if (!org) {
@@ -37,6 +40,9 @@ export default async function OrgLandingPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
+  if (!orgSlug || !/^[a-z0-9-]{1,80}$/i.test(orgSlug)) {
+    notFound();
+  }
   const { org, paragraphs } = await getOrgAndParagraphs(orgSlug);
 
   if (!org) {

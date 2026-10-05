@@ -17,7 +17,13 @@ export default async function DashboardPage() {
 
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
+
+  if (userError) {
+    console.error("dashboard: getUser failed", userError);
+    throw new Error("Could not load your account — please check your connection and try again.");
+  }
 
   if (!user) {
     redirect("/signin?next=/dashboard");
@@ -37,10 +43,15 @@ export default async function DashboardPage() {
   const admin = createAdminClient();
 
   // Fetch all staff rows for this auth user (may have multiple orgs)
-  const { data: staffRows } = await admin
+  const { data: staffRows, error: staffError } = await admin
     .from("staff_users")
     .select("org_id, role, organizations(id, name, slug, logo_url, theme_color, tagline, subscription_plan, subscription_status)")
     .eq("auth_user_id", user.id);
+
+  if (staffError) {
+    console.error("dashboard: staff lookup failed", staffError);
+    throw new Error("Could not load your restaurants — please try again.");
+  }
 
   // Staff-only users (have a staff row but no owner row) must use the console.
   // Brand-new accounts with no staff rows at all stay on the dashboard.

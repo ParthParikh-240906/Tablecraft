@@ -16,11 +16,17 @@ const DEMO_PASSWORD = "demo123";
  * Returns: { success: true, orgId, orgSlug, magicLink }
  */
 export async function POST(request: Request) {
+  let body: unknown;
   try {
-    const { orgSlug } = (await request.json()) as { orgSlug?: string };
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+  try {
+    const { orgSlug } = (body ?? {}) as { orgSlug?: unknown };
 
-    if (!orgSlug) {
-      return NextResponse.json({ error: "orgSlug is required" }, { status: 400 });
+    if (typeof orgSlug !== "string" || !/^[a-z0-9-]{2,40}$/.test(orgSlug)) {
+      return NextResponse.json({ error: "Invalid orgSlug" }, { status: 400 });
     }
 
     const admin = createAdminClient();
@@ -56,22 +62,28 @@ export async function POST(request: Request) {
 
     // 3. If no auth_user_id yet, run setup to create the shared demo auth user
     if (!authUserId) {
-      const setupRes = await fetch(`${request.headers.get("origin") || request.url}/api/demo/setup`, {
+      const setupUrl = new URL("/api/demo/setup", request.url).toString();
+      const setupRes = await fetch(setupUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
       if (!setupRes.ok) {
-        return NextResponse.json({ error: "Failed to initialize demo account" }, { status: 500 });
+        console.error("demo/login: setup failed:", setupRes.status);
+        return NextResponse.json({ error: "Could not initialize the demo. Please try again." }, { status: 500 });
       }
       // Re-fetch staff after setup
-      const { data: updatedStaff } = await admin
+      const { data: updatedStaff, error: updatedError } = await admin
         .from("staff_users")
         .select("auth_user_id")
         .eq("org_id", org.id)
         .eq("email", DEMO_EMAIL)
         .maybeSingle();
+      if (updatedError) {
+        console.error("demo/login: staff re-fetch failed", updatedError);
+        return NextResponse.json({ error: "Could not initialize the demo. Please try again." }, { status: 500 });
+      }
       if (!updatedStaff?.auth_user_id) {
-        return NextResponse.json({ error: "Failed to link demo account" }, { status: 500 });
+        return NextResponse.json({ error: "Could not initialize the demo. Please try again." }, { status: 500 });
       }
       authUserId = updatedStaff.auth_user_id;
     }
@@ -87,10 +99,14 @@ export async function POST(request: Request) {
     }
 
     // 5. Get the auth user's email
-    const { data: authUser } = await admin.auth.admin.getUserById(authUserId);
+    const { data: authUser, error: authUserError } = await admin.auth.admin.getUserById(authUserId);
+    if (authUserError) {
+      console.error("demo/login: getUserById failed", authUserError);
+      return NextResponse.json({ error: "Could not initialize the demo. Please try again." }, { status: 500 });
+    }
     const authEmail = authUser?.user?.email;
     if (!authEmail) {
-      return NextResponse.json({ error: "Linked user has no email" }, { status: 500 });
+      return NextResponse.json({ error: "Could not initialize the demo. Please try again." }, { status: 500 });
     }
 
     // 6. Generate a magiclink
@@ -117,6 +133,6 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("demo/login: unexpected error", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Could not initialize the demo. Please try again." }, { status: 500 });
   }
 }

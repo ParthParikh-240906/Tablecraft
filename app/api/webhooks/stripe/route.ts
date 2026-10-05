@@ -31,7 +31,12 @@ async function resolveOrgSlug(
 }
 
 export async function POST(request: Request) {
-  const body = await request.text();
+  let body: string;
+  try {
+    body = await request.text();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   const signature = request.headers.get("stripe-signature");
 
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -39,26 +44,28 @@ export async function POST(request: Request) {
   let event: Stripe.Event;
 
   try {
-    if (webhookSecret && signature) {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-    } else {
-      // In dev or test environments without signature verification configured
-      console.warn("Processing webhook event without verification (STRIPE_WEBHOOK_SECRET missing or no signature)");
-      event = JSON.parse(body) as Stripe.Event;
+    if (!webhookSecret || !signature) {
+      console.error("Webhook missing secret or signature — rejecting (fail-closed)");
+      return NextResponse.json({ error: "Webhook signature required" }, { status: 400 });
     }
+    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err: any) {
     console.error("Webhook signature verification failed:", err.message);
-    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
+    return NextResponse.json({ error: "Webhook verification failed" }, { status: 400 });
   }
 
-  const supabase = createAdminClient();
+  try {
+    const supabase = createAdminClient();
 
   // ─── Subscription lifecycle events ────────────────────────────────────────
   if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
     const sub = event.data.object as Stripe.Subscription & { current_period_end?: number };
     const orgSlug = await resolveOrgSlug(supabase, sub.metadata);
 
-    if (orgSlug) {
+    if (!orgSlug) {
+      console.error(`Webhook ${sub.id}: could not resolve org from metadata`);
+      return NextResponse.json({ error: "Could not resolve organization" }, { status: 500 });
+    }
       const shouldCancel = (sub as any).cancel_at_period_end === true && sub.status === "active";
       const status = shouldCancel
         ? "canceled"
@@ -72,7 +79,7 @@ export async function POST(request: Request) {
         ? new Date(sub.current_period_end * 1000).toISOString()
         : null;
 
-      await supabase
+      const { error: updateError } = await supabase
         .from("organizations")
         .update({
           stripe_subscription_id: sub.id,
@@ -83,8 +90,12 @@ export async function POST(request: Request) {
         })
         .eq("slug", orgSlug);
 
+      if (updateError) {
+        console.error(`Webhook ${sub.id}: db update failed`, updateError);
+        return NextResponse.json({ error: "Failed to persist subscription" }, { status: 500 });
+      }
+
       console.log(`Subscription ${sub.id} for org ${orgSlug}: ${status} (${plan})`);
-    }
   }
 
   else if (event.type === "customer.subscription.deleted") {
@@ -92,7 +103,7 @@ export async function POST(request: Request) {
     const orgSlug = await resolveOrgSlug(supabase, sub.metadata);
 
     if (orgSlug) {
-      await supabase
+      const { error: updateError } = await supabase
         .from("organizations")
         .update({
           subscription_status: "canceled",
@@ -101,9 +112,18 @@ export async function POST(request: Request) {
         })
         .eq("slug", orgSlug);
 
+      if (updateError) {
+        console.error(`Webhook ${sub.id}: db update failed`, updateError);
+        return NextResponse.json({ error: "Failed to persist cancellation" }, { status: 500 });
+      }
+
       console.log(`Subscription ${sub.id} for org ${orgSlug} canceled`);
     }
   }
 
   return NextResponse.json({ received: true });
+  } catch (err) {
+    console.error("Webhook handler failed:", err);
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
+  }
 }

@@ -140,6 +140,7 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
+  try {
   // --- Resolve org by slug or id ---
   let org: { id: string; design_settings?: any } | null = null;
   let orgError: any = null;
@@ -148,6 +149,9 @@ export async function POST(request: Request) {
     org = result.data;
     orgError = result.error;
   } else {
+    if (orgId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId)) {
+      return NextResponse.json({ error: "Invalid orgId" }, { status: 400 });
+    }
     const result = await admin.from("organizations").select("id, design_settings").eq("id", orgId!).maybeSingle();
     org = result.data;
     orgError = result.error;
@@ -426,4 +430,8 @@ export async function POST(request: Request) {
     { error: `No tables available for ${partySize} guests.` },
     { status: 400 },
   );
+  } catch (err) {
+    console.error("bookings: unhandled", err);
+    return NextResponse.json({ error: "Could not create booking. Please try again." }, { status: 500 });
+  }
 }

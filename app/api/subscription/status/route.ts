@@ -8,28 +8,37 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Used by the console to gate features based on plan tier.
  */
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const orgSlug = searchParams.get("orgSlug");
+  try {
+    const { searchParams } = new URL(request.url);
+    const orgSlug = searchParams.get("orgSlug");
 
-  if (!orgSlug) {
-    return NextResponse.json({ error: "orgSlug query parameter is required" }, { status: 400 });
+    if (!orgSlug) {
+      return NextResponse.json({ error: "orgSlug query parameter is required" }, { status: 400 });
+    }
+
+    const supabase = createAdminClient();
+
+    const { data: org, error } = await supabase
+      .from("organizations")
+      .select("subscription_plan, subscription_status, subscription_current_period_end")
+      .eq("slug", orgSlug)
+      .maybeSingle();
+
+    if (error) {
+      console.error("subscription/status: query failed", error);
+      return NextResponse.json({ error: "Could not load subscription. Please try again." }, { status: 500 });
+    }
+    if (!org) {
+      return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      plan: org.subscription_plan ?? "free",
+      status: org.subscription_status ?? "free",
+      periodEnd: org.subscription_current_period_end ?? null,
+    });
+  } catch (err) {
+    console.error("subscription/status: unhandled", err);
+    return NextResponse.json({ error: "Could not load subscription. Please try again." }, { status: 500 });
   }
-
-  const supabase = createAdminClient();
-
-  const { data: org, error } = await supabase
-    .from("organizations")
-    .select("subscription_plan, subscription_status, subscription_current_period_end")
-    .eq("slug", orgSlug)
-    .single();
-
-  if (error || !org) {
-    return NextResponse.json({ error: "Organization not found" }, { status: 404 });
-  }
-
-  return NextResponse.json({
-    plan: org.subscription_plan ?? "free",
-    status: org.subscription_status ?? "free",
-    periodEnd: org.subscription_current_period_end ?? null,
-  });
 }

@@ -11,24 +11,29 @@ const DEMO_OWNER_EMAIL = "parth.kaushik.parikh@gmail.com";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const admin = createAdminClient();
+  try {
+    const admin = createAdminClient();
 
-  const { data, error } = await admin
-    .from("staff_users")
-    .select(
-      "organizations(id, name, slug, logo_url, theme_color, tagline, created_at)",
-    )
-    .eq("email", DEMO_OWNER_EMAIL)
-    .order("created_at", { referencedTable: "organizations", ascending: true });
+    const { data, error } = await admin
+      .from("staff_users")
+      .select(
+        "organizations(id, name, slug, logo_url, theme_color, tagline, created_at)",
+      )
+      .eq("email", DEMO_OWNER_EMAIL)
+      .order("created_at", { referencedTable: "organizations", ascending: true });
 
-  if (error) {
-    console.error("demo-restaurants: query failed", error);
-    return NextResponse.json({ orgs: [] }, { status: 200 });
+    if (error) {
+      console.error("demo-restaurants: query failed", error);
+      return NextResponse.json({ error: "Could not load restaurants. Please try again." }, { status: 500 });
+    }
+
+    const orgs = (data ?? [])
+      .map((r: any) => (Array.isArray(r.organizations) ? r.organizations[0] : r.organizations))
+      .filter(Boolean);
+
+    return NextResponse.json({ orgs });
+  } catch (err) {
+    console.error("demo-restaurants: unhandled", err);
+    return NextResponse.json({ error: "Could not load restaurants. Please try again." }, { status: 500 });
   }
-
-  const orgs = (data ?? [])
-    .map((r: any) => (Array.isArray(r.organizations) ? r.organizations[0] : r.organizations))
-    .filter(Boolean);
-
-  return NextResponse.json({ orgs });
 }

@@ -11,6 +11,18 @@ import { cookies, headers } from "next/headers";
  * matching staff row, falling back to the first row if no selection exists.
  */
 /**
+ * Thrown when Supabase/a network failure prevents loading an org.
+ * Callers must NOT map this to notFound() — let the nearest error.tsx render it.
+ */
+export class OrgFetchError extends Error {
+  code = "ORG_FETCH_FAILED";
+  constructor(message = "Could not load restaurant — please check your connection and try again.") {
+    super(message);
+    this.name = "OrgFetchError";
+  }
+}
+
+/**
  * Result of resolving the active staff row for a user.
  * `isMultiOrg` is true when the user has multiple restaurants and no
  * `selected_org` cookie is set — the caller should redirect to /console/select.
@@ -26,10 +38,15 @@ export async function getActiveStaffRow(
   urlOrgId?: string,
 ): Promise<ActiveStaffResult | null> {
   const supabase = await createClient();
-  const { data: staffRows } = await supabase
+  const { data: staffRows, error } = await supabase
     .from("staff_users")
     .select("org_id, role, email, organizations(name, slug, theme_color)")
     .eq("auth_user_id", userId);
+
+  if (error) {
+    console.error("getActiveStaffRow:", error);
+    throw new OrgFetchError("Could not load your restaurants — please try again.");
+  }
 
   const rows = staffRows ?? [];
   if (rows.length === 0) return null;
@@ -143,6 +160,7 @@ export async function getDesignData(orgId: string) {
 
 /**
  * List all public organizations (no auth required).
+ * Throws OrgFetchError on DB failure so callers show an error, not an empty list.
  */
 export async function getOrgs() {
   const supabase = await createClient();
@@ -153,7 +171,7 @@ export async function getOrgs() {
 
   if (error) {
     console.error("getOrgs:", error);
-    return [];
+    throw new OrgFetchError("Could not load restaurants — please try again.");
   }
   return data;
 }
@@ -174,7 +192,7 @@ export async function getOrgById(orgId: string) {
     .select("id, name, slug, logo_url, theme_color, theme_text_color, theme_secondary_color, theme_font_pair, theme_motif, tagline, about_text, about_title, contact_heading, location, restaurant_image_url, branches, contact_phone, contact_email, contact_address, design_settings, restaurant_photos, background_image_url")
     .eq("id", orgId)
     .maybeSingle();
-  if (error) { console.error("getOrgById:", error); return null; }
+  if (error) { console.error("getOrgById:", error); throw new OrgFetchError(); }
   return data;
 }
 
@@ -186,7 +204,7 @@ export async function getOrgBySlug(slug: string) {
       .select("id, name, slug, logo_url, theme_color, theme_text_color, theme_secondary_color, theme_font_pair, theme_motif, tagline, about_text, about_title, contact_heading, location, restaurant_image_url, branches, contact_phone, contact_email, contact_address, design_settings, restaurant_photos, background_image_url")
       .eq("slug", slug)
       .maybeSingle();
-    if (error) { console.error("getOrgBySlug:", error); return null; }
+    if (error) { console.error("getOrgBySlug:", error); throw new OrgFetchError(); }
     return data;
   });
 }
@@ -203,6 +221,7 @@ export async function getOrgAndParagraphs(slug: string) {
 
 /**
  * Fetch paragraphs for an org, ordered by position.
+ * Throws OrgFetchError on DB failure (caller shows error UI, not empty).
  */
 export async function getParagraphsByOrg(orgId: string) {
   const supabase = await createClient();
@@ -214,7 +233,7 @@ export async function getParagraphsByOrg(orgId: string) {
 
   if (error) {
     console.error("getParagraphsByOrg:", error);
-    return [];
+    throw new OrgFetchError("Could not load page content — please try again.");
   }
   return data;
 }
@@ -222,6 +241,8 @@ export async function getParagraphsByOrg(orgId: string) {
 /**
  * Fetch the available menu items for an org, grouped by category.
  * Uses the public read policy (only available=true items are returned).
+ * Throws OrgFetchError on DB failure so the menu page can show an error
+ * instead of the misleading "No menu items yet" empty state.
  */
 export async function getMenuByOrg(orgId: string) {
   const supabase = await createClient();
@@ -236,7 +257,7 @@ export async function getMenuByOrg(orgId: string) {
 
   if (error) {
     console.error("getMenuByOrg:", error);
-    return [];
+    throw new OrgFetchError("Could not load the menu — please check your connection and try again.");
   }
 
   // Group by category, preserving alphabetical category order.

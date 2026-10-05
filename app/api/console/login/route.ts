@@ -13,8 +13,13 @@ import bcrypt from "bcryptjs";
  * which exchanges the token for a real Supabase session cookie.
  */
 export async function POST(request: Request) {
+  let body: unknown;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+  try {
     const { email, password, orgSlug } = body as { email?: string; password?: string; orgSlug?: string };
 
     if (!email || typeof email !== "string" || !email.includes("@")) {
@@ -29,13 +34,25 @@ export async function POST(request: Request) {
     // 1. Look up staff by email
     const { data: staff, error: staffError } = await admin
       .from("staff_users")
-      .select("auth_user_id, email, console_password_hash")
+      .select("auth_user_id, email, org_id, console_password_hash")
       .eq("email", email.trim().toLowerCase())
       .maybeSingle();
 
     if (staffError || !staff || !staff.console_password_hash) {
       // No console password set for this staff member
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
+    }
+
+    // 1b. If orgSlug is given, the staff row must belong to that org.
+    if (orgSlug) {
+      const { data: org } = await admin
+        .from("organizations")
+        .select("id")
+        .eq("slug", orgSlug)
+        .maybeSingle();
+      if (!org || staff.org_id !== org.id) {
+        return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
+      }
     }
 
     // 2. Verify the console password hash
@@ -50,10 +67,14 @@ export async function POST(request: Request) {
     }
 
     // 4. Get the auth user's email (must match for magiclink)
-    const { data: authUser } = await admin.auth.admin.getUserById(staff.auth_user_id);
+    const { data: authUser, error: authUserError } = await admin.auth.admin.getUserById(staff.auth_user_id);
+    if (authUserError) {
+      console.error("console/login: getUserById failed", authUserError);
+      return NextResponse.json({ error: "Could not create login link" }, { status: 500 });
+    }
     const authEmail = authUser?.user?.email;
     if (!authEmail) {
-      return NextResponse.json({ error: "Linked user has no email" }, { status: 401 });
+      return NextResponse.json({ error: "Staff account is not linked correctly" }, { status: 500 });
     }
 
     // 5. Generate a magiclink to exchange into a session

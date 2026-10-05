@@ -3,6 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: Request) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   try {
     const supabase = await createClient();
     const adminSupabase = createAdminClient();
@@ -14,10 +20,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { orderId, status } = body;
+    const { orderId, status } = body as { orderId?: unknown; status?: unknown };
 
-    if (!orderId || !status) {
+    if (typeof orderId !== "string" || orderId.length === 0 || typeof status !== "string" || status.length === 0) {
       return NextResponse.json({ error: "Missing orderId or status" }, { status: 400 });
     }
 
@@ -56,7 +61,8 @@ export async function POST(request: Request) {
       .eq("org_id", order.org_id);
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      console.error("[orders/status] update failed", updateError);
+      return NextResponse.json({ error: "Could not update order status. Please try again." }, { status: 500 });
     }
 
     // Cascade: original paid → all extras get paid
@@ -152,8 +158,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, status });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[orders/status] Error:", err);
-    return NextResponse.json({ error: err?.message || "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Could not update order status. Please try again." }, { status: 500 });
   }
 }

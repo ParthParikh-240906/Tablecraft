@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 /**
  * Self-host a Google Font weight (GDPR: no visitor IP ever hits Google).
@@ -75,14 +76,32 @@ export async function POST(req: Request) {
   const family = typeof body.family === "string" ? normalizeFamily(body.family) : "";
   const weight = typeof body.weight === "number" ? body.weight : parseInt(String(body.weight), 10);
   if (!family) return NextResponse.json({ error: "Missing family" }, { status: 400 });
+  if (family.length < 2 || family.length > 100) {
+    return NextResponse.json({ error: "Invalid family" }, { status: 400 });
+  }
   if (!VALID_WEIGHTS.includes(weight)) {
     return NextResponse.json({ error: "Invalid weight" }, { status: 400 });
   }
 
+  // Font self-hosting performs server-side fetches; require a signed-in user
+  // so anonymous clients cannot abuse it.
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+    }
+  } catch (err) {
+    console.error("fonts/add auth check:", err);
+    return NextResponse.json({ error: "Could not add font. Please try again." }, { status: 500 });
+  }
+
   const candidates = [...new Set([family, titleCaseFamily(family)])];
-  const admin = createAdminClient();
 
   try {
+    const admin = createAdminClient();
     let matched: { canonical: string; css: string } | null = null;
     for (const candidate of candidates) {
       const css = await fetchCss(cssUrl(candidate, weight));

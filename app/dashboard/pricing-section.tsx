@@ -28,23 +28,40 @@ function PricingCard({ plan, index }: { plan: typeof MARKETING_PLANS[0]; index: 
   const router = useRouter();
   const [hovered, setHovered] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleCheckout() {
     if (!plan.planKey || loading) return;
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push(`/signin?next=/dashboard`);
-      return;
+    setError(null);
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        router.push(`/signin?next=/dashboard`);
+        return;
+      }
+      // Signed in: redirect to console pricing page to pick restaurant + plan
+      const { data: staffRows, error: staffError } = await supabase
+        .from("staff_users")
+        .select("org_id")
+        .eq("auth_user_id", user.id)
+        .eq("role", "owner");
+      if (staffError) {
+        setError("Could not load your restaurants — please try again.");
+        return;
+      }
+      const orgId = (staffRows ?? [])[0]?.org_id;
+      if (!orgId) {
+        router.push("/restaurants/create");
+        return;
+      }
+      router.push(`/console/pricing?org=${orgId}&plan=${plan.planKey}`);
+    } catch {
+      setError("Something went wrong — please try again.");
+    } finally {
+      setLoading(false);
     }
-    // Signed in: redirect to console pricing page to pick restaurant + plan
-    const { data: staffRows } = await supabase
-      .from("staff_users")
-      .select("org_id")
-      .eq("auth_user_id", user.id)
-      .eq("role", "owner");
-    const orgId = (staffRows ?? [])[0]?.org_id;
-    router.push(`/console/pricing?org=${orgId}&plan=${plan.planKey}`);
   }
 
   return (
@@ -83,21 +100,28 @@ function PricingCard({ plan, index }: { plan: typeof MARKETING_PLANS[0]; index: 
         </ul>
 
         {plan.planKey ? (
-          <button
-            onClick={handleCheckout}
-            disabled={loading}
-            className={[
-              "btn w-full text-center transition-all duration-200",
-              plan.highlighted ? "btn-accent" : "btn-accent",
-            ].join(" ")}
-            style={
-              hovered && !plan.highlighted
-                ? { opacity: 0.9, transform: "translateY(-1px)" }
-                : {}
-            }
-          >
-            {loading ? "Loading…" : plan.cta}
-          </button>
+          <>
+            <button
+              onClick={handleCheckout}
+              disabled={loading}
+              className={[
+                "btn w-full text-center transition-all duration-200",
+                plan.highlighted ? "btn-accent" : "btn-accent",
+              ].join(" ")}
+              style={
+                hovered && !plan.highlighted
+                  ? { opacity: 0.9, transform: "translateY(-1px)" }
+                  : {}
+              }
+            >
+              {loading ? "Loading…" : plan.cta}
+            </button>
+            {error && (
+              <p className="text-xs text-red-400 mt-2 text-center" role="alert">
+                {error}
+              </p>
+            )}
+          </>
         ) : (
           <Link
             href={plan.ctaLink}

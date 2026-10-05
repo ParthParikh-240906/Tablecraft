@@ -8,6 +8,12 @@ interface OrderItemInput {
 }
 
 export async function POST(request: Request) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   try {
     const supabase = createAdminClient();
 
@@ -15,7 +21,6 @@ export async function POST(request: Request) {
     const { data: { user } } = await authClient.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = await request.json();
     const { orderId, items } = body as { orderId: string; items: OrderItemInput[] };
 
     if (!orderId || !items || !Array.isArray(items) || items.length === 0) {
@@ -62,8 +67,14 @@ export async function POST(request: Request) {
     for (const clientItem of items) {
       const dbItem = dbItemMap.get(clientItem.id);
       if (!dbItem) continue;
-      const qty = Math.max(1, Math.floor(clientItem.quantity));
+      const qty = Math.floor(Number(clientItem.quantity));
+      if (!Number.isInteger(qty) || qty < 1 || qty > 99) {
+        return NextResponse.json({ error: "Each item quantity must be an integer 1–99" }, { status: 400 });
+      }
       const price = Number(dbItem.price);
+      if (!Number.isFinite(price) || price < 0) {
+        return NextResponse.json({ error: "Invalid item price" }, { status: 500 });
+      }
       calculatedTotal += price * qty;
       validatedItems.push({ id: dbItem.id, name: dbItem.name, price, quantity: qty });
     }
@@ -74,10 +85,14 @@ export async function POST(request: Request) {
       .eq("id", orderId)
       .eq("org_id", order.org_id);
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("orders/update: failed", error);
+      return NextResponse.json({ error: "Could not update order. Please try again." }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true, orderId: order.id });
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || "Internal server error" }, { status: 500 });
+  } catch (err) {
+    console.error("orders/update: unhandled", err);
+    return NextResponse.json({ error: "Could not update order. Please try again." }, { status: 500 });
   }
 }

@@ -26,7 +26,9 @@ export function BookingForm({
   inputBorder: string;
   labelColor?: string;
 }) {
-  const { tables, connected } = useTableRealtime(orgId);
+  const { tables, connected, connectError } = useTableRealtime(orgId);
+  void tables;
+  void connected;
 
   const [customerName, setCustomerName] = useState("");
   const [size, setSize] = useState(2);
@@ -43,12 +45,31 @@ export function BookingForm({
   const [pendingCombo, setPendingCombo] = useState<{
     message: string;
     tables: ComboTableInfo[];
+    datetime: string;
   } | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (submitting) return;
     setSubmitting(true);
+
+    const trimmedName = customerName.trim();
+    if (trimmedName.length < 2) {
+      setError("Please enter your name (at least 2 characters).");
+      setSubmitting(false);
+      return;
+    }
+    if (!Number.isInteger(size) || size < 1 || size > 20) {
+      setError("Party size must be between 1 and 20.");
+      setSubmitting(false);
+      return;
+    }
+    if (!time) {
+      setError("Please pick a time for your reservation.");
+      setSubmitting(false);
+      return;
+    }
 
     const parts = date.split("-");
     if (parts.length !== 3 || parts[0].length !== 2 || parts[1].length !== 2 || parts[2].length !== 4) {
@@ -76,25 +97,27 @@ export function BookingForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orgSlug,
-          customerName,
+          customerName: trimmedName,
           partySize: size,
           datetime: bookingDate.toISOString(),
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(data.error ?? "Could not create booking");
-      } else if (data.needsConfirmation) {
+        setError(data?.error ?? "Could not create booking");
+      } else if (data?.needsConfirmation) {
         // API found a non-movable combo but needs guest approval
         setPendingCombo({
           message: data.message,
           tables: data.tables,
+          datetime: bookingDate.toISOString(),
         });
       } else {
+        setPendingCombo(null);
         setConfirmedDetails({
-          tableLabel: data.table?.label,
-          capacity: data.table?.capacity,
+          tableLabel: data?.table?.label,
+          capacity: data?.table?.capacity,
         });
       }
     } catch {
@@ -105,7 +128,7 @@ export function BookingForm({
   }
 
   async function handleConfirmCombo() {
-    if (!pendingCombo) return;
+    if (!pendingCombo || submitting) return;
     setError(null);
     setSubmitting(true);
 
@@ -115,20 +138,22 @@ export function BookingForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orgSlug,
-          customerName,
+          customerName: customerName.trim(),
           partySize: size,
+          datetime: pendingCombo.datetime,
           tableIds: pendingCombo.tables.map((t) => t.id),
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(data.error ?? "Could not create booking");
-        setPendingCombo(null);
+        // Keep the combo offer so the guest can retry instead of starting over.
+        setError(data?.error ?? "Could not create booking");
       } else {
+        setPendingCombo(null);
         setConfirmedDetails({
-          tableLabel: data.table?.label,
-          capacity: data.table?.capacity,
+          tableLabel: data?.table?.label,
+          capacity: data?.table?.capacity,
         });
       }
     } catch {
@@ -187,7 +212,11 @@ export function BookingForm({
           min={1}
           max={20}
           value={size}
-          onChange={(e) => setSize(Number(e.target.value))}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (e.target.value === "") return;
+            if (Number.isFinite(n)) setSize(Math.min(20, Math.max(1, Math.floor(n))));
+          }}
           required
           className="w-full rounded-lg border px-3 py-2.5 text-sm"
           style={{ backgroundColor: inputBg, color: inputText, borderColor: inputBorder }}
@@ -240,15 +269,17 @@ export function BookingForm({
             <button
               type="button"
               onClick={handleConfirmCombo}
-              className="flex-1 py-2.5 rounded-full text-white font-medium shadow transition-transform active:scale-[0.99]"
+              disabled={submitting}
+              className="flex-1 py-2.5 rounded-full text-white font-medium shadow transition-transform active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: accent }}
             >
-              Yes, that works
+              {submitting ? "Reserving…" : "Yes, that works"}
             </button>
             <button
               type="button"
               onClick={() => setPendingCombo(null)}
-              className="flex-1 py-2.5 rounded-full text-white font-medium shadow transition-transform active:scale-[0.99] bg-gray-500"
+              disabled={submitting}
+              className="flex-1 py-2.5 rounded-full text-white font-medium shadow transition-transform active:scale-[0.99] bg-gray-500 disabled:opacity-50"
             >
               No, thanks
             </button>
@@ -256,8 +287,14 @@ export function BookingForm({
         </div>
       )}
 
+      {connectError && (
+        <p className="text-sm text-amber-800 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2" role="status">
+          Live availability is temporarily unavailable — you can still book, but times may be approximate.
+        </p>
+      )}
+
       {error && (
-        <p className="text-sm text-red-600 rounded-lg bg-red-50 border border-red-200 px-3 py-2" style={{ color: inputText }}>
+        <p className="text-sm text-red-700 rounded-lg bg-red-50 border border-red-200 px-3 py-2" role="alert">
           {error}
         </p>
       )}

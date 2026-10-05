@@ -13,6 +13,11 @@ export default async function PublicLayout({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
+  if (!orgSlug || !/^[a-z0-9-]{1,80}$/i.test(orgSlug)) {
+    notFound();
+  }
+  // DB failures throw OrgFetchError -> nearest error.tsx shows retry UI.
+  // Only a genuine missing row returns null -> 404.
   const org = await getOrgBySlug(orgSlug);
 
   if (!org) {

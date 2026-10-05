@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireStaffForOrgId } from "@/lib/api-auth";
 
 const DEMO_EMAIL = "demo@tablecraft.app";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * POST /api/demo/snapshot
@@ -13,76 +15,65 @@ const DEMO_EMAIL = "demo@tablecraft.app";
  * Returns: { snapshotId: string }
  */
 export async function POST(request: Request) {
+  let body: unknown;
   try {
-    const { orgId } = (await request.json()) as { orgId?: string };
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+  try {
+    const { orgId } = (body ?? {}) as { orgId?: unknown };
 
-    if (!orgId) {
-      return NextResponse.json({ error: "orgId is required" }, { status: 400 });
+    if (typeof orgId !== "string" || !UUID_RE.test(orgId)) {
+      return NextResponse.json({ error: "Invalid orgId" }, { status: 400 });
     }
+    const auth = await requireStaffForOrgId(orgId);
+    if ("response" in auth) return auth.response;
 
     const admin = createAdminClient();
 
     // Verify this is a demo org
-    const { data: org } = await admin
+    const { data: org, error: orgError } = await admin
       .from("organizations")
       .select("is_demo")
       .eq("id", orgId)
       .maybeSingle();
 
+    if (orgError) {
+      console.error("demo/snapshot: org lookup failed", orgError);
+      return NextResponse.json({ error: "Could not capture the demo snapshot. Please try again." }, { status: 500 });
+    }
     if (!org?.is_demo) {
       return NextResponse.json({ error: "Not a demo organization" }, { status: 403 });
     }
 
     const sessionId = `snapshot_${orgId}_${Date.now()}`;
 
-    // Snapshot menu_items
-    const { data: menuItems } = await admin.from("menu_items").select("*").eq("org_id", orgId);
-    await admin.from("demo_snapshots").insert({
-      org_id: orgId,
-      session_id: sessionId,
-      snapshot_type: "menu_items",
-      snapshot_data: menuItems ?? [],
-    });
-
-    // Snapshot tables
-    const { data: tables } = await admin.from("tables").select("*").eq("org_id", orgId);
-    await admin.from("demo_snapshots").insert({
-      org_id: orgId,
-      session_id: sessionId,
-      snapshot_type: "tables",
-      snapshot_data: tables ?? [],
-    });
-
-    // Snapshot bookings
-    const { data: bookings } = await admin.from("bookings").select("*").eq("org_id", orgId);
-    await admin.from("demo_snapshots").insert({
-      org_id: orgId,
-      session_id: sessionId,
-      snapshot_type: "bookings",
-      snapshot_data: bookings ?? [],
-    });
-
-    // Snapshot orders
-    const { data: orders } = await admin.from("orders").select("*").eq("org_id", orgId);
-    await admin.from("demo_snapshots").insert({
-      org_id: orgId,
-      session_id: sessionId,
-      snapshot_type: "orders",
-      snapshot_data: orders ?? [],
-    });
-
-    // Snapshot booking_tables
-    const { data: bt } = await admin.from("booking_tables").select("*").eq("org_id", orgId);
-    await admin.from("demo_snapshots").insert({
-      org_id: orgId,
-      session_id: sessionId,
-      snapshot_type: "booking_tables",
-      snapshot_data: bt ?? [],
-    });
+    const tables: Array<{ table: string; rows: unknown }> = [];
+    for (const t of ["menu_items", "tables", "bookings", "orders", "booking_tables"] as const) {
+      const { data, error: selectError } = await admin.from(t).select("*").eq("org_id", orgId);
+      if (selectError) {
+        console.error(`demo/snapshot: select ${t} failed`, selectError);
+        return NextResponse.json({ error: "Could not capture the demo snapshot. Please try again." }, { status: 500 });
+      }
+      tables.push({ table: t, rows: data ?? [] });
+    }
+    for (const { table, rows } of tables) {
+      const { error: insertError } = await admin.from("demo_snapshots").insert({
+        org_id: orgId,
+        session_id: sessionId,
+        snapshot_type: table,
+        snapshot_data: rows,
+      });
+      if (insertError) {
+        console.error(`demo/snapshot: insert ${table} failed`, insertError);
+        return NextResponse.json({ error: "Could not capture the demo snapshot. Please try again." }, { status: 500 });
+      }
+    }
 
     return NextResponse.json({ snapshotId: sessionId });
   } catch (err) {
     console.error("demo/snapshot: unexpected error", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Could not capture the demo snapshot. Please try again." }, { status: 500 });
   }
 }

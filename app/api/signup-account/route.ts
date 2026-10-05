@@ -8,15 +8,20 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * After creation the user must sign in at /signin.
  */
 export async function POST(request: Request) {
+  let body: unknown;
   try {
-    const body = await request.json();
-    const { email, password } = body as { email?: string; password?: string };
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+  try {
+    const { email, password } = (body ?? {}) as { email?: string; password?: string };
 
-    if (!email || typeof email !== "string" || !email.includes("@")) {
+    if (!email || typeof email !== "string" || !email.includes("@") || email.length > 255) {
       return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
     }
-    if (!password || typeof password !== "string" || password.length < 8) {
-      return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+    if (!password || typeof password !== "string" || password.length < 8 || password.length > 128) {
+      return NextResponse.json({ error: "Password must be 8-128 characters" }, { status: 400 });
     }
 
     const admin = createAdminClient();
@@ -35,10 +40,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Could not create account" }, { status: 500 });
     }
 
-    console.log("[SIGNUP-ACCOUNT] Created auth user:", authUser.user.email);
+    console.log("[SIGNUP-ACCOUNT] Created auth user");
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("signup-account: unexpected error", e);
-    return NextResponse.json({ error: "Could not create account" }, { status: 500 });
+    return NextResponse.json({ error: "Could not create account. Please try again." }, { status: 500 });
   }
 }

@@ -28,6 +28,9 @@ export default async function ReservePage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
+  if (!orgSlug || !/^[a-z0-9-]{1,80}$/i.test(orgSlug)) {
+    notFound();
+  }
   const org = await getOrgBySlug(orgSlug);
 
   if (!org) {
@@ -50,10 +53,13 @@ export default async function ReservePage({
     no_time_limit?: boolean;
   } | undefined;
   const noTimeLimit = Boolean(bookingConfig?.no_time_limit);
-  const durationMinutes = typeof bookingConfig?.duration_minutes === "number" ? bookingConfig.duration_minutes : 120;
+  const rawDuration = typeof bookingConfig?.duration_minutes === "number" ? bookingConfig.duration_minutes : 120;
+  const durationMinutes = Number.isFinite(rawDuration) && rawDuration > 0 && rawDuration <= 24 * 60 ? Math.round(rawDuration) : 120;
   const durationText = noTimeLimit
     ? "no time limit"
-    : `${durationMinutes >= 60 ? `${Math.floor(durationMinutes / 60)}h ` : ""}${durationMinutes % 60 ? `${durationMinutes % 60}m` : ""}`.trim() + " reservation";
+    : durationMinutes <= 0
+      ? "2h reservation"
+      : `${durationMinutes >= 60 ? `${Math.floor(durationMinutes / 60)}h ` : ""}${durationMinutes % 60 ? `${durationMinutes % 60}m` : ""}`.trim() + " reservation" || "2h reservation";
 
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
