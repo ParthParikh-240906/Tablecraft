@@ -123,7 +123,9 @@ export function SiteHeader({
         borderWidth: h.cta_design.borderWidth,
         fontSize: fS(h.cta_design.fontSize),
         fontFamily: h.cta_design.fontFamily,
-        padding: "0.375rem 0.75rem",
+        padding: `${fS(8)} ${fS(16)}`,
+        whiteSpace: "nowrap" as const,
+        lineHeight: 1.2,
       };
       return mode === "site" && slug ? (
         <Link
@@ -135,7 +137,7 @@ export function SiteHeader({
           Book a table
         </Link>
       ) : (
-        <span key="book_button" className="font-medium border-2 inline-flex items-center min-h-[44px]" style={btnStyle}>
+        <span key="book_button" className="font-medium border-2 inline-flex items-center" style={btnStyle}>
           Book a table
         </span>
       );

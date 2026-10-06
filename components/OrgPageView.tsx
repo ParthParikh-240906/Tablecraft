@@ -180,11 +180,16 @@ function ButtonVisual({
     justifyContent: el.design.textAlign === "center" ? "center" : el.design.textAlign === "right" ? "flex-end" : "flex-start",
     width: "100%",
     height: "100%",
+    boxSizing: "border-box",
     borderRadius: "9999px",
-    padding: "0 1rem",
+    padding: `0 ${fS(24)}`,
+    overflow: "hidden",
+    whiteSpace: "nowrap",
+    textOverflow: "ellipsis",
     border: "none",
     cursor: "pointer",
     fontWeight: 600,
+    lineHeight: 1.2,
   };
 
   if (mode === "site" && slug) {
