@@ -150,7 +150,7 @@ export default async function ConsoleLayout({
                   {isDemoOrg ? 'DEMO' : staffRow.role}
                 </span>
               </div>
-              <LogoutButton />
+              <LogoutButton isDemo={isDemoOrg} orgId={activeOrgId} />
             </div>
           </div>
         </div>

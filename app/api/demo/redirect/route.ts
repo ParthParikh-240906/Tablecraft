@@ -118,7 +118,20 @@ export async function GET(request: Request) {
 
     const tokenHash = linkData.properties.hashed_token;
 
-    // 6. Redirect to our own /auth/verify with the token — this creates the
+    // 6. Create snapshot before redirecting to console
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin") || ""}/api/demo/snapshot`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ orgId: org.id }),
+      });
+    } catch (err) {
+      console.error("demo/redirect: failed to create snapshot", err);
+    }
+
+    // 7. Redirect to our own /auth/verify with the token — this creates the
     //    session and then redirects to /console?org=<slug>.
     const verifyUrl = new URL(
       `/auth/verify?token_hash=${tokenHash}&type=magiclink&redirect_to=${encodeURIComponent(`/console?org=${org.slug}`)}`,
