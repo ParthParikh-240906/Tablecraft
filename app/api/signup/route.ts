@@ -49,7 +49,9 @@ export async function POST(request: Request) {
   const logoFile = formData.get('logoFile') as File;
   const restaurantImageFiles = formData.getAll('restaurantImageFiles') as File[];
 
-  console.log("[SIGNUP] Incoming request:", { orgName, slug, email, hasTagline: !!tagline, hasLogo: !!logoFile, hasRestaurantImages: restaurantImageFiles.length > 0 });
+  if (process.env.NODE_ENV === "development") {
+    console.log("[SIGNUP] Incoming request:", { orgName_len: orgName?.length ?? 0, slug, hasTagline: !!tagline, hasLogo: !!logoFile, hasRestaurantImages: restaurantImageFiles.length > 0 });
+  }
 
   // --- Validate inputs ---
   if (!orgName || typeof orgName !== "string" || orgName.trim().length < 2 || orgName.trim().length > 100) {
@@ -105,7 +107,9 @@ export async function POST(request: Request) {
     // Authenticated user — use their auth_user_id directly
     authUserId = sessionUser.id;
     isSessionUser = true;
-    console.log("[SIGNUP] Authenticated session user:", sessionUser.email);
+    if (process.env.NODE_ENV === "development") {
+      console.log("[SIGNUP] Authenticated session user login");
+    }
   } else {
     // Not authenticated (or email mismatch) — create a new auth user
     if (!password || typeof password !== "string" || password.length < 8) {
@@ -127,7 +131,9 @@ export async function POST(request: Request) {
     }
 
     authUserId = authUser.user.id;
-    console.log("[SIGNUP] Created new auth user:", authUser.user.email);
+    if (process.env.NODE_ENV === "development") {
+      console.log("[SIGNUP] Created new auth user");
+    }
   }
 
   // --- Restaurant limit check (3 for free accounts, 20 for pro/max) ---

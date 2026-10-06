@@ -93,10 +93,17 @@ export function useTableRealtime(orgId: string | null) {
       )
       .subscribe((status) => {
         if (!active) return;
-        console.log("[realtime] channel status:", status);
+        if (process.env.NODE_ENV === "development") {
+          console.log("[realtime] channel status:", status);
+        }
         if (status === "SUBSCRIBED") {
           setConnected(true);
           setConnectError(null);
+          // Realtime is live — stop polling to avoid a redundant request loop.
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
           startPolling.current = true; // stop polling once realtime is live
         }
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
@@ -113,16 +120,18 @@ export function useTableRealtime(orgId: string | null) {
         }
       });
 
-    // ── Polling fallback (5 s) when realtime never connects ──────────────────
+    // ── Polling fallback (15 s) when realtime never connects ─────────────────
+    // Skipped while the tab is hidden so background tabs don't burn quota.
     const ensurePolling = () => {
       if (pollRef.current) return;
       pollRef.current = setInterval(async () => {
+        if (document.hidden) return;
         const { data } = await supabase
           .from("tables")
           .select("id, org_id, label, capacity, status, table_type")
           .eq("org_id", orgId);
         if (data) setTables(data as TableRow[]);
-      }, 5000);
+      }, 15000);
     };
 
     // If we haven't subscribed within 3s, start polling as fallback.

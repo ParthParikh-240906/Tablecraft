@@ -254,7 +254,7 @@ export const DEFAULT_NAME_DESIGN: TextDesign = {
 };
 
 export function uid(): string {
-  return Math.random().toString(36).slice(2, 10);
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 10);
 }
 
 export function newHeaderElement(kind: HeaderElementKind): HeaderElement {
@@ -629,8 +629,8 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
   // Removed fonts: remap saved families to the closest still-loaded one.
   const FONT_REMAP: Record<string, string> = {
     "'Raleway', sans-serif": "'Inter', sans-serif",
-    "'Ubuntu', sans-serif": "'Roboto', sans-serif",
-    "'Roboto Slab', serif": "'Merriweather', serif",
+    "'Ubuntu', sans-serif": "'Inter', sans-serif",
+    "'Roboto Slab', serif": "'Playfair Display', serif",
     "'Tangerine', cursive": "'Instrument Serif', serif",
     "Tangerine": "'Instrument Serif', serif",
     "'Playpen Sans', sans-serif": "'Manrope', sans-serif",

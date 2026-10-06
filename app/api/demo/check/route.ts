@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getClientIp, rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 
 /**
  * GET /api/demo/check?slug=<slug>
@@ -8,6 +9,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Returns: { isDemo: boolean, orgId?: string, orgName?: string }
  */
 export async function GET(request: Request) {
+  const rl = rateLimit(`demo:${getClientIp(request)}`, 20, 60_000);
+  if (!rl.allowed) return rateLimitedResponse(rl.resetMs);
+
   try {
     const { searchParams } = new URL(request.url);
     const slug = searchParams.get("slug");

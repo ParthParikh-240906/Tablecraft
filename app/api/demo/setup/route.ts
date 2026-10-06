@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getClientIp, rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 
 const DEMO_EMAIL = "demo@tablecraft.app";
 const DEMO_PASSWORD = "demo123";
@@ -12,7 +13,10 @@ const DEMO_PASSWORD = "demo123";
  *
  * Returns: { authUserId, demoEmail }
  */
-export async function POST() {
+export async function POST(request: Request) {
+  const rl = rateLimit(`demo:${getClientIp(request)}`, 20, 60_000);
+  if (!rl.allowed) return rateLimitedResponse(rl.resetMs);
+
   const admin = createAdminClient();
 
   try {

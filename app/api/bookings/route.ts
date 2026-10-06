@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getClientIp, rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 
 /**
  * POST /api/bookings
@@ -19,7 +20,7 @@ type RouteTable = {
 };
 
 function effectiveCapacity(t: RouteTable): number {
-  if (t.table_type === "movable") return 4;
+  if (t.table_type === "movable") return t.capacity || 4;
   return t.capacity;
 }
 
@@ -28,11 +29,15 @@ function effectiveCapacity(t: RouteTable): number {
  *
  * Rules:
  * - non-movable: single table only (no combining), actual capacity
- * - movable: single=4 seats, pair=6 seats (max 2 combined)
+ * - movable: n tables = 2n+2 seats (1→4, 2→6, 3→8, ...), up to N tables
  * - Compare best non-movable single vs best movable option
  * - Tie-break: prefer non-movable
  *
  * Returns null when no single-table or movable option fits.
+ *
+ * TODO(banquets): partySize is capped at 20 to match the UI. For banquet /
+ * large-party support, raise the cap and prefer combining non-movable
+ * tables (see findNonMovableCombo) instead of failing closed.
  */
 function findBestCombination(
   tables: RouteTable[],
@@ -99,6 +104,9 @@ function findNonMovableCombo(
 }
 
 export async function POST(request: Request) {
+  const rl = rateLimit(`bookings:${getClientIp(request)}`, 20, 60_000);
+  if (!rl.allowed) return rateLimitedResponse(rl.resetMs);
+
   let body: {
     orgSlug?: string;
     orgId?: string;
@@ -295,12 +303,23 @@ export async function POST(request: Request) {
 
   // ---------------------------------------------------------------------------
   // Path 2: Explicit tableIds (operator console manual booking)
+  // NOTE: application-level conflict check only. Two concurrent requests
+  // can still race between the SELECT below and the INSERT. Full safety
+  // needs a DB exclusion constraint on the booking time window
+  // (see supabase/migrations/0029_booking_no_overlap_note.sql).
   // ---------------------------------------------------------------------------
   if (tableIds && tableIds.length > 0) {
     const allOrgTableMap = new Map(orgTables.map((t) => [t.id, t]));
     const selected = tableIds.map((id) => allOrgTableMap.get(id)).filter(Boolean) as typeof orgTables;
     if (selected.length !== tableIds.length) {
       return NextResponse.json({ error: "One or more requested tables were not found for this org." }, { status: 400 });
+    }
+    const conflicting = selected.filter((t) => bookedTableIds.has(t.id));
+    if (conflicting.length > 0) {
+      return NextResponse.json(
+        { error: `Table${conflicting.length > 1 ? "s" : ""} ${conflicting.map((t) => t.label).join(", ")} ${conflicting.length > 1 ? "are" : "is"} already booked for this time slot. Please choose a different time.` },
+        { status: 409 },
+      );
     }
     const primaryTable = selected[0];
 

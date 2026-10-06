@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { getClientIp, rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 
 const TARGET_EMAIL = "parth.kaushik.parikh@gmail.com";
 
 export async function POST(request: Request) {
+  const rl = rateLimit(`contact:${getClientIp(request)}`, 5, 60 * 60 * 1000);
+  if (!rl.allowed) return rateLimitedResponse(rl.resetMs);
+
   let body: unknown;
   try {
     body = await request.json();
@@ -35,7 +39,9 @@ export async function POST(request: Request) {
     const cleanEmail = email.trim().toLowerCase();
     const cleanMessage = message.trim();
 
-    console.log(`[Contact Form Submission] To: ${TARGET_EMAIL} | From: ${cleanName} (${cleanEmail}) | Message: ${cleanMessage.slice(0, 200)}`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[Contact Form Submission] name_len=${cleanName.length} email_len=${cleanEmail.length} message_len=${cleanMessage.length}`);
+    }
 
     // If RESEND_API_KEY is configured, send the real email via Resend REST API
     const resendApiKey = process.env.RESEND_API_KEY;

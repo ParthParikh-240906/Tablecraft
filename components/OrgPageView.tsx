@@ -30,9 +30,6 @@ export interface OrgView {
   restaurant_photos: string[] | null;
 }
 
-const capitalizeWords = (s: string) =>
-  s.replace(/\b\w/g, (c) => c.toUpperCase());
-
 // Design canvas is 800w x 640h: heights are `pct * 0.8` cqw (= % world width at
 // 800px), fonts are `px / 8` cqw. Container units make every size proportional
 // to the container, so the preview (narrow) and the site (wide) look identical.
@@ -132,7 +129,7 @@ function HeroText({
   const s = el.design;
   if (el.kind === "logo") return null; // rendered separately
   const text =
-    el.kind === "title" ? capitalizeWords(orgName) : el.kind === "tagline" ? tagline : el.content;
+    el.kind === "title" ? orgName : el.kind === "tagline" ? tagline : el.content;
   if (!text) return null;
   return (
     <FitText

@@ -21,7 +21,11 @@ with a thenable query builder (see `tests/api/orders-routes.test.ts`).
 | `unit/order-token.test.ts` | `lib/order-token.ts`: deterministic HMAC, tamper/wrong-order/null rejection, no-secret fail-closed |
 | `unit/theme.test.ts` | `lib/theme.ts` canonical colors, `lib/textAnimations.ts` all 4 variants |
 | `unit/validation.test.ts` | Slug/UUID/email regexes, `safeNext` open-redirect block, booking + order-quantity + status-allowlist + contact + slug-generation rules (mirrors middleware, api-auth, bookings, orders, contact, signup) |
-| `unit/bookings-logic.test.ts` | Table auto-assign: movable combining (1→4, 2→6…), non-movable tie-break, greedy combo fallback, conflict-window math, immediate-booking filter |
+| `unit/bookings-logic.test.ts` | Table auto-assign: movable combining (1→4, 2→6…), non-movable tie-break, greedy combo fallback, conflict-window math, immediate-booking filter, `effectiveCapacity` movable `capacity‖4` fallback |
+| `unit/rate-limit.test.ts` | `lib/rate-limit.ts`: sliding-window allow/block, per-key isolation, 429 + Retry-After, `getClientIp`, `PLAN_AI_LIMITS` matches marketing copy |
+| `unit/table-labels.test.ts` | `lib/table-labels.ts`: label normalize, `Table 1, 2` parse, walk-in rejection, Edit-suffix strip |
+| `unit/dubai-booking.test.ts` | Dubai-only bookings: chatbot yes-regex, +04:00 → UTC, YYYY-MM-DD picker, dynamic duration, marketing copy guard |
+| `unit/stripe-lazy.test.ts` | `lib/stripe.ts`: import never throws, `getStripe()` throws only when called without key, memoizes, no placeholder key |
 | `unit/dashboard-console.test.ts` | Dashboard stats, parent/child order grouping + totals, KDS filter/FIFO, earnings aggregation, `Table X` label build/parse, `?org=` nav contract |
 | `unit/auth-error-handling.test.ts` | Sign-in rate-limit mapping (no enumeration), console fallback 5xx vs 4xx, `?error=` banners, middleware redirect targets, demo-check failure, `?next=` preservation |
 | `unit/org-errors.test.ts` | `OrgFetchError` code/name, `getOrgs`/`getMenuByOrg` throw on DB failure (error UI, never empty state), category grouping + `Other` fallback |
@@ -29,6 +33,8 @@ with a thenable query builder (see `tests/api/orders-routes.test.ts`).
 | `api/bookings-route.test.ts` | Live `POST /api/bookings` validation: JSON, org, name, partySize, tableIds, datetime, past, orgId format, no internal leaks |
 | `api/signup-checkout-console-login.test.ts` | `signup-account` (email/password), `subscription/checkout` (plan/email/orgId), `console/login` (JSON/required fields) 400s |
 | `api/orders-routes.test.ts` | Mocked `orders/create|status|update|delete`: 400/401/403/404 branches, quantity allowlist, status allowlist, happy-path table release |
+| `api/health.test.ts` | `GET /api/health`: `{ ok, time }` ISO timestamp |
+| `api/subscription-status.test.ts` | `GET /api/subscription/status`: 400/401/403/404 branches, 200 staff happy path |
 
 ## Notes
 

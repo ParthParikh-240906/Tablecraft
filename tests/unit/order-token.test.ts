@@ -1,7 +1,7 @@
 /**
  * tests/unit/order-token.test.ts
  * Covers lib/order-token.ts — HMAC signing of public order receipt URLs.
- * Error handling: missing secret → verify always false, never throws.
+ * Error handling: missing secret → sign throws, verify always false, never throws.
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { signOrderToken, verifyOrderToken } from "@/lib/order-token";
@@ -56,7 +56,7 @@ describe("order-token", () => {
     delete process.env.ORDER_VIEW_SECRET;
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     expect(verifyOrderToken(ORDER_ID, "anything")).toBe(false);
-    // sign still returns a string (HMAC with empty key) but verify short-circuits false
-    expect(verifyOrderToken(ORDER_ID, signOrderToken(ORDER_ID))).toBe(false);
+    // sign throws instead of signing with an empty key
+    expect(() => signOrderToken(ORDER_ID)).toThrow();
   });
 });

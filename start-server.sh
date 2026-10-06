@@ -1,5 +1,8 @@
 #!/bin/bash
-npm run dev > /tmp/next-dev.log 2>&1 &
+set -e
+npm run build
+npm start &
+SERVER_PID=$!
 sleep 5
-echo "Server started, testing..."
-curl -s http://localhost:3000/console/menu | head -3
+curl -sf http://localhost:3000/api/health
+kill $SERVER_PID 2>/dev/null || true

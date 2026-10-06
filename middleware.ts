@@ -1,6 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 
 const DEMO_EMAIL = "demo@tablecraft.app";
 
@@ -13,7 +12,9 @@ export async function middleware(request: NextRequest) {
 
   const isConsole = pathname.startsWith("/console");
   const isLoginPage = pathname === "/console/login";
-  const isDashboard = pathname === "/dashboard";
+  const isDashboard =
+    pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  const isCreateRestaurant = pathname === "/restaurants/create" || pathname.startsWith("/restaurants/create/");
   const isDemoApi = pathname.startsWith("/api/demo/");
 
   let response = NextResponse.next({ request });
@@ -64,7 +65,6 @@ export async function middleware(request: NextRequest) {
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgParam);
     if (!isUUID) {
       try {
-        const supabase = await createClient();
         const { data: org } = await supabase
           .from("organizations")
           .select("id")
@@ -119,9 +119,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // If unauthenticated user tries to create a restaurant
+  if (!user && isCreateRestaurant) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/signin";
+    loginUrl.searchParams.set("next", "/restaurants/create");
+    return NextResponse.redirect(loginUrl);
+  }
+
   return response;
 }
 
 export const config = {
-  matcher: ["/console/:path*", "/dashboard"],
+  matcher: ["/console/:path*", "/dashboard", "/dashboard/:path*", "/restaurants/create"],
 };

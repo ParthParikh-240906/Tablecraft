@@ -11,7 +11,7 @@ describe("unified theme", () => {
   it("has the canonical dark theme values", () => {
     expect(UNIFIED_THEME.main).toBe("#0f0f0f");
     expect(UNIFIED_THEME.text).toBe("#f5f5f4");
-    expect(UNIFIED_THEME.highlight).toBe("#ff6b35");
+    expect(UNIFIED_THEME.highlight).toBe("#f97316");
   });
 
   it("getThemeColors returns the same object", () => {

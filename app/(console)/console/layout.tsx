@@ -160,7 +160,7 @@ export default async function ConsoleLayout({
         <div className={`flex flex-col lg:flex-row gap-8 items-start ${isOwner ? '' : 'lg:pl-0'}`}>
           {isOwner && (
             <ConsoleSidebar
-              staffEmail={staffRow.email}
+              staffEmail={staffRow.email ?? ""}
               staffRole={staffRow.role}
               userOrgs={userOrgs as any}
               activeOrgId={activeOrgId}

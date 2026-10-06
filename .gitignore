@@ -40,6 +40,10 @@ yarn-error.log*
 
 # supabase cli temp
 supabase/.temp/
+public/fonts/supabase/
+
+# temp uploads
+.tmp/
 
 # typescript
 *.tsbuildinfo

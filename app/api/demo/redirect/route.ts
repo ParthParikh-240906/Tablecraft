@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getClientIp, rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import bcrypt from "bcryptjs";
 
 const DEMO_EMAIL = "demo@tablecraft.app";
@@ -13,6 +14,9 @@ const DEMO_PASSWORD = "demo123";
  * "Open in new tab" works without a 405.
  */
 export async function GET(request: Request) {
+  const rl = rateLimit(`demo:${getClientIp(request)}`, 20, 60_000);
+  if (!rl.allowed) return rateLimitedResponse(rl.resetMs);
+
   try {
     const { searchParams } = new URL(request.url);
     const orgSlug = searchParams.get("org");

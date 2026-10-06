@@ -51,7 +51,7 @@ export const MARKETING_PLANS: MarketingPlan[] = [
       "AI website content generator",
       "15 AI menu scanner requests / month",
       "10 AI image generations / month",
-      "No meetings with senior frontend developer",
+      "Email support",
     ],
     highlighted: true,
   },

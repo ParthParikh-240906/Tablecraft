@@ -113,6 +113,7 @@ export default async function ReservePage({
           inputText={reserveDesign.input_text_color}
           inputBorder={reserveDesign.input_border_color}
           labelColor={reserveDesign.label_design.color}
+          durationText={durationText}
         />
       </div>
 

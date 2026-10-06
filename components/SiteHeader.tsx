@@ -129,13 +129,13 @@ export function SiteHeader({
         <Link
           key="book_button"
           href={`/${slug}/reserve`}
-          className="font-medium border-2 hover:opacity-90 transition-opacity"
+          className="font-medium border-2 hover:opacity-90 transition-opacity inline-flex items-center min-h-[44px]"
           style={btnStyle}
         >
           Book a table
         </Link>
       ) : (
-        <span key="book_button" className="font-medium border-2" style={btnStyle}>
+        <span key="book_button" className="font-medium border-2 inline-flex items-center min-h-[44px]" style={btnStyle}>
           Book a table
         </span>
       );
@@ -167,11 +167,11 @@ export function SiteHeader({
           borderBottom: `2px solid ${colors.text}`,
         }}
       >
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             {leftKinds.map((k) => renderElement(k))}
           </div>
-          <nav className="hidden sm:flex items-center gap-4">
+          <nav className="flex items-center gap-4 flex-wrap" aria-label="Restaurant">
             {rightKinds.map((k) => renderElement(k))}
           </nav>
         </div>

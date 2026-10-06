@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { isTableOrderName, normalizeTableLabel, parseTableLabelsFromCustomerName } from "@/lib/table-labels";
 
 export async function DELETE(request: Request) {
   let body: unknown;
@@ -39,13 +40,11 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Forbidden: Not a staff member of this restaurant" }, { status: 403 });
     }
 
-    const rawName = (order?.customer_name ?? "").replace(/\s+Edit$/, "");
-    if (rawName && rawName.startsWith("Table ")) {
-      const labelsStr = rawName.slice("Table ".length);
-      const tableLabels: string[] = labelsStr
-        .split(",")
-        .map((s: string) => s.trim())
-        .filter((s: string) => s.length > 0);
+    // Labels are normalized (trimmed, case-insensitive, "Table " prefix
+    // stripped) so renames/case drift don't leave tables stuck occupied.
+    const rawName = order?.customer_name ?? "";
+    if (rawName && isTableOrderName(rawName)) {
+      const tableLabels = parseTableLabelsFromCustomerName(rawName);
 
       if (tableLabels.length > 0) {
         // Only free tables if no other active order still references them
@@ -60,19 +59,19 @@ export async function DELETE(request: Request) {
 
         const labelSet = new Set(tableLabels);
         const stillOccupied = (otherActive ?? []).some((o: { customer_name: string }) => {
-          const name = o.customer_name.replace(/\s+Edit$/, "");
-          if (!name.startsWith("Table ")) return false;
-          const otherLabels = name.slice("Table ".length).split(",").map((s: string) => s.trim());
+          const otherLabels = parseTableLabelsFromCustomerName(o.customer_name);
           return otherLabels.some((l: string) => labelSet.has(l));
         });
 
         if (!stillOccupied) {
-          const labelVariants = tableLabels.flatMap((l: string) => [`Table ${l}`, l]);
-          const { data: tables } = await supabase
+          const { data: allTables } = await supabase
             .from("tables")
             .select("id, label")
-            .eq("org_id", order.org_id)
-            .in("label", labelVariants);
+            .eq("org_id", order.org_id);
+
+          const tables = (allTables ?? []).filter((t) =>
+            labelSet.has(normalizeTableLabel(t.label)),
+          );
 
           if (tables && tables.length > 0) {
             const tableIds = tables.map((t) => t.id);

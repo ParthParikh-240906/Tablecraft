@@ -12,7 +12,7 @@ import { describe, it, expect } from "vitest";
 type RouteTable = { id: string; capacity: number; label: string; table_type: "movable" | "non-movable" };
 
 function effectiveCapacity(t: RouteTable): number {
-  if (t.table_type === "movable") return 4;
+  if (t.table_type === "movable") return t.capacity || 4;
   return t.capacity;
 }
 
@@ -55,9 +55,10 @@ const nm = (id: string, capacity: number): RouteTable => ({ id, capacity, label:
 const mv = (id: string): RouteTable => ({ id, capacity: 4, label: `M-${id}`, table_type: "movable" });
 
 describe("effectiveCapacity", () => {
-  it("movable tables always seat 4 regardless of stored capacity", () => {
+  it("movable uses real capacity, falling back to 4 when unset", () => {
     expect(effectiveCapacity(mv("1"))).toBe(4);
-    expect(effectiveCapacity({ ...mv("1"), capacity: 99 })).toBe(4);
+    expect(effectiveCapacity({ ...mv("1"), capacity: 6 })).toBe(6);
+    expect(effectiveCapacity({ ...mv("1"), capacity: 0 })).toBe(4);
   });
   it("non-movable uses actual capacity", () => {
     expect(effectiveCapacity(nm("1", 6))).toBe(6);

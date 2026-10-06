@@ -3,7 +3,7 @@
 export const UNIFIED_THEME = {
   main: "#0f0f0f",
   text: "#f5f5f4",
-  highlight: "#ff6b35",
+  highlight: "#f97316",
 } as const;
 
 /**

@@ -173,9 +173,6 @@ function Navbar() {
           >
             Dashboard
           </Link>
-          <Link href="/console/login" className="btn btn-outline-strong text-[10px] px-2.5 py-1.5">
-            Console
-          </Link>
         </div>
 
         {/* Mobile toggle */}
@@ -229,13 +226,6 @@ function Navbar() {
             className="btn btn-outline text-xs w-full min-h-[44px]"
           >
             Dashboard
-          </Link>
-          <Link
-            href="/console/login"
-            onClick={() => setMobileOpen(false)}
-            className="btn btn-outline text-xs w-full min-h-[44px]"
-          >
-            Console
           </Link>
         </div>
       )}
@@ -455,7 +445,7 @@ function RestaurantCard({ org, index }: { org: Org; index: number }) {
             href={`/api/demo/redirect?org=${org.slug}`}
             className="flex-1 btn btn-accent text-xs py-1.5 whitespace-nowrap"
           >
-            Demo Console
+            Live Demo
           </a>
         </div>
       </div>
@@ -489,7 +479,7 @@ function RestaurantsSection() {
       </Reveal>
       <Reveal delay={160}>
         <p className="text-center text-[var(--ink-soft)] max-w-lg mx-auto mb-10 text-lg leading-relaxed">
-          Preview our demo sites below. Click Demo Console to explore the operator console — no login required.
+          Preview our demo sites below. Click Live Demo to explore — no login required.
         </p>
       </Reveal>
 
@@ -537,6 +527,10 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
       .eq("auth_user_id", user.id)
       .eq("role", "owner");
     const orgId = (staffRows ?? [])[0]?.org_id;
+    if (!orgId) {
+      router.push("/restaurants/create");
+      return;
+    }
     router.push(`/console/pricing?org=${orgId}&plan=${plan.planKey}`);
   }
 
@@ -905,12 +899,11 @@ function Footer() {
           </ul>
         </div>
 
-        {/* Console */}
+        {/* Account */}
         <div>
-          <p className="text-[10px] uppercase tracking-wider font-semibold text-[var(--ink-faint)] mb-3">Console</p>
+          <p className="text-[10px] uppercase tracking-wider font-semibold text-[var(--ink-faint)] mb-3">Account</p>
           <ul className="space-y-2">
             {[
-              { label: "Sign in", href: "/console/login" },
               { label: "Dashboard", href: "/dashboard" },
               { label: "Directory", href: "/restaurants" },
             ].map(({ label, href }) => (
@@ -927,11 +920,21 @@ function Footer() {
         <div>
           <p className="text-[10px] uppercase tracking-wider font-semibold text-[var(--ink-faint)] mb-3">Legal</p>
           <ul className="space-y-2">
-            {["Privacy Policy", "Terms of Service", "Contact"].map((label) => (
-              <li key={label}>
-                <span className="text-xs text-[var(--ink-faint)] cursor-not-allowed">{label}</span>
-              </li>
-            ))}
+            <li>
+              <Link href="/privacy" className="text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
+                Privacy Policy
+              </Link>
+            </li>
+            <li>
+              <Link href="/terms" className="text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
+                Terms of Service
+              </Link>
+            </li>
+            <li>
+              <a href="#contact" className="text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
+                Contact
+              </a>
+            </li>
           </ul>
         </div>
       </div>

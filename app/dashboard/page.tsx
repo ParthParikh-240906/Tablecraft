@@ -76,6 +76,9 @@ export default async function DashboardPage() {
     .filter(Boolean);
 
   const hasRestaurants = orgs.length > 0;
+  const firstOrgId = orgs[0]?.id ?? null;
+  const withOrg = (href: string) =>
+    href.startsWith("/console/") && firstOrgId ? `${href}?org=${firstOrgId}` : href;
 
   const planBadge = (plan: string | null) => {
     switch (plan) {
@@ -206,10 +209,10 @@ export default async function DashboardPage() {
           <div className="ticket p-5 space-y-3">
             {[
               { label: "Create a restaurant", href: "/restaurants/create" },
-              { label: "Design Website", href: "/console/design" },
-              { label: "Add menu items", href: "/console/menu" },
-              { label: "Set up tables", href: "/console/tables" },
-              { label: "Make payment - Go live", href: "/console/pricing" },
+              { label: "Design Website", href: withOrg("/console/design") },
+              { label: "Add menu items", href: withOrg("/console/menu") },
+              { label: "Set up tables", href: withOrg("/console/tables") },
+              { label: "Make payment - Go live", href: withOrg("/console/pricing") },
             ].map((item) => (
               <Link
                 key={item.label}

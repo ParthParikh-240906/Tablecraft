@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaffForOrgId } from "@/lib/api-auth";
+import { getClientIp, rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 
 const DEMO_EMAIL = "demo@tablecraft.app";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -15,6 +16,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * Returns: { snapshotId: string }
  */
 export async function POST(request: Request) {
+  const rl = rateLimit(`demo:${getClientIp(request)}`, 20, 60_000);
+  if (!rl.allowed) return rateLimitedResponse(rl.resetMs);
+
   let body: unknown;
   try {
     body = await request.json();

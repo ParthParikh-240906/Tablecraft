@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0a0a0a"/>
+  <rect x="60" y="60" width="1080" height="510" rx="24" fill="none" stroke="#f97316" stroke-width="4" opacity="0.6"/>
+  <text x="600" y="300" font-family="system-ui,sans-serif" font-size="96" font-weight="800" fill="#fefaf6" text-anchor="middle">Tablecraft</text>
+  <text x="600" y="370" font-family="system-ui,sans-serif" font-size="32" fill="#f97316" text-anchor="middle">Restaurant Management Platform</text>
+</svg>

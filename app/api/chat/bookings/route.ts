@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getClientIp, rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 
 type SlotState = {
   name: string | null;
@@ -73,6 +74,9 @@ RULES FOR YOUR REPLY:
 - Do NOT repeat information the user already provided.`;
 
 export async function POST(request: NextRequest) {
+  const rl = rateLimit(`chat-bookings:${getClientIp(request)}`, 15, 60_000);
+  if (!rl.allowed) return rateLimitedResponse(rl.resetMs);
+
   try {
   const apiKey = process.env.AGNES_API_KEY;
   if (!apiKey) {
@@ -147,7 +151,9 @@ export async function POST(request: NextRequest) {
 
     const jsonMatch = content1.match(/\{[\s\S]*\}/)?.[0];
     extracted = JSON.parse(jsonMatch ?? "{}");
-    console.log("[CHAT BOOKINGS] extracted:", JSON.stringify(extracted));
+    if (process.env.NODE_ENV === "development") {
+      console.log("[CHAT BOOKINGS] extracted keys:", Object.keys(extracted ?? {}));
+    }
   } catch (err) {
     console.error("[CHAT BOOKINGS] Extraction failed:", err);
     return NextResponse.json({ error: "AI service unavailable" }, { status: 503 });

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { hydrateSettings } from "@/lib/design";
+import type { StaffRow } from "@/types/org";
 import { cookies, headers } from "next/headers";
 
 /**
@@ -28,7 +29,7 @@ export class OrgFetchError extends Error {
  * `selected_org` cookie is set — the caller should redirect to /console/select.
  */
 export interface ActiveStaffResult {
-  staff: any;
+  staff: StaffRow;
   count: number;
   isMultiOrg: boolean;
 }

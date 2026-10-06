@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isTableOrderName, normalizeTableLabel, parseTableLabelsFromCustomerName } from "@/lib/table-labels";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -73,28 +74,27 @@ export async function POST(request: Request) {
         .eq("parent_order_id", order.id);
     }
 
-    // Free tables when order is paid or cancelled
+    // Free tables when order is paid or cancelled.
+    // Labels are normalized (trimmed, case-insensitive, "Table " prefix
+    // stripped) so renames/case drift don't leave tables stuck occupied.
     if (status === "paid" || status === "cancelled") {
-      const rawName = (order?.customer_name ?? "").replace(/\s+Edit$/, "");
-      if (rawName && rawName.startsWith("Table ")) {
+      const rawName = order?.customer_name ?? "";
+      if (rawName && isTableOrderName(rawName)) {
         // Parse table labels from customer_name: "Table 1, 2, 3" or "Table 7"
-        const labelsStr = rawName.slice("Table ".length);
-        const tableLabels: string[] = labelsStr
-          .split(",")
-          .map((s: string) => s.trim())
-          .filter((s: string) => s.length > 0);
+        const tableLabels = parseTableLabelsFromCustomerName(rawName);
 
         if (tableLabels.length === 0) {
           return NextResponse.json({ success: true, status });
         }
 
-        // Try both formats: raw label ("Group Table 1") and with prefix ("Table Group Table 1")
-        const labelVariants = tableLabels.flatMap((l: string) => [`Table ${l}`, l]);
-        const { data: tables } = await adminSupabase
+        const { data: allTables } = await adminSupabase
           .from("tables")
           .select("id, label")
-          .eq("org_id", order.org_id)
-          .in("label", labelVariants);
+          .eq("org_id", order.org_id);
+
+        const tables = (allTables ?? []).filter((t) =>
+          tableLabels.includes(normalizeTableLabel(t.label)),
+        );
 
         if (!tables || tables.length === 0) {
           console.warn(`[orders/status] No tables found for labels: ${tableLabels.join(", ")}`);

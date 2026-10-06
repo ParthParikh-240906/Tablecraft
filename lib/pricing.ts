@@ -90,7 +90,9 @@ export async function ensurePriceIds(stripe: Stripe): Promise<PriceIds> {
         recurring: { interval: "month" },
       });
       created[`${plan}Monthly`] = price.id;
-      console.log(`[pricing] Created ${plan} monthly price: ${price.id}`);
+      if (process.env.NODE_ENV === "development") {
+        console.log(`[pricing] Created ${plan} monthly price: ${price.id}`);
+      }
     }
   }
 

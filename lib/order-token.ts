@@ -24,7 +24,11 @@ function hmacKey(): string {
 }
 
 export function signOrderToken(orderId: string): string {
-  return createHmac("sha256", hmacKey()).update(orderId).digest("hex");
+  const key = hmacKey();
+  if (!key) {
+    throw new Error("Missing ORDER_VIEW_SECRET (or SUPABASE_SERVICE_ROLE_KEY fallback) — cannot sign order token");
+  }
+  return createHmac("sha256", key).update(orderId).digest("hex");
 }
 
 export function verifyOrderToken(

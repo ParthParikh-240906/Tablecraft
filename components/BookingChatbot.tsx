@@ -104,7 +104,7 @@ export function BookingChatbot({
     // If waiting for combo confirmation, any positive reply auto-books
     if (status === "waiting_for_combo" && comboDetails) {
       const lower = text.toLowerCase();
-      if (/^(yes|yeah|yep|sure|ok|okay|go ahead|proceed|fine|sounds good)$/i.test(lower)) {
+      if (/\b(yes|yeah|yep|sure|ok|okay|proceed|fine|works|perfect)\b/i.test(lower)) {
         await submitComboBooking(comboDetails);
         return;
       }
@@ -124,7 +124,7 @@ export function BookingChatbot({
       const res = await fetch("/api/chat/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, slots, history: messages, orgName }),
+        body: JSON.stringify({ message: text, slots, history: messages, orgName, orgSlug }),
       });
 
       const data = await res.json();
@@ -161,7 +161,8 @@ export function BookingChatbot({
   async function submitComboBooking(combo: ComboDetails) {
     setStatus("submitting");
     const { name, party_size, date, time } = slots;
-    const localDate = new Date(`${date}T${time}:00`);
+    // Asia/Dubai fixed offset (no DST).
+    const localDate = new Date(`${date}T${time}:00+04:00`);
     const datetime = isNaN(localDate.getTime()) ? `${date}T${time}` : localDate.toISOString();
     try {
       const res = await fetch("/api/bookings", {
@@ -193,7 +194,8 @@ export function BookingChatbot({
     setError(null);
 
     const { name, party_size, date, time } = slots;
-    const localDate = new Date(`${date}T${time}:00`);
+    // Asia/Dubai fixed offset (no DST).
+    const localDate = new Date(`${date}T${time}:00+04:00`);
     const datetime = isNaN(localDate.getTime()) ? `${date}T${time}` : localDate.toISOString();
 
     try {
@@ -326,7 +328,15 @@ export function BookingChatbot({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={chatLogo} alt="" className="h-8 w-8 rounded-full object-cover" />
           ) : (
-            <span className="text-lg">🤖</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="10" rx="2" />
+              <circle cx="12" cy="6" r="3" />
+              <line x1="12" y1="9" x2="12" y2="11" />
+              <line x1="8" y1="14" x2="8" y2="17" />
+              <line x1="16" y1="14" x2="16" y2="17" />
+              <line x1="10" y1="15" x2="10" y2="16" />
+              <line x1="14" y1="15" x2="14" y2="16" />
+            </svg>
           )}
           <div className="min-w-0">
             <p className="text-sm font-semibold truncate" style={{ color: chatTextColor, fontFamily: chatFontFamily, fontSize: chatTextSize }}>
@@ -390,7 +400,7 @@ export function BookingChatbot({
       {/* Thinking indicator */}
       {isThinking && (
         <div className="px-4 py-1.5 text-xs" style={{ color: "var(--ink-faint)" }}>
-          Thinking ...
+          Thinking…
         </div>
       )}
 
@@ -402,7 +412,8 @@ export function BookingChatbot({
       )}
 
       {/* Confirmation summary */}
-      {status === "confirming" && slots.name && slots.party_size && slots.date && slots.time && (
+      {status === "confirming" || status === "submitting" ? (
+        slots.name && slots.party_size && slots.date && slots.time ? (
         <div className="px-4 py-3 border-t space-y-2" style={{ borderColor: "var(--rule)" }}>
           <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--ink-faint)" }}>
             Confirm your booking
@@ -445,7 +456,8 @@ export function BookingChatbot({
           <div className="flex gap-2 pt-1">
             <button
               onClick={submitBooking}
-              className="flex-1 py-2 rounded-full text-sm font-semibold text-white transition-transform active:scale-[0.98]"
+              disabled={status === "submitting"}
+              className="flex-1 py-2 rounded-full text-sm font-semibold text-white transition-transform active:scale-[0.98] disabled:opacity-50"
               style={{ backgroundColor: chatColor, color: chatTextColor, fontFamily: chatFontFamily }}
             >
               Confirm & Book
@@ -459,7 +471,8 @@ export function BookingChatbot({
             </button>
           </div>
         </div>
-      )}
+        ) : null
+      ) : null}
 
       {/* Submitted success */}
       {status === "done" && (

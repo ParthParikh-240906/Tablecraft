@@ -17,6 +17,7 @@ export function BookingForm({
   inputText,
   inputBorder,
   labelColor = "#000000",
+  durationText = "2h reservation",
 }: {
   orgId: string;
   orgSlug: string;
@@ -25,10 +26,9 @@ export function BookingForm({
   inputText: string;
   inputBorder: string;
   labelColor?: string;
+  durationText?: string;
 }) {
-  const { tables, connected, connectError } = useTableRealtime(orgId);
-  void tables;
-  void connected;
+  const { connectError } = useTableRealtime(orgId);
 
   const [customerName, setCustomerName] = useState("");
   const [size, setSize] = useState(2);
@@ -71,15 +71,14 @@ export function BookingForm({
       return;
     }
 
-    const parts = date.split("-");
-    if (parts.length !== 3 || parts[0].length !== 2 || parts[1].length !== 2 || parts[2].length !== 4) {
-      setError("Please enter the date in DD-MM-YYYY format.");
+    const trimmedDate = date.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) {
+      setError("Please pick a date for your reservation.");
       setSubmitting(false);
       return;
     }
-    const [day, month, year] = parts;
-    const isoDate = `${year}-${month}-${day}T${time}:00`;
-    const bookingDate = new Date(isoDate);
+    // Interpret the picked date/time as Dubai-local (UTC+04:00), then store UTC.
+    const bookingDate = new Date(`${trimmedDate}T${time}:00+04:00`);
     if (isNaN(bookingDate.getTime())) {
       setError("Invalid date/time. Please check your input.");
       setSubmitting(false);
@@ -230,16 +229,13 @@ export function BookingForm({
         </label>
         <input
           id="date"
-          type="text"
+          type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          placeholder="DD-MM-YYYY"
           required
-          pattern="\d{2}-\d{2}-\d{4}"
-          className="w-full rounded-lg border px-3 py-2.5 text-sm font-mono"
+          className="w-full rounded-lg border px-3 py-2.5 text-sm"
           style={{ backgroundColor: inputBg, color: inputText, borderColor: inputBorder }}
         />
-        <p className="text-xs text-[var(--ink-faint)] mt-1">Format: DD-MM-YYYY (e.g. 15-07-2025)</p>
       </div>
 
       {/* Time */}
@@ -257,7 +253,7 @@ export function BookingForm({
           style={{ backgroundColor: inputBg, color: inputText, borderColor: inputBorder }}
         />
         <p className="text-xs text-[var(--ink-faint)] mt-1">
-          Reservations are booked for a 2-hour duration.
+          Reservations are {durationText}.
         </p>
       </div>
 
