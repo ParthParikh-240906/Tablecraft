@@ -58,15 +58,17 @@ export function PricingClient({
     const maxAttempts = 15; // ~30s total (15 × 2s)
 
     const poll = async () => {
-      attempts++;
-      if (attempts >= maxAttempts) return;
-      await new Promise((r) => setTimeout(r, 2000));
-      router.refresh();
+      while (attempts < maxAttempts) {
+        attempts++;
+        await new Promise((r) => setTimeout(r, 2000));
+        router.refresh();
+      }
     };
-    poll();
+    void poll();
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedOrg = orgs.find((o) => o.id === selectedOrgId) || orgs[0];
+  const noOrgs = !orgs || orgs.length === 0;
 
   // Fetch Stripe portal URL so the "Manage Billing" link can open in a new tab
   useEffect(() => {
@@ -77,13 +79,27 @@ export function PricingClient({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orgSlug: selectedOrg.slug }),
     })
-      .then((r) => r.json())
+      .then((r) => r.json().catch(() => null))
       .then((data) => {
-        if (!cancelled && data.url) setPortalUrl(data.url);
+        if (cancelled) return;
+        if (data?.url) setPortalUrl(data.url);
+        else if (data?.error) setErrorMsg(`Could not preload billing portal: ${data.error}`);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setErrorMsg("Could not preload billing portal — check connection. You can still click Manage Billing.");
+      });
     return () => { cancelled = true; };
   }, [selectedOrg?.slug]);
+
+  if (noOrgs) {
+    return (
+      <div className="ticket p-8 text-center">
+        <h1 className="font-display text-xl mb-2">No restaurants found</h1>
+        <p className="text-sm text-[var(--ink-soft)] mb-2">Your account isn't linked to any restaurant yet, so billing cannot be loaded.</p>
+        <p className="text-xs text-[var(--ink-faint)]">Create a restaurant first, then return to billing.</p>
+      </div>
+    );
+  }
 
   // Aggregate metrics across all user-owned restaurants
   const totalCombinedEarnings = orgs.reduce((acc, o) => acc + o.totalEarningsAed, 0);
@@ -130,7 +146,8 @@ export function PricingClient({
   };
 
   const handleSyncPlan = async () => {
-    if (!selectedOrg) return;
+    if (!selectedOrg) { setErrorMsg("No restaurant selected."); return; }
+    setErrorMsg(null);
     setLoadingPlan("sync");
     try {
       const res = await fetch("/api/subscription/sync", {

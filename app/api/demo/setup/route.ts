@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getClientIp, rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 
 const DEMO_EMAIL = "demo@tablecraft.app";
 const DEMO_PASSWORD = "demo123";
@@ -12,12 +13,19 @@ const DEMO_PASSWORD = "demo123";
  *
  * Returns: { authUserId, demoEmail }
  */
-export async function POST() {
+export async function POST(request: Request) {
+  const rl = rateLimit(`demo:${getClientIp(request)}`, 20, 60_000);
+  if (!rl.allowed) return rateLimitedResponse(rl.resetMs);
+
   const admin = createAdminClient();
 
   try {
     // 1. Find or create the shared demo auth user
-    const { data: existingUsers } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const { data: existingUsers, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (listError) {
+      console.error("demo/setup: list users failed", listError);
+      return NextResponse.json({ error: "Could not set up the demo. Please try again." }, { status: 500 });
+    }
     const existingUser = (existingUsers?.users ?? []).find((u) => u.email === DEMO_EMAIL);
 
     let authUserId: string;
@@ -29,9 +37,9 @@ export async function POST() {
         password: DEMO_PASSWORD,
         email_confirm: true,
       });
-      if (createError) {
+      if (createError || !newUser?.user?.id) {
         console.error("demo/setup: auth user creation failed", createError);
-        return NextResponse.json({ error: "Failed to create demo auth user" }, { status: 500 });
+        return NextResponse.json({ error: "Could not set up the demo. Please try again." }, { status: 500 });
       }
       authUserId = newUser.user.id;
     }
@@ -44,12 +52,12 @@ export async function POST() {
 
     if (updateError) {
       console.error("demo/setup: failed to link demo auth user to staff rows", updateError);
-      return NextResponse.json({ error: "Failed to link demo account" }, { status: 500 });
+      return NextResponse.json({ error: "Could not set up the demo. Please try again." }, { status: 500 });
     }
 
     return NextResponse.json({ authUserId, demoEmail: DEMO_EMAIL });
   } catch (err) {
     console.error("demo/setup: unexpected error", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Could not set up the demo. Please try again." }, { status: 500 });
   }
 }

@@ -596,23 +596,26 @@ function HowItWorksSection() {
 function RestaurantsSection() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchOrgs = async () => {
+      setError(null);
       try {
         const supabase = createClient();
-        const { data } = await supabase
+        const { data, error: queryError } = await supabase
           .from("organizations")
           .select("id, name, slug, logo_url, theme_color, tagline")
           .order("created_at", { ascending: true });
+        if (queryError) {
+          setError("Could not load the directory — please try again.");
+          setOrgs([]);
+          return;
+        }
         setOrgs(data ?? []);
       } catch {
-        // Sample fallback
-        setOrgs([
-          { id: "1", name: "Lumina Bistro", slug: "lumina", theme_color: "#f97316", logo_url: null, tagline: "Contemporary Mediterranean & Grill" },
-          { id: "2", name: "The Artisan Table", slug: "artisan-table", theme_color: "#d97706", logo_url: null, tagline: "Farm-to-Table Artisanal Bakery & Cafe" },
-          { id: "3", name: "Kyoto Omakase", slug: "kyoto-omakase", theme_color: "#e11d48", logo_url: null, tagline: "Authentic Japanese Tasting Counter" },
-        ]);
+        setError("Network error — could not load the directory. Check connection and retry.");
+        setOrgs([]);
       } finally {
         setLoading(false);
       }
@@ -642,6 +645,17 @@ function RestaurantsSection() {
 
       {loading ? (
         <div className="p-12 text-center text-zinc-500 font-mono text-sm">Loading directory...</div>
+      ) : error ? (
+        <div className="p-12 text-center space-y-3">
+          <p className="text-zinc-400 font-mono text-sm" role="alert">{error}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="px-6 py-2.5 rounded-lg text-xs font-semibold text-white bg-[#ea580c]"
+          >
+            Try again
+          </button>
+        </div>
       ) : orgs.length === 0 ? (
         <div className="p-12 text-center text-zinc-500 font-mono text-sm">No restaurants registered yet. Be the first.</div>
       ) : (
@@ -778,20 +792,28 @@ function ContactSection() {
   const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting) return;
     setSubmitting(true);
+    setError(null);
     try {
-      await fetch("/api/contact", {
+      const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, message }),
       });
-    } catch {
-      // simulate fallback
-    } finally {
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error ?? "Could not send your message. Please try again.");
+        return;
+      }
       setSubmitted(true);
+    } catch {
+      setError("Network error — could not send your message. Check connection and retry.");
+    } finally {
       setSubmitting(false);
     }
   }
@@ -873,6 +895,11 @@ function ContactSection() {
             >
               {submitting ? "Sending..." : "Send Message"}
             </button>
+            {error && (
+              <p className="text-sm text-red-400 text-center" role="alert">
+                {error}
+              </p>
+            )}
           </form>
         )}
       </div>

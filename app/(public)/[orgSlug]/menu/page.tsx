@@ -28,13 +28,18 @@ export default async function MenuPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
+  if (!orgSlug || !/^[a-z0-9-]{1,80}$/i.test(orgSlug)) {
+    notFound();
+  }
   const org = await getOrgBySlug(orgSlug);
 
   if (!org) {
     notFound();
   }
 
-  const menu = await getMenuByOrg(org.id);
+  // Throws OrgFetchError on DB failure -> error.tsx retry UI.
+  // Only a genuinely empty menu reaches the empty-state below.
+  const menu = (await getMenuByOrg(org.id)) ?? [];
   const menuDesign: MenuPageDesign = org.design_settings
     ? { ...defaultMenuPageDesign(), ...((org.design_settings as Record<string, unknown>)?.menu_page as Partial<MenuPageDesign> ?? {}) }
     : defaultMenuPageDesign();

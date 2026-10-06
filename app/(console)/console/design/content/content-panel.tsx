@@ -161,8 +161,9 @@ export function ContentPanel({
   orgContent: OrgView;
   paragraphs: { id: string; title: string | null; content: string | null }[];
 }) {
-  const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
+  const { settings, updateSettings, saving, saved, saveError, retrySave } = useDesign(initialSettings, orgId);
   const [selected, setSelected] = useState<string[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [previewHeight, setPreviewHeight] = useState(640);
   const [activeContentTemplate, setActiveContentTemplate] = useState<ContentTemplateStyle | null>(
     (settings.content as any)?.template ?? null,
@@ -304,12 +305,22 @@ export function ContentPanel({
     updateSettings({ content: { elements: arr } });
   };
 
-  const uploadImage = async (file: File) => {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("org_id", orgId);
-    const res = await fetch("/api/design/photos/upload", { method: "POST", body: form });
-    return res.ok ? ((await res.json()).url as string) : null;
+  const uploadImage = async (file: File): Promise<string | null> => {
+    setUploadError(null);
+    if (file.size > 5 * 1024 * 1024) { setUploadError("Image exceeds 5MB — compress and try again."); return null; }
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("org_id", orgId);
+      const res = await fetch("/api/design/photos/upload", { method: "POST", body: form });
+      if (res.ok) return ((await res.json()).url as string);
+      const data = await res.json().catch(() => null);
+      setUploadError(data?.error ?? `Image upload failed (${res.status}). Try again.`);
+      return null;
+    } catch {
+      setUploadError("Network error — image not uploaded. Try again.");
+      return null;
+    }
   };
 
   const sel = selected.length === 1 ? (elements.find((e) => e.id === selected[0]) ?? null) : null;
@@ -323,9 +334,22 @@ export function ContentPanel({
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Content</h2>
             <span className="text-xs text-[var(--ink-faint)]">
-              {saving ? "Saving…" : saved ? "✓ Saved" : ""}
+              {saving ? "Saving…" : saveError ? "⚠ Not saved" : saved ? "✓ Saved" : ""}
             </span>
           </div>
+          {uploadError && (
+            <div className="rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300 flex items-center justify-between gap-2">
+              <span>{uploadError}</span>
+              <button type="button" onClick={() => setUploadError(null)} className="underline shrink-0">Dismiss</button>
+            </div>
+          )}
+          {saveError && (
+            <div className="rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300 flex items-center justify-between gap-2">
+              <span>{saveError}</span>
+              <button type="button" onClick={() => retrySave()} className="underline shrink-0">Retry</button>
+            </div>
+          )}
+
           <p className="text-xs text-[var(--ink-soft)] -mt-4">
             About us, paragraphs, location &amp; contact — every block is a
             Word-style rectangle you can move and resize. Full font/color/size

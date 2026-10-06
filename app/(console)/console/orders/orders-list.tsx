@@ -7,24 +7,9 @@ import { AddOrderModal } from "./add-order-modal";
 import { EditOrderModal } from "./edit-order-modal";
 import { OrdersDashboard } from "./orders-dashboard";
 import { useConsoleTheme } from "../theme-wrapper";
+import type { OrderItem, OrderRecord } from "@/types/orders";
 
-export interface OrderItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-}
-
-export interface OrderRecord {
-  id: string;
-  customer_name: string;
-  total: number;
-  status: string;
-  created_at: string;
-  stripe_session_id?: string | null;
-  items: OrderItem[];
-  parent_order_id?: string | null;
-}
+export type { OrderItem, OrderRecord };
 
 type FilterKey = "dashboard" | "pending" | "preparing" | "ready" | "completed" | "paid" | "cancelled";
 
@@ -50,6 +35,8 @@ export function OrdersList({
   const [filter, setFilter] = useState<FilterKey>("dashboard");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<OrderRecord | null>(null);
 
@@ -65,6 +52,7 @@ export function OrdersList({
 
   async function updateStatus(orderId: string, newStatus: string) {
     setUpdatingId(orderId);
+    setActionError(null);
     try {
       const res = await fetch("/api/orders/status", {
         method: "POST",
@@ -76,11 +64,11 @@ export function OrdersList({
           prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)),
         );
       } else {
-        const data = await res.json();
-        alert(data.error || "Failed to update order status");
+        const data = await res.json().catch(() => null);
+        setActionError(data?.error || `Failed to update order status (${res.status}). Try again.`);
       }
     } catch {
-      alert("Network error updating status");
+      setActionError("Network error updating status — check connection and retry.");
     } finally {
       setUpdatingId(null);
     }
@@ -89,6 +77,7 @@ export function OrdersList({
   async function handleDelete(orderId: string) {
     if (!confirm("Delete this order permanently?")) return;
     setDeletingId(orderId);
+    setActionError(null);
     try {
       const res = await fetch("/api/orders/delete", {
         method: "DELETE",
@@ -98,23 +87,28 @@ export function OrdersList({
       if (res.ok) {
         setOrders((prev) => prev.filter((o) => o.id !== orderId));
       } else {
-        const data = await res.json();
-        alert(data.error || "Failed to delete order");
+        const data = await res.json().catch(() => null);
+        setActionError(data?.error || `Failed to delete order (${res.status}). Try again.`);
       }
     } catch {
-      alert("Network error deleting order");
+      setActionError("Network error deleting order — check connection and retry.");
     } finally {
       setDeletingId(null);
     }
   }
 
   const refreshOrders = useCallback(async () => {
-    const { data } = await supabase
+    setRefreshError(null);
+    const { data, error } = await supabase
       .from("orders")
       .select("id, customer_name, total, status, created_at, stripe_session_id, items, parent_order_id")
       .eq("org_id", orgId)
       .order("created_at", { ascending: false });
-    setOrders(data ?? []);
+    if (error) {
+      setRefreshError(`Could not refresh orders: ${error.message}. Showing last known data.`);
+      return;
+    }
+    setOrders((data ?? []) as OrderRecord[]);
   }, [orgId, supabase]);
 
   const getStatusBadge = (status: string) => {
@@ -150,11 +144,15 @@ export function OrdersList({
               const cleanName = order.customer_name.replace(/\s+Edit$/, "");
               const isTable = /^Table\s+/i.test(cleanName);
               const itemsList: OrderItem[] = Array.isArray(order.items) ? order.items : [];
-              const timeAgo = new Date(order.created_at).toLocaleTimeString([], {
+              const createdDate = new Date(order.created_at);
+              const validDate = !isNaN(createdDate.getTime());
+              const timeAgo = validDate ? createdDate.toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
-              });
-              const dateStr = new Date(order.created_at).toLocaleDateString();
+              }) : "—";
+              const dateStr = validDate ? createdDate.toLocaleDateString() : "Invalid date";
+              const totalNum = Number(order.total);
+              const totalStr = Number.isFinite(totalNum) ? totalNum.toFixed(2) : "0.00";
               const isCancelable = order.status !== "completed" && order.status !== "cancelled" && order.status !== "paid";
 
               return (
@@ -192,6 +190,9 @@ export function OrdersList({
                     </div>
 
                     <div className="border-t border-b border-[var(--rule)] py-3 my-2 space-y-1.5 text-xs">
+                      {itemsList.length === 0 && (
+                        <p className="text-[var(--ink-faint)]">No items on this order.</p>
+                      )}
                       {itemsList.map((item, idx) => (
                         <div key={idx} className="flex justify-between items-center text-[var(--ink)]">
                           <span className="font-medium">
@@ -203,6 +204,9 @@ export function OrdersList({
                           </span>
                         </div>
                       ))}
+                      {!validDate && (
+                        <p className="text-[10px] text-amber-400">Order has an invalid date — please check the record.</p>
+                      )}
                     </div>
 
                     <div className="flex justify-between items-center text-xs mt-3">
@@ -210,7 +214,7 @@ export function OrdersList({
                         ID: {order.id.slice(0, 8)}…
                       </span>
                       <span className="font-bold text-sm text-[var(--ink)]">
-                        Total: AED {Number(order.total).toFixed(2)}
+                        Total: AED {totalStr}
                       </span>
                     </div>
                   </div>
@@ -297,6 +301,19 @@ export function OrdersList({
           + Add Table Order
         </button>
       </div>
+
+      {actionError && (
+        <div className="rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300 flex items-center justify-between gap-2">
+          <span>{actionError}</span>
+          <button type="button" onClick={() => setActionError(null)} className="underline shrink-0">Dismiss</button>
+        </div>
+      )}
+      {refreshError && (
+        <div className="rounded-sm border border-amber-700 bg-amber-950/30 p-2 text-xs text-amber-300 flex items-center justify-between gap-2">
+          <span>{refreshError}</span>
+          <button type="button" onClick={() => { setRefreshError(null); void refreshOrders(); }} className="underline shrink-0">Retry</button>
+        </div>
+      )}
 
       {filter === "dashboard"
         ? <OrdersDashboard initialOrders={orders} orgId={orgId} onEdit={setEditingOrder} />

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOwnerForSlug } from "@/lib/api-auth";
 
 /**
  * POST /api/subscription/sync
@@ -11,13 +12,21 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Use this when the webhook hasn't fired or data is stale.
  */
 export async function POST(request: Request) {
+  let body: unknown;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+  try {
     const { orgSlug } = body as { orgSlug: string };
 
     if (!orgSlug) {
       return NextResponse.json({ error: "orgSlug is required" }, { status: 400 });
     }
+
+    const auth = await requireOwnerForSlug(orgSlug);
+    if ("response" in auth) return auth.response;
 
     const supabase = createAdminClient();
 
@@ -44,7 +53,7 @@ export async function POST(request: Request) {
 
     if (!subs.data.length) {
       // No active subscription — mark as canceled
-      await supabase
+      const { error: updateError } = await supabase
         .from("organizations")
         .update({
           stripe_subscription_id: null,
@@ -52,6 +61,10 @@ export async function POST(request: Request) {
           subscription_current_period_end: null,
         })
         .eq("slug", orgSlug);
+      if (updateError) {
+        console.error("[SYNC] db update failed", updateError);
+        return NextResponse.json({ error: "Could not sync subscription. Please try again." }, { status: 500 });
+      }
       return NextResponse.json({ synced: true, status: "canceled" });
     }
 
@@ -61,7 +74,7 @@ export async function POST(request: Request) {
       ? new Date(sub.current_period_end * 1000).toISOString()
       : null;
 
-    await supabase
+    const { error: updateError } = await supabase
       .from("organizations")
       .update({
         stripe_subscription_id: sub.id,
@@ -71,10 +84,15 @@ export async function POST(request: Request) {
       })
       .eq("slug", orgSlug);
 
+    if (updateError) {
+      console.error("[SYNC] db update failed", updateError);
+      return NextResponse.json({ error: "Could not sync subscription. Please try again." }, { status: 500 });
+    }
+
     console.log(`[SYNC] Updated ${orgSlug}: sub=${sub.id}, plan=${plan}, status=${sub.status}`);
     return NextResponse.json({ synced: true, subscription_id: sub.id, plan, status: sub.status, periodEnd });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[SYNC] Error:", err);
-    return NextResponse.json({ error: err.message || "Sync failed" }, { status: 500 });
+    return NextResponse.json({ error: "Could not sync subscription. Please try again." }, { status: 500 });
   }
 }

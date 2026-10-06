@@ -63,7 +63,7 @@ function statusBtnStyle(status: TableStatus, current: TableStatus, theme: "dark"
 
 export function TableGrid({ orgId }: { orgId: string }) {
   const { theme } = useConsoleTheme();
-  const { tables, connected, setTablesState, connectError } = useTableRealtime(orgId);
+  const { tables, setTablesState } = useTableRealtime(orgId);
   const [updating, setUpdating] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newLabel, setNewLabel] = useState("");
@@ -78,6 +78,8 @@ export function TableGrid({ orgId }: { orgId: string }) {
   // starting 2 hours before their booking time (computed, not stored).
   // Also pulls booking_tables junction to get ALL tables involved in each booking.
   const [upcomingTableIds, setUpcomingTableIds] = useState<Set<string>>(new Set());
+  const [upcomingError, setUpcomingError] = useState<string | null>(null);
+  const [tableActionError, setTableActionError] = useState<string | null>(null);
   const refreshRef = useRef<(() => void) | null>(null);
 
   const fetchUpcoming = useCallback(() => {
@@ -94,25 +96,33 @@ export function TableGrid({ orgId }: { orgId: string }) {
       .lte("datetime", twoHoursFromNow)
       .then(async ({ data, error }) => {
         if (error) {
-          console.error("Failed to fetch upcoming bookings:", error);
+          setUpcomingError(`Could not load upcoming bookings: ${error.message}. Reserved badges may be stale.`);
           return;
         }
+        setUpcomingError(null);
         const ids = new Set<string>();
+        const bookingIds: string[] = [];
         for (const b of data ?? []) {
           const bookingTime = new Date(b.datetime).getTime();
           // Only include bookings that are in the future (or happening now)
           // and within the next 2 hours.
-          if (bookingTime >= now && bookingTime <= now + 2 * 60 * 60 * 1000) {
-            ids.add(b.table_id);
+          if (!isNaN(bookingTime) && bookingTime >= now && bookingTime <= now + 2 * 60 * 60 * 1000) {
+            if (b.table_id) ids.add(b.table_id);
+            if (b.id) bookingIds.push(b.id);
           }
         }
-        // Also collect junction tables
-        if (ids.size > 0) {
-          const { data: jt } = await supabase
+        // Also collect junction tables (filter by booking ids, not table ids)
+        if (bookingIds.length > 0) {
+          const { data: jt, error: jtError } = await supabase
             .from("booking_tables")
             .select("table_id")
-            .in("booking_id", [...ids]);
-          for (const row of jt ?? []) ids.add(row.table_id);
+            .in("booking_id", bookingIds);
+          if (jtError) {
+            setUpcomingError(`Could not load combo tables: ${jtError.message}. Reserved badges may be stale.`);
+          }
+          for (const row of jt ?? []) {
+            if (row.table_id) ids.add(row.table_id);
+          }
         }
         setUpcomingTableIds(ids);
       });
@@ -176,6 +186,7 @@ export function TableGrid({ orgId }: { orgId: string }) {
 
     // Optimistic update: flip the badge instantly so the UI never feels stuck.
     setUpdating(tableId);
+    setTableActionError(null);
     setTablesState((prev) =>
       prev.map((t) => (t.id === tableId ? { ...t, status } : t)),
     );
@@ -186,11 +197,11 @@ export function TableGrid({ orgId }: { orgId: string }) {
       .eq("id", tableId);
 
     if (error) {
-      console.error("setTableStatus failed:", error);
       // Revert to previous status on failure so the badge reflects reality.
       setTablesState((prev) =>
         prev.map((t) => (t.id === tableId ? { ...t, status: prevStatus } : t)),
       );
+      setTableActionError(`Could not set table status: ${error.message}. Reverted. Try again.`);
     }
     setUpdating(null);
   }
@@ -202,6 +213,7 @@ export function TableGrid({ orgId }: { orgId: string }) {
 
     // Optimistic: remove from UI immediately, revert on failure.
     setUpdating(tableId);
+    setTableActionError(null);
     const prevTables = tables;
     setTablesState((prev) => prev.filter((t) => t.id !== tableId));
 
@@ -211,8 +223,8 @@ export function TableGrid({ orgId }: { orgId: string }) {
       .eq("id", tableId);
 
     if (error) {
-      console.error("handleDeleteTable failed:", error);
       setTablesState(() => prevTables);
+      setTableActionError(`Could not delete ${label}: ${error.message}. Try again.`);
     }
     setUpdating(null);
   }
@@ -238,25 +250,6 @@ export function TableGrid({ orgId }: { orgId: string }) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span
-            className="text-xs text-[var(--ink-faint)]"
-            title={
-              connectError
-                ? connectError +
-                  "\n\nFix: go to Supabase Dashboard → Database → Replication and verify 'tables' is toggled ON."
-                : connected
-                ? "Live sync via Supabase Realtime"
-                : "Connected to Supabase; live sync unavailable — enable Realtime for the tables table in Supabase → Database → Replication"
-            }
-          >
-            {tables.length === 0 && !connected
-              ? "○ Loading…"
-              : connected
-              ? "● Live"
-              : connectError
-              ? "● Polling (5s)"
-              : "● Loaded (live sync off)"}
-          </span>
           <button
             type="button"
             onClick={() => setShowAddForm((v) => !v)}
@@ -266,6 +259,19 @@ export function TableGrid({ orgId }: { orgId: string }) {
           </button>
         </div>
       </div>
+
+      {tableActionError && (
+        <div className="mb-4 rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300 flex items-center justify-between gap-2">
+          <span>{tableActionError}</span>
+          <button type="button" onClick={() => setTableActionError(null)} className="underline shrink-0">Dismiss</button>
+        </div>
+      )}
+      {upcomingError && (
+        <div className="mb-4 rounded-sm border border-amber-700 bg-amber-950/30 p-2 text-xs text-amber-300 flex items-center justify-between gap-2">
+          <span>{upcomingError}</span>
+          <button type="button" onClick={() => { setUpcomingError(null); fetchUpcoming(); }} className="underline shrink-0">Retry</button>
+        </div>
+      )}
 
       {showAddForm && (
         <form onSubmit={handleAddTable} className="ticket p-5 mb-6 space-y-4">

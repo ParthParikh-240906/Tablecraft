@@ -1,16 +1,32 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { requireStaffForOrgId } from "@/lib/api-auth";
+
+const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+function safeExt(name: string): string {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "png";
+  return ["png", "jpg", "jpeg", "webp", "gif"].includes(ext) ? ext : "png";
+}
 
 export async function DELETE(req: Request) {
-  const admin = createAdminClient();
-  const body = await req.json();
-  const { org_id } = body;
-
-  if (!org_id) {
-    return NextResponse.json({ error: "Missing org_id" }, { status: 400 });
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
+  try {
+    const { org_id } = (body ?? {}) as { org_id?: unknown };
+    if (typeof org_id !== "string" || !org_id) {
+      return NextResponse.json({ error: "Missing org_id" }, { status: 400 });
+    }
+    const auth = await requireStaffForOrgId(org_id);
+    if ("response" in auth) return auth.response;
 
+    const admin = createAdminClient();
   // Delete existing logo file
   const { data: org } = await admin
     .from("organizations")
@@ -35,24 +51,42 @@ export async function DELETE(req: Request) {
 
   if (error) {
     console.error("clear logo:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Could not remove logo. Please try again." }, { status: 500 });
   }
 
-  revalidatePath("/");
-  revalidatePath("/" + org_id);
-  return NextResponse.json({ ok: true });
+    revalidatePath("/");
+    revalidatePath("/" + org_id);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("design/logo DELETE unhandled:", err);
+    return NextResponse.json({ error: "Could not remove logo. Please try again." }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
-  const admin = createAdminClient();
-  const formData = await req.formData();
-  const file = formData.get("file") as File;
-  const org_id = formData.get("org_id") as string;
-
-  if (!file || !org_id) {
-    return NextResponse.json({ error: "Missing file or org_id" }, { status: 400 });
+  let formData: FormData;
+  try {
+    formData = await req.formData();
+  } catch {
+    return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
   }
+  try {
+    const file = formData.get("file") as File | null;
+    const org_id = formData.get("org_id") as string | null;
 
+    if (!file || !org_id) {
+      return NextResponse.json({ error: "Missing file or org_id" }, { status: 400 });
+    }
+    const auth = await requireStaffForOrgId(org_id);
+    if ("response" in auth) return auth.response;
+    if (file.size > MAX_IMAGE_BYTES) {
+      return NextResponse.json({ error: "Logo must be under 5MB" }, { status: 400 });
+    }
+    if (file.type && !ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      return NextResponse.json({ error: "Logo must be PNG, JPEG, WebP, or GIF" }, { status: 400 });
+    }
+
+    const admin = createAdminClient();
   // Delete old logo if present
   const { data: org } = await admin
     .from("organizations")
@@ -71,7 +105,7 @@ export async function POST(req: Request) {
   }
 
   // Upload new logo
-  const ext = file.name.split(".").pop() ?? "png";
+  const ext = safeExt(file.name ?? "logo.png");
   const fileName = `${org_id}/logo.${ext}`;
   const { data, error: uploadError } = await admin.storage
     .from("org-logos")
@@ -79,7 +113,7 @@ export async function POST(req: Request) {
 
   if (uploadError) {
     console.error("logo upload:", uploadError);
-    return NextResponse.json({ error: uploadError.message }, { status: 500 });
+    return NextResponse.json({ error: "Could not upload logo. Please try again." }, { status: 500 });
   }
 
   // Get public URL
@@ -99,10 +133,14 @@ export async function POST(req: Request) {
 
   if (updateError) {
     console.error("update logo_url:", updateError);
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
+    return NextResponse.json({ error: "Could not save logo. Please try again." }, { status: 500 });
   }
 
-  revalidatePath("/");
-  revalidatePath("/" + org_id);
-  return NextResponse.json({ ok: true, url: newUrl });
+    revalidatePath("/");
+    revalidatePath("/" + org_id);
+    return NextResponse.json({ ok: true, url: newUrl });
+  } catch (err) {
+    console.error("design/logo POST unhandled:", err);
+    return NextResponse.json({ error: "Could not upload logo. Please try again." }, { status: 500 });
+  }
 }

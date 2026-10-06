@@ -42,18 +42,20 @@ export function MenuManager({ orgId }: { orgId: string }) {
   const [deleteCatTarget, setDeleteCatTarget] = useState<string | null>(null);
   const [showDeleteCatConfirm, setShowDeleteCatConfirm] = useState(false);
   const [deleteItemTarget, setDeleteItemTarget] = useState<MenuItem | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!orgId) return;
     supabase
       .from("menu_items")
-      .select("id, name, description, price, category, available, sort_order, category_sort_order")
+      .select("id, name, description, price, category, image_url, available, sort_order, category_sort_order")
       .eq("org_id", orgId)
       .order("category_sort_order", { ascending: true })
       .order("sort_order", { ascending: true })
       .then(({ data, error }) => {
-        if (error) console.error("menu fetch failed:", error);
+        if (error) setLoadError(`Could not load menu: ${error.message}. Try again.`); else setLoadError(null);
         setItems((data ?? []) as MenuItem[]);
         setLoading(false);
       });
@@ -90,6 +92,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
       description: form.description.trim() || null,
       price: Number(form.price),
       category: form.category.trim() || null,
+      image_url: form.image_url.trim() || null,
     };
 
     if (!payload.name || Number.isNaN(payload.price) || payload.price < 0) {
@@ -133,24 +136,26 @@ export function MenuManager({ orgId }: { orgId: string }) {
       .select();
 
     if (updateError) {
-      console.error("toggle failed:", updateError);
+      setActionError(`Could not update availability: ${updateError.message}. Try again.`);
       return;
     }
     const updated = Array.isArray(data) ? data[0] : (data as MenuItem);
     setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(id: string): Promise<boolean> {
+    setActionError(null);
     const { error: deleteError } = await supabase
       .from("menu_items")
       .delete()
       .eq("id", id);
 
     if (deleteError) {
-      console.error("delete failed:", deleteError);
-      return;
+      setActionError(`Could not delete item: ${deleteError.message}. Try again.`);
+      return false;
     }
     setItems((prev) => prev.filter((i) => i.id !== id));
+    return true;
   };
 
   async function deleteCategory() {
@@ -166,7 +171,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
     }
     const { error } = await query;
     if (error) {
-      console.error("delete category failed:", error);
+      setActionError(`Could not delete category: ${error.message}. Try again.`);
       return;
     }
     setItems((prev) => prev.filter((i) => (i.category || "Uncategorized") !== deleteCatTarget));
@@ -219,7 +224,8 @@ export function MenuManager({ orgId }: { orgId: string }) {
     });
 
     if (!res.ok) {
-      console.error("Failed to reorder categories:", res.status, await res.text());
+      const msg = await res.text().catch(() => "");
+      setActionError(`Could not reorder categories (${res.status}). ${msg} Try again.`);
       return;
     }
 
@@ -228,7 +234,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
     // Refresh items
     const { data, error } = await supabase
       .from("menu_items")
-      .select("id, name, description, price, category, available, sort_order, category_sort_order")
+      .select("id, name, description, price, category, image_url, available, sort_order, category_sort_order")
       .eq("org_id", orgId)
       .order("category_sort_order", { ascending: true })
       .order("sort_order", { ascending: true });
@@ -247,13 +253,13 @@ export function MenuManager({ orgId }: { orgId: string }) {
       body: JSON.stringify({ direction }),
     });
     if (!res.ok) {
-      console.error("Failed to move item");
+      setActionError(`Could not move item (${res.status}). Try again.`);
       return;
     }
     // Refresh items
     const { data } = await supabase
       .from("menu_items")
-      .select("id, name, description, price, category, available, sort_order, category_sort_order")
+      .select("id, name, description, price, category, image_url, available, sort_order, category_sort_order")
       .eq("org_id", orgId)
       .order("category_sort_order", { ascending: true })
       .order("sort_order", { ascending: true });
@@ -264,6 +270,11 @@ export function MenuManager({ orgId }: { orgId: string }) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 5 * 1024 * 1024) {
+      setScanError("File exceeds 5MB — compress the image and try again.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     setScanning(true);
     setScanError(null);
     setScanStatus("Uploading and extracting text...");
@@ -286,7 +297,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
         throw new Error(result.error || "Scan failed");
       }
 
-      setScanStatus(`✓ Added ${result.itemCount} items`);
+      if (!result.itemCount || result.itemCount === 0) { setScanError("No items found in scan — try a clearer image."); } else { setScanStatus(`✓ Added ${result.itemCount} items`); }
       // Refresh menu list
       const { data } = await supabase
         .from("menu_items")
@@ -339,6 +350,19 @@ export function MenuManager({ orgId }: { orgId: string }) {
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="mb-4 rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300 flex items-center justify-between gap-2">
+          <span>{loadError}</span>
+          <button type="button" onClick={() => window.location.reload()} className="underline shrink-0">Retry</button>
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-4 rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300 flex items-center justify-between gap-2">
+          <span>{actionError}</span>
+          <button type="button" onClick={() => setActionError(null)} className="underline shrink-0">Dismiss</button>
+        </div>
+      )}
 
       {/* Scan status/errors */}
       {(scanStatus || scanError) && (
@@ -524,7 +548,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-mono text-sm">AED {item.price.toFixed(2)}</span>
+                        <span className="font-mono text-sm">AED {(() => { const n = Number(item.price); return Number.isFinite(n) ? n.toFixed(2) : "0.00"; })()}</span>
                         <button
                           type="button"
                           onClick={() => toggleAvailable(item)}
@@ -610,9 +634,9 @@ export function MenuManager({ orgId }: { orgId: string }) {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  handleDelete(deleteItemTarget.id);
-                  setDeleteItemTarget(null);
+                onClick={async () => {
+                  const ok = await handleDelete(deleteItemTarget.id);
+                  if (ok) setDeleteItemTarget(null);
                 }}
                 className="btn btn-error"
               >

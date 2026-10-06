@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { OrderRecord } from "@/app/(console)/console/orders/orders-list";
+import type { OrderRecord } from "@/types/orders";
 
 /**
  * Subscribe to realtime + polling fallback for orders in a given org.
@@ -76,21 +76,28 @@ export function useOrdersRealtime(orgId: string | null, initialOrders: OrderReco
         if (!active) return;
         if (status === "SUBSCRIBED") {
           setConnected(true);
+          // Realtime is live — stop polling to avoid a redundant request loop.
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
           startPolling.current = true; // stop polling once realtime is live
         }
       });
 
-    // ── Polling fallback (5 s) when realtime never connects ─────────────────
+    // ── Polling fallback (15 s) when realtime never connects ────────────────
+    // Skipped while the tab is hidden so background tabs don't burn quota.
     const ensurePolling = () => {
       if (pollRef.current) return;
       pollRef.current = setInterval(async () => {
+        if (document.hidden) return;
         const { data } = await supabase
           .from("orders")
           .select("id, customer_name, total, status, created_at, stripe_session_id, items, parent_order_id")
           .eq("org_id", orgId)
           .order("created_at", { ascending: false });
         if (data) setOrders(data as OrderRecord[]);
-      }, 5000);
+      }, 15000);
     };
 
     const fallbackTimer = setTimeout(ensurePolling, 3000);

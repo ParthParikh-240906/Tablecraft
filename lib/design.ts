@@ -210,17 +210,20 @@ export interface DesignSettingsV2 {
   booking_config?: BookingConfigDesign;
   menu_page_shapes?: { id: string; style: ShapeStyle }[];
   reserve_page_shapes?: { id: string; style: ShapeStyle }[];
-  custom_fonts?: { name: string; value: string; url: string }[];
+  custom_fonts?: { name: string; value: string; url: string; weight?: number; css?: string }[];
 }
 
 // ─── Fonts (local) ────────────────────────────────────────────────────────────
 
 export const LOCAL_FONTS = [
   { name: "Inter", value: "'Inter', sans-serif" },
+  { name: "DM Sans", value: "'DM Sans', sans-serif" },
+  { name: "Manrope", value: "'Manrope', sans-serif" },
+  { name: "Space Grotesk", value: "'Space Grotesk', sans-serif" },
+  { name: "JetBrains Mono", value: "'JetBrains Mono', monospace" },
   { name: "Playfair Display", value: "'Playfair Display', serif" },
-  { name: "Calistoga", value: "'Calistoga', cursive" },
   { name: "Instrument Serif", value: "'Instrument Serif', serif" },
-  { name: "Tangerine", value: "'Tangerine', cursive" },
+  { name: "Calistoga", value: "'Calistoga', cursive" },
 ];
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
@@ -251,7 +254,7 @@ export const DEFAULT_NAME_DESIGN: TextDesign = {
 };
 
 export function uid(): string {
-  return Math.random().toString(36).slice(2, 10);
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 10);
 }
 
 export function newHeaderElement(kind: HeaderElementKind): HeaderElement {
@@ -626,8 +629,16 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
   // Removed fonts: remap saved families to the closest still-loaded one.
   const FONT_REMAP: Record<string, string> = {
     "'Raleway', sans-serif": "'Inter', sans-serif",
-    "'Ubuntu', sans-serif": "'Roboto', sans-serif",
-    "'Roboto Slab', serif": "'Merriweather', serif",
+    "'Ubuntu', sans-serif": "'Inter', sans-serif",
+    "'Roboto Slab', serif": "'Playfair Display', serif",
+    "'Tangerine', cursive": "'Instrument Serif', serif",
+    "Tangerine": "'Instrument Serif', serif",
+    "'Playpen Sans', sans-serif": "'Manrope', sans-serif",
+    "Playpen Sans": "'Manrope', sans-serif",
+    "'Sansita Swashed', cursive": "'Calistoga', cursive",
+    "Sansita Swashed": "'Calistoga', cursive",
+    "'Rubik Doodle Shadow', sans-serif": "'Calistoga', cursive",
+    "Rubik Doodle Shadow": "'Calistoga', cursive",
   };
   (function remapFonts(node: unknown) {
     if (Array.isArray(node)) return node.forEach(remapFonts);

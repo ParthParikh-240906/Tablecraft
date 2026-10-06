@@ -49,11 +49,13 @@ export async function POST(request: Request) {
   const logoFile = formData.get('logoFile') as File;
   const restaurantImageFiles = formData.getAll('restaurantImageFiles') as File[];
 
-  console.log("[SIGNUP] Incoming request:", { orgName, slug, email, hasTagline: !!tagline, hasLogo: !!logoFile, hasRestaurantImages: restaurantImageFiles.length > 0 });
+  if (process.env.NODE_ENV === "development") {
+    console.log("[SIGNUP] Incoming request:", { orgName_len: orgName?.length ?? 0, slug, hasTagline: !!tagline, hasLogo: !!logoFile, hasRestaurantImages: restaurantImageFiles.length > 0 });
+  }
 
   // --- Validate inputs ---
-  if (!orgName || typeof orgName !== "string" || orgName.trim().length < 2) {
-    return NextResponse.json({ error: "orgName must be at least 2 characters" }, { status: 400 });
+  if (!orgName || typeof orgName !== "string" || orgName.trim().length < 2 || orgName.trim().length > 100) {
+    return NextResponse.json({ error: "orgName must be 2-100 characters" }, { status: 400 });
   }
   if (!slug || typeof slug !== "string" || !/^[a-z0-9-]{2,40}$/.test(slug)) {
     return NextResponse.json(
@@ -64,8 +66,8 @@ export async function POST(request: Request) {
   if (!email || typeof email !== "string" || !email.includes("@")) {
     return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
   }
-  if (!aboutText || typeof aboutText !== "string" || aboutText.trim().length < 10) {
-    return NextResponse.json({ error: "Please provide a short description of your restaurant (at least 10 characters)" }, { status: 400 });
+  if (!aboutText || typeof aboutText !== "string" || aboutText.trim().length < 10 || aboutText.length > 2000) {
+    return NextResponse.json({ error: "Please provide a short description of your restaurant (10-2000 characters)" }, { status: 400 });
   }
   if (!staffEmail || typeof staffEmail !== "string" || !staffEmail.includes("@")) {
     return NextResponse.json({ error: "A valid staff email is required" }, { status: 400 });
@@ -76,12 +78,18 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
+  try {
   // --- Check slug is not taken ---
-  const { data: existingOrg } = await admin
+  const { data: existingOrg, error: existingOrgError } = await admin
     .from("organizations")
     .select("id")
     .eq("slug", slug)
     .maybeSingle();
+
+  if (existingOrgError) {
+    console.error("signup: slug check failed", existingOrgError);
+    return NextResponse.json({ error: "Could not create account. Please try again." }, { status: 500 });
+  }
 
   if (existingOrg) {
     return NextResponse.json({ error: "That URL slug is already taken" }, { status: 409 });
@@ -99,7 +107,9 @@ export async function POST(request: Request) {
     // Authenticated user — use their auth_user_id directly
     authUserId = sessionUser.id;
     isSessionUser = true;
-    console.log("[SIGNUP] Authenticated session user:", sessionUser.email);
+    if (process.env.NODE_ENV === "development") {
+      console.log("[SIGNUP] Authenticated session user login");
+    }
   } else {
     // Not authenticated (or email mismatch) — create a new auth user
     if (!password || typeof password !== "string" || password.length < 8) {
@@ -121,15 +131,25 @@ export async function POST(request: Request) {
     }
 
     authUserId = authUser.user.id;
-    console.log("[SIGNUP] Created new auth user:", authUser.user.email);
+    if (process.env.NODE_ENV === "development") {
+      console.log("[SIGNUP] Created new auth user");
+    }
   }
 
   // --- Restaurant limit check (3 for free accounts, 20 for pro/max) ---
   {
-    const { data: existingStaff } = await admin
+    const { data: existingStaff, error: existingStaffError } = await admin
       .from("staff_users")
       .select("organizations(subscription_plan)")
       .eq("auth_user_id", authUserId);
+
+    if (existingStaffError) {
+      console.error("signup: staff limit check failed", existingStaffError);
+      if (!isSessionUser) {
+        await admin.auth.admin.deleteUser(authUserId).catch(() => {});
+      }
+      return NextResponse.json({ error: "Could not create account. Please try again." }, { status: 500 });
+    }
 
     const orgCount = existingStaff?.length ?? 0;
     const hasPaid = existingStaff?.some((r: any) => {
@@ -232,18 +252,18 @@ export async function POST(request: Request) {
 
   // --- Create the organization row ---
   const orgData: Record<string, any> = {
-    name: orgName.trim(),
+    name: orgName.trim().slice(0, 100),
     slug,
     theme_color: themeColors.main,
     theme_text_color: themeColors.text,
     theme_secondary_color: themeColors.highlight,
-    tagline: tagline && tagline.trim().length > 0 ? tagline.trim() : null,
+    tagline: tagline && tagline.trim().length > 0 ? tagline.trim().slice(0, 200) : null,
   };
-  if (branches && branches.length > 0) orgData.branches = branches;
-  if (contactPhone) orgData.contact_phone = contactPhone;
-  if (contactEmail) orgData.contact_email = contactEmail;
-  if (contactAddress) orgData.contact_address = contactAddress;
-  if (aboutText) orgData.about_text = aboutText;
+  if (branches && branches.length > 0) orgData.branches = branches.slice(0, 20).map((b) => String(b).slice(0, 100));
+  if (contactPhone && typeof contactPhone === "string") orgData.contact_phone = contactPhone.slice(0, 30);
+  if (contactEmail && typeof contactEmail === "string") orgData.contact_email = contactEmail.slice(0, 255);
+  if (contactAddress && typeof contactAddress === "string") orgData.contact_address = contactAddress.slice(0, 500);
+  if (aboutText) orgData.about_text = aboutText.slice(0, 2000);
   if (logoUrl) orgData.logo_url = logoUrl;
   if (restaurantImageUrls.length > 0) orgData.restaurant_photos = restaurantImageUrls;
 
@@ -257,9 +277,12 @@ export async function POST(request: Request) {
     console.error("signup: org creation failed", orgError);
     // Roll back the auth user only if we just created it (not a session user)
     if (!isSessionUser) {
-      await admin.auth.admin.deleteUser(authUserId);
+      await admin.auth.admin.deleteUser(authUserId).catch(() => {});
     }
-    return NextResponse.json({ error: "Could not create organization" }, { status: 500 });
+    if (orgError.code === "23505") {
+      return NextResponse.json({ error: "That URL slug is already taken" }, { status: 409 });
+    }
+    return NextResponse.json({ error: "Could not create organization. Please try again." }, { status: 500 });
   }
 
   // --- Hash optional console password ---
@@ -355,4 +378,8 @@ export async function POST(request: Request) {
     { org: { id: org.id, name: org.name, slug: org.slug } },
     { status: 201 },
   );
+  } catch (err) {
+    console.error("signup: unhandled error", err);
+    return NextResponse.json({ error: "Could not create account. Please try again." }, { status: 500 });
+  }
 }

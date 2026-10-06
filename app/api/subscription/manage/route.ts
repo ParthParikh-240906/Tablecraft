@@ -1,15 +1,24 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOwnerForSlug } from "@/lib/api-auth";
 
 export async function POST(request: Request) {
+  let body: unknown;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+  try {
     const { orgSlug } = body as { orgSlug: string };
 
     if (!orgSlug) {
       return NextResponse.json({ error: "orgSlug is required" }, { status: 400 });
     }
+
+    const auth = await requireOwnerForSlug(orgSlug);
+    if ("response" in auth) return auth.response;
 
     const supabase = createAdminClient();
 
@@ -34,8 +43,10 @@ export async function POST(request: Request) {
     const origin =
       process.env.NEXT_PUBLIC_APP_URL ||
       request.headers.get("origin") ||
-      `${request.headers.get("x-forwarded-proto")}://${request.headers.get("x-forwarded-host")}` ||
       "";
+    if (!origin) {
+      return NextResponse.json({ error: "Server is misconfigured. Please try again later." }, { status: 500 });
+    }
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: org.stripe_customer_id,
@@ -43,10 +54,10 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ url: portalSession.url });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Billing portal creation failed:", err);
     return NextResponse.json(
-      { error: err.message || "Failed to create billing portal session" },
+      { error: "Could not open billing portal. Please try again." },
       { status: 500 },
     );
   }

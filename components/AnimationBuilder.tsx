@@ -13,23 +13,22 @@ export function AnimationBuilder({
   const currentAnim = design.animation || { type: "none", duration: 0.5, delay: 0 };
   const currentShadow = design.shadow || { color: "#000000", direction: 90, length: 0, opacity: 0 };
 
+  type AnimationType = NonNullable<TextDesign["animation"]>["type"];
+
   const updateAnimationType = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value as any;
+    const val = e.target.value as AnimationType;
     const next = { ...design, animation: { ...currentAnim, type: val } };
-    console.log("Applied Animation:", next.animation);
     onChange(next);
   };
 
   const updateAnimationDuration = (e: React.ChangeEvent<HTMLInputElement>) => {
     const next = { ...design, animation: { ...currentAnim, duration: parseFloat(e.target.value) } };
-    console.log("Applied Animation:", next.animation);
     onChange(next);
   };
 
-  const updateShadow = (field: keyof typeof currentShadow, value: any) => {
+  const updateShadow = (field: keyof typeof currentShadow, value: string | number) => {
     const nextShadow = { ...currentShadow, [field]: value };
     const nextShape = { ...design, shadow: nextShadow };
-    console.log("Applied Shadow:", nextShadow);
     onChange(nextShape);
   };
 
@@ -61,7 +60,7 @@ export function AnimationBuilder({
               step="0.1"
               value={currentAnim.duration}
               onChange={updateAnimationDuration}
-              className="flex-1 accent-indigo-500"
+              className="flex-1 accent-[var(--accent)]"
             />
             <span className="text-xs w-8 text-right">{currentAnim.duration}s</span>
           </div>
@@ -111,10 +110,10 @@ export function AnimationBuilder({
               max="100"
               value={(currentShadow.opacity ?? 0) * 100}
               onChange={(e) => updateShadow("opacity", parseInt(e.target.value) / 100)}
-              className="w-full accent-indigo-500"
+              className="w-full accent-[var(--accent)]"
             />
             <span className="text-[10px] text-[var(--ink-soft)] block text-center mt-1">
-              Opacity {(currentShadow.opacity ?? 0).toFixed(1)}
+              Opacity {`${Math.round((currentShadow.opacity ?? 0) * 100)}%`}
             </span>
           </div>
         </div>

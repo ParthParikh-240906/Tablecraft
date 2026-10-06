@@ -8,6 +8,12 @@ interface OrderItemInput {
 }
 
 export async function POST(request: Request) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   try {
     const supabase = createAdminClient();
 
@@ -20,7 +26,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
     const { tableIds, items, orgId } = body as {
       tableIds: string[];
       items: OrderItemInput[];
@@ -83,8 +88,17 @@ export async function POST(request: Request) {
     for (const clientItem of items) {
       const dbItem = dbItemMap.get(clientItem.id);
       if (!dbItem) continue;
-      const qty = Math.max(1, Math.floor(clientItem.quantity));
+      if (typeof clientItem.id !== "string" || clientItem.id.length === 0) {
+        return NextResponse.json({ error: "Each item must have a valid id" }, { status: 400 });
+      }
+      const qty = Math.floor(Number(clientItem.quantity));
+      if (!Number.isInteger(qty) || qty < 1 || qty > 99) {
+        return NextResponse.json({ error: "Each item quantity must be an integer 1–99" }, { status: 400 });
+      }
       const price = Number(dbItem.price);
+      if (!Number.isFinite(price) || price < 0) {
+        return NextResponse.json({ error: "Invalid item price" }, { status: 500 });
+      }
       calculatedTotal += price * qty;
       validatedItems.push({ id: dbItem.id, name: dbItem.name, price, quantity: qty });
     }
@@ -122,7 +136,8 @@ export async function POST(request: Request) {
       .eq("org_id", targetOrgId);
 
     return NextResponse.json({ orderId: order.id });
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || "Internal server error" }, { status: 500 });
+  } catch (err) {
+    console.error("orders/create: unhandled", err);
+    return NextResponse.json({ error: "Could not create order. Please try again." }, { status: 500 });
   }
 }

@@ -14,13 +14,27 @@ interface Org {
 export default function RestaurantsPage() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchOrgs = async () => {
-      const res = await fetch("/api/demo-restaurants");
-      const data = await res.json();
-      setOrgs(data.orgs ?? []);
-      setLoading(false);
+      setError(null);
+      setLoading(true);
+      try {
+        const res = await fetch("/api/demo-restaurants");
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          setError(data?.error ?? "Could not load restaurants. Please try again.");
+          setOrgs([]);
+          return;
+        }
+        setOrgs(data?.orgs ?? []);
+      } catch {
+        setError("Network error — could not load restaurants. Check connection and retry.");
+        setOrgs([]);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchOrgs();
   }, []);
@@ -63,6 +77,17 @@ export default function RestaurantsPage() {
         {loading ? (
           <div className="ticket p-10 text-center text-ink-soft">
             Loading...
+          </div>
+        ) : error ? (
+          <div className="ticket p-10 text-center space-y-3">
+            <p className="text-ink-soft" role="alert">{error}</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="btn btn-accent text-xs"
+            >
+              Try again
+            </button>
           </div>
         ) : (!orgs || orgs.length === 0) ? (
           <div className="ticket p-10 text-center text-ink-soft">

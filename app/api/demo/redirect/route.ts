@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getClientIp, rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import bcrypt from "bcryptjs";
 
 const DEMO_EMAIL = "demo@tablecraft.app";
@@ -13,11 +14,14 @@ const DEMO_PASSWORD = "demo123";
  * "Open in new tab" works without a 405.
  */
 export async function GET(request: Request) {
+  const rl = rateLimit(`demo:${getClientIp(request)}`, 20, 60_000);
+  if (!rl.allowed) return rateLimitedResponse(rl.resetMs);
+
   try {
     const { searchParams } = new URL(request.url);
     const orgSlug = searchParams.get("org");
 
-    if (!orgSlug) {
+    if (!orgSlug || !/^[a-z0-9-]{2,40}$/.test(orgSlug)) {
       return NextResponse.redirect(new URL("/console/login", request.url));
     }
 
@@ -35,12 +39,17 @@ export async function GET(request: Request) {
     }
 
     // 2. Look up the demo staff row
-    const { data: staffData } = await admin
+    const { data: staffData, error: staffError } = await admin
       .from("staff_users")
       .select("auth_user_id, console_password_hash")
       .eq("org_id", org.id)
       .eq("email", DEMO_EMAIL)
       .maybeSingle();
+
+    if (staffError) {
+      console.error("demo/redirect: staff lookup failed", staffError);
+      return NextResponse.redirect(new URL("/console/login", request.url));
+    }
 
     if (!staffData || !staffData.console_password_hash) {
       return NextResponse.redirect(new URL("/console/login", request.url));
@@ -50,7 +59,11 @@ export async function GET(request: Request) {
 
     // 3. If no auth_user_id yet, create the shared demo auth user and link it
     if (!authUserId) {
-      const { data: existingUsers } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const { data: existingUsers, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      if (listError) {
+        console.error("demo/redirect: list users failed", listError);
+        return NextResponse.redirect(new URL("/console/login", request.url));
+      }
       const existingUser = (existingUsers?.users ?? []).find((u) => u.email === DEMO_EMAIL);
 
       if (existingUser) {

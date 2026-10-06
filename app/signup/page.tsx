@@ -17,21 +17,30 @@ export default function SignupPage() {
     setError(null);
     setSubmitting(true);
 
-    const res = await fetch("/api/signup-account", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim(), password }),
-    });
+    try {
+      const res = await fetch("/api/signup-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error ?? "Could not create account");
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error ?? "Could not create account");
+        return;
+      }
+
+      // Account created — redirect to sign-in
+      try {
+        router.push("/signin?info=account-created");
+      } catch {
+        setError("Account created, but navigation failed — please go to Sign in manually.");
+      }
+    } catch {
+      setError("Network error — could not create account. Check connection and retry.");
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    // Account created — redirect to sign-in
-    router.push("/signin?info=account-created");
   }
 
   return (

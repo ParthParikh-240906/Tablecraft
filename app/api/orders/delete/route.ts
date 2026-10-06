@@ -1,15 +1,21 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { isTableOrderName, normalizeTableLabel, parseTableLabelsFromCustomerName } from "@/lib/table-labels";
 
 export async function DELETE(request: Request) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   try {
     const supabase = createAdminClient();
     const authClient = await createClient();
     const { data: { user } } = await authClient.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = await request.json();
     const { orderId } = body as { orderId: string };
     if (!orderId) return NextResponse.json({ error: "Missing orderId" }, { status: 400 });
 
@@ -34,13 +40,11 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Forbidden: Not a staff member of this restaurant" }, { status: 403 });
     }
 
-    const rawName = (order?.customer_name ?? "").replace(/\s+Edit$/, "");
-    if (rawName && rawName.startsWith("Table ")) {
-      const labelsStr = rawName.slice("Table ".length);
-      const tableLabels: string[] = labelsStr
-        .split(",")
-        .map((s: string) => s.trim())
-        .filter((s: string) => s.length > 0);
+    // Labels are normalized (trimmed, case-insensitive, "Table " prefix
+    // stripped) so renames/case drift don't leave tables stuck occupied.
+    const rawName = order?.customer_name ?? "";
+    if (rawName && isTableOrderName(rawName)) {
+      const tableLabels = parseTableLabelsFromCustomerName(rawName);
 
       if (tableLabels.length > 0) {
         // Only free tables if no other active order still references them
@@ -55,19 +59,19 @@ export async function DELETE(request: Request) {
 
         const labelSet = new Set(tableLabels);
         const stillOccupied = (otherActive ?? []).some((o: { customer_name: string }) => {
-          const name = o.customer_name.replace(/\s+Edit$/, "");
-          if (!name.startsWith("Table ")) return false;
-          const otherLabels = name.slice("Table ".length).split(",").map((s: string) => s.trim());
+          const otherLabels = parseTableLabelsFromCustomerName(o.customer_name);
           return otherLabels.some((l: string) => labelSet.has(l));
         });
 
         if (!stillOccupied) {
-          const labelVariants = tableLabels.flatMap((l: string) => [`Table ${l}`, l]);
-          const { data: tables } = await supabase
+          const { data: allTables } = await supabase
             .from("tables")
             .select("id, label")
-            .eq("org_id", order.org_id)
-            .in("label", labelVariants);
+            .eq("org_id", order.org_id);
+
+          const tables = (allTables ?? []).filter((t) =>
+            labelSet.has(normalizeTableLabel(t.label)),
+          );
 
           if (tables && tables.length > 0) {
             const tableIds = tables.map((t) => t.id);
@@ -123,9 +127,13 @@ export async function DELETE(request: Request) {
     }
 
     const { error } = await supabase.from("orders").delete().eq("id", orderId);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("[orders/delete] failed", error);
+      return NextResponse.json({ error: "Could not delete order. Please try again." }, { status: 500 });
+    }
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || "Internal server error" }, { status: 500 });
+  } catch (err) {
+    console.error("[orders/delete] unhandled", err);
+    return NextResponse.json({ error: "Could not delete order. Please try again." }, { status: 500 });
   }
 }

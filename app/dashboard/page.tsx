@@ -17,7 +17,13 @@ export default async function DashboardPage() {
 
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
+
+  if (userError) {
+    console.error("dashboard: getUser failed", userError);
+    throw new Error("Could not load your account — please check your connection and try again.");
+  }
 
   if (!user) {
     redirect("/signin?next=/dashboard");
@@ -37,10 +43,15 @@ export default async function DashboardPage() {
   const admin = createAdminClient();
 
   // Fetch all staff rows for this auth user (may have multiple orgs)
-  const { data: staffRows } = await admin
+  const { data: staffRows, error: staffError } = await admin
     .from("staff_users")
     .select("org_id, role, organizations(id, name, slug, logo_url, theme_color, tagline, subscription_plan, subscription_status)")
     .eq("auth_user_id", user.id);
+
+  if (staffError) {
+    console.error("dashboard: staff lookup failed", staffError);
+    throw new Error("Could not load your restaurants — please try again.");
+  }
 
   // Staff-only users (have a staff row but no owner row) must use the console.
   // Brand-new accounts with no staff rows at all stay on the dashboard.
@@ -65,6 +76,9 @@ export default async function DashboardPage() {
     .filter(Boolean);
 
   const hasRestaurants = orgs.length > 0;
+  const firstOrgId = orgs[0]?.id ?? null;
+  const withOrg = (href: string) =>
+    href.startsWith("/console/") && firstOrgId ? `${href}?org=${firstOrgId}` : href;
 
   const planBadge = (plan: string | null) => {
     switch (plan) {
@@ -195,10 +209,10 @@ export default async function DashboardPage() {
           <div className="ticket p-5 space-y-3">
             {[
               { label: "Create a restaurant", href: "/restaurants/create" },
-              { label: "Design Website", href: "/console/design" },
-              { label: "Add menu items", href: "/console/menu" },
-              { label: "Set up tables", href: "/console/tables" },
-              { label: "Make payment - Go live", href: "/console/pricing" },
+              { label: "Design Website", href: withOrg("/console/design") },
+              { label: "Add menu items", href: withOrg("/console/menu") },
+              { label: "Set up tables", href: withOrg("/console/tables") },
+              { label: "Make payment - Go live", href: withOrg("/console/pricing") },
             ].map((item) => (
               <Link
                 key={item.label}

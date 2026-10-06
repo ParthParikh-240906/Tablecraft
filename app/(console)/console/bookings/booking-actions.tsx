@@ -40,6 +40,8 @@ export function BookingActionsList({
   const [upcoming, setUpcoming] = useState<Booking[]>(initialBookings);
   const [past, setPast] = useState<Booking[]>(pastBookings);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const supabase = createClient();
 
   // Refresh bookings from server (for realtime updates)
@@ -49,21 +51,34 @@ export function BookingActionsList({
     const tomorrowStart = new Date(todayStart);
     tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
-    const { data: bookings } = await supabase
+    const { data: bookings, error } = await supabase
       .from("bookings")
       .select("id, customer_name, party_size, datetime, status, table_id")
       .eq("org_id", orgId)
       .order("datetime", { ascending: true });
 
-    const allBookings = (bookings ?? []) as any[];
-    const upcomingFromDb = allBookings.filter((b) => new Date(b.datetime) >= now);
-    const pastFromDb = allBookings.filter((b) => new Date(b.datetime) < now);
+    if (error) {
+      setRefreshError(`Could not refresh bookings: ${error.message}. Showing last known data.`);
+      return;
+    }
+    setRefreshError(null);
 
-    setUpcoming(upcomingFromDb as Booking[]);
+    const allBookings = (bookings ?? []) as any[];
+    const upcomingFromDb: any[] = [];
+    const pastFromDb: any[] = [];
+    const invalidDate: any[] = [];
+    for (const b of allBookings) {
+      const t = new Date(b.datetime).getTime();
+      if (isNaN(t)) { invalidDate.push(b); continue; }
+      if (new Date(b.datetime) >= now) upcomingFromDb.push(b);
+      else pastFromDb.push(b);
+    }
+    // Invalid-date bookings are surfaced in upcoming so they are never silently lost
+    setUpcoming([...invalidDate, ...upcomingFromDb] as Booking[]);
     setPast(pastFromDb as Booking[]);
   }, [orgId, supabase]);
 
-  // Realtime subscription for bookings changes
+  // Realtime subscription for bookings changes (handled internally, no status UI)
   useEffect(() => {
     const channel = supabase
       .channel(`bookings-list-${orgId}`)
@@ -154,6 +169,10 @@ export function BookingActionsList({
     const size = parseInt(partySize, 10);
     if (!customerName.trim() || !datetime || isNaN(size) || size <= 0) {
       setError("Please fill out all fields with valid values.");
+      return;
+    }
+    if (size > 50) {
+      setError("Party size cannot exceed 50. Split into multiple bookings if needed.");
       return;
     }
 
@@ -273,19 +292,25 @@ export function BookingActionsList({
   }
 
   async function getAllTableIds(bookingId: string): Promise<string[]> {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("booking_tables")
       .select("table_id")
       .eq("booking_id", bookingId);
+    if (error) {
+      setActionError(`Could not load linked tables: ${error.message}. Tables may not be released correctly.`);
+    }
     const junctionIds = data?.map((r) => r.table_id) ?? [];
     // Fallback for bookings created before junction table existed (no junction rows):
     // use the stored table_id on the booking itself.
     if (junctionIds.length === 0) {
-      const { data: booking } = await supabase
+      const { data: booking, error: bookingError } = await supabase
         .from("bookings")
         .select("table_id")
         .eq("id", bookingId)
         .single();
+      if (bookingError) {
+        setActionError(`Could not load booking table: ${bookingError.message}.`);
+      }
       if (booking?.table_id) return [booking.table_id];
     }
     return junctionIds;
@@ -293,13 +318,14 @@ export function BookingActionsList({
 
   async function updateStatus(booking: Booking, newStatus: string) {
     setUpdatingId(booking.id);
+    setActionError(null);
     const { error } = await supabase
       .from("bookings")
       .update({ status: newStatus })
       .eq("id", booking.id);
 
     if (error) {
-      console.error("Failed to update booking status:", error);
+      setActionError(`Failed to update booking (${booking.customer_name}): ${error.message}. Try again.`);
     } else {
       if (newStatus === "confirmed") {
         // Release all junction tables back to "reserved" for multi-table bookings
@@ -310,7 +336,7 @@ export function BookingActionsList({
             .update({ status: "reserved" })
             .in("id", tableIds);
           if (tableError) {
-            console.error("Failed to mark tables reserved:", tableError);
+            setActionError(`Booking confirmed but tables could not be marked reserved: ${tableError.message}.`);
           }
         }
       } else if (newStatus === "cancelled") {
@@ -322,7 +348,7 @@ export function BookingActionsList({
             .update({ status: "open" })
             .in("id", tableIds);
           if (tableError) {
-            console.error("Failed to release tables:", tableError);
+            setActionError(`Booking cancelled but tables could not be released: ${tableError.message}. Release them from Tables.`);
           }
         }
       }
@@ -343,6 +369,7 @@ export function BookingActionsList({
     }
 
     setUpdatingId(bookingId);
+    setActionError(null);
     // Free ALL tables associated with this booking (primary + junction) before deleting
     const tableIds = await getAllTableIds(bookingId);
     if (tableIds.length > 0) {
@@ -351,11 +378,18 @@ export function BookingActionsList({
         .update({ status: "open" })
         .in("id", tableIds);
       if (tableError) {
-        console.error("Failed to release tables on delete:", tableError);
+        setActionError(`Tables could not be released: ${tableError.message}. Booking was not deleted.`);
+        setUpdatingId(null);
+        return;
       }
     }
     // Delete junction rows first (so cascade on bookings doesn't race)
-    await supabase.from("booking_tables").delete().eq("booking_id", bookingId);
+    const { error: jtError } = await supabase.from("booking_tables").delete().eq("booking_id", bookingId);
+    if (jtError) {
+      setActionError(`Could not delete linked tables: ${jtError.message}. Booking was not deleted.`);
+      setUpdatingId(null);
+      return;
+    }
     // Delete the booking itself
     const { error } = await supabase
       .from("bookings")
@@ -363,7 +397,7 @@ export function BookingActionsList({
       .eq("id", bookingId);
 
     if (error) {
-      console.error("Failed to delete booking:", error);
+      setActionError(`Failed to delete booking: ${error.message}. Try again.`);
     } else {
       setUpcoming((prev) => prev.filter((b) => b.id !== bookingId));
       setPast((prev) => prev.filter((b) => b.id !== bookingId));
@@ -390,12 +424,13 @@ export function BookingActionsList({
           // Use a locale-independent format to avoid SSR/client hydration mismatch.
           // toLocaleString produces different output between Node.js and browser.
           const d = new Date(b.datetime);
+          const validDate = !isNaN(d.getTime());
           const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
           const weekdays = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
           const h = d.getHours();
           const ampm = h >= 12 ? "PM" : "AM";
           const h12 = h % 12 || 12;
-          const when = `${weekdays[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()} at ${h12}:${String(d.getMinutes()).padStart(2, "0")} ${ampm}`;
+          const when = validDate ? `${weekdays[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()} at ${h12}:${String(d.getMinutes()).padStart(2, "0")} ${ampm}` : "Invalid date — check record";
 
           const isConfirmed = b.status === "confirmed";
           const isCancelled = b.status === "cancelled";
@@ -481,14 +516,28 @@ export function BookingActionsList({
             Manage table reservations and incoming bookings.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowAddForm((v) => !v)}
-          className="btn btn-accent text-xs"
-        >
-          {showAddForm ? "Cancel" : "+ Add booking"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowAddForm((v) => !v)}
+            className="btn btn-accent text-xs"
+          >
+            {showAddForm ? "Cancel" : "+ Add booking"}
+          </button>
+        </div>
       </div>
+      {actionError && (
+        <div className="mb-4 rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300 flex items-center justify-between gap-2">
+          <span>{actionError}</span>
+          <button type="button" onClick={() => setActionError(null)} className="underline shrink-0">Dismiss</button>
+        </div>
+      )}
+      {refreshError && (
+        <div className="mb-4 rounded-sm border border-amber-700 bg-amber-950/30 p-2 text-xs text-amber-300 flex items-center justify-between gap-2">
+          <span>{refreshError}</span>
+          <button type="button" onClick={() => { setRefreshError(null); void refreshBookings(); }} className="underline shrink-0">Retry</button>
+        </div>
+      )}
 
       {showAddForm && (
         <form onSubmit={handleAddBooking} className="ticket p-5 mb-6 space-y-4">

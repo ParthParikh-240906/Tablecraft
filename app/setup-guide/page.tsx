@@ -7,7 +7,7 @@ export default async function SetupGuidePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const startHref = user ? "/dashboard" : "/signin?next=/signup";
+  const startHref = user ? "/dashboard" : "/signin?next=/restaurants/create";
 
   const steps = [
     {
@@ -60,10 +60,10 @@ export default async function SetupGuidePage() {
         {/* ─── Back ───────────────────────────────────────────────────────────── */}
         <div className="mb-10">
           <Link
-            href="/dashboard"
+            href={user ? "/dashboard" : "/"}
             className="inline-flex items-center text-xs font-sans tracking-widest uppercase font-medium text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors"
           >
-            ← Back to dashboard
+            {user ? "← Back to dashboard" : "← Back home"}
           </Link>
         </div>
 

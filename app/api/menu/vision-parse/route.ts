@@ -1,21 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireStaffForOrgId } from "@/lib/api-auth";
 import { spawn } from "child_process";
 import { promises as fs } from "fs";
 import path from "path";
 
 const COMPRESSION_THRESHOLD = 5 * 1024 * 1024; // 5MB
 const MAX_WIDTH = 1920;
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_ITEMS = 500;
+const MAX_NAME_LEN = 200;
+const MAX_DESC_LEN = 500;
+const MAX_CATEGORY_LEN = 100;
 
 /**
  * POST /api/menu/vision-parse
  * Upload a menu image → Gemini vision extracts items → save to DB.
  */
 export async function POST(request: NextRequest) {
+  let formData: FormData;
   try {
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
-    const orgId = formData.get("orgId") as string;
+    formData = await request.formData();
+  } catch {
+    return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
+  }
+  try {
+    const file = formData.get("file") as File | null;
+    const orgId = formData.get("orgId") as string | null;
     const mode = formData.get("mode") as "append" | "replace";
 
     if (!file || !orgId) {
@@ -25,6 +37,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (typeof orgId !== "string" || !UUID_RE.test(orgId)) {
+      return NextResponse.json({ error: "Invalid orgId" }, { status: 400 });
+    }
+    const auth = await requireStaffForOrgId(orgId);
+    if ("response" in auth) return auth.response;
+
     if (mode !== "append" && mode !== "replace") {
       return NextResponse.json(
         { error: "mode must be 'append' or 'replace'" },
@@ -33,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate image type
-    const ext = file.name.toLowerCase().split(".").pop();
+    const ext = (file.name ?? "").toLowerCase().split(".").pop();
     if (!["jpg", "jpeg", "png", "webp"].includes(ext ?? "")) {
       return NextResponse.json(
         { error: "Only image files are supported (JPG, PNG, WebP)" },
@@ -43,6 +61,9 @@ export async function POST(request: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const fileSize = bytes.byteLength;
+    if (fileSize === 0 || fileSize > MAX_FILE_BYTES) {
+      return NextResponse.json({ error: "Image must be under 10MB" }, { status: 400 });
+    }
 
     // Compress if over threshold
     let finalBuffer: Buffer = Buffer.from(bytes);
@@ -109,22 +130,21 @@ Rules:
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("[VISION PARSE] API error:", response.status, errText);
+      console.error("[VISION PARSE] API error:", response.status, errText.slice(0, 500));
       return NextResponse.json(
-        { error: `OmniRoute API error: ${response.status}` },
+        { error: "Could not parse the menu image. Please try again." },
         { status: 502 }
       );
     }
 
     const responseText = await response.text();
-    console.log("[VISION PARSE] Raw response:", responseText);
     let data: any;
     try {
       data = JSON.parse(responseText);
     } catch {
       console.error("[VISION PARSE] Response is not JSON:", responseText.slice(0, 500));
       return NextResponse.json(
-        { error: "Invalid JSON response from OmniRoute" },
+        { error: "Could not parse the menu image. Please try again." },
         { status: 502 }
       );
     }
@@ -132,7 +152,7 @@ Rules:
     const content = data.choices?.[0]?.message?.content;
     if (!content) {
       return NextResponse.json(
-        { error: "OmniRoute returned no content" },
+        { error: "Could not parse the menu image. Please try again." },
         { status: 500 }
       );
     }
@@ -142,14 +162,11 @@ Rules:
     try {
       // Strip markdown code blocks if present
       const jsonMatch = content.match(/\{[\s\S]*\}/)?.[0];
-      console.log("[VISION PARSE] Extracted JSON string:", jsonMatch);
       parsed = JSON.parse(jsonMatch ?? content);
-      console.log("[VISION PARSE] Parsed successfully:", parsed.items?.length, "items");
     } catch (e) {
       console.error("[VISION PARSE] JSON parse failed:", e);
-      console.error("[VISION PARSE] Content was:", content);
       return NextResponse.json(
-        { error: "Failed to parse OmniRoute response", details: String(e) },
+        { error: "Could not parse the menu image. Please try again." },
         { status: 500 }
       );
     }
@@ -164,20 +181,30 @@ Rules:
 
     // Filter out items without prices
     const validItems = menuItems.filter(
-      (item) => item.price != null && typeof item.price === "number"
+      (item) => item.price != null && typeof item.price === "number" && Number.isFinite(item.price) && typeof item.name === "string" && item.name.trim()
     );
 
     if (validItems.length === 0) {
       return NextResponse.json(
-        { error: "Extracted items but none have prices" },
-        { status: 500 }
+        { error: "No valid menu items found in the image" },
+        { status: 400 }
       );
+    }
+    if (validItems.length > MAX_ITEMS) {
+      return NextResponse.json({ error: "Too many menu items in the image" }, { status: 400 });
     }
 
     // Insert into DB
     const supabase = createAdminClient();
     if (mode === "replace") {
-      await supabase.from("menu_items").delete().eq("org_id", orgId);
+      const { error: deleteError } = await supabase.from("menu_items").delete().eq("org_id", orgId);
+      if (deleteError) {
+        console.error("[VISION PARSE] Delete error:", deleteError);
+        return NextResponse.json(
+          { error: "Could not save menu items. Please try again." },
+          { status: 500 }
+        );
+      }
     }
 
     // Calculate category_sort_order based on first appearance of each category
@@ -190,12 +217,12 @@ Rules:
       }
     }
 
-    const rows = validItems.map((item, index) => ({
+    const rows = validItems.slice(0, MAX_ITEMS).map((item, index) => ({
       org_id: orgId,
-      name: item.name,
-      description: item.description || null,
-      price: item.price,
-      category: item.category || null,
+      name: String(item.name).slice(0, MAX_NAME_LEN),
+      description: typeof item.description === "string" ? item.description.slice(0, MAX_DESC_LEN) : null,
+      price: Number(item.price),
+      category: typeof item.category === "string" ? item.category.slice(0, MAX_CATEGORY_LEN) : null,
       available: true,
       sort_order: index + 1,
       category_sort_order: categoryOrder[item.category || "Other"] ?? 0,
@@ -208,7 +235,7 @@ Rules:
     if (insertError) {
       console.error("[VISION PARSE] Insert error:", insertError);
       return NextResponse.json(
-        { error: "Failed to save menu items" },
+        { error: "Could not save menu items. Please try again." },
         { status: 500 }
       );
     }
@@ -218,11 +245,10 @@ Rules:
       itemCount: rows.length,
       mode,
     });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[VISION PARSE] Error:", err);
+  } catch {
+    console.error("[VISION PARSE] unhandled error");
     return NextResponse.json(
-      { error: message },
+      { error: "Could not parse the menu image. Please try again." },
       { status: 500 }
     );
   }

@@ -28,11 +28,13 @@ export function ConfigPanel({
   ownerEmail: string;
   staffEmail: string;
 }) {
-  const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
+  const { settings, updateSettings, saving, saved, saveError, retrySave } = useDesign(initialSettings, orgId);
   const { theme, setTheme } = useConsoleTheme();
   const [staffEmailInput, setStaffEmailInput] = useState(staffEmail);
   const [ownerSaved, setOwnerSaved] = useState(false);
   const [staffSaved, setStaffSaved] = useState(false);
+  const [ownerError, setOwnerError] = useState<string | null>(null);
+  const [staffError, setStaffError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!ownerSaved) return;
@@ -92,9 +94,15 @@ export function ConfigPanel({
           </p>
         </div>
         <span className="text-xs font-mono text-[var(--accent)]">
-          {saving ? "Saving…" : saved ? "✓ Saved" : ""}
+          {saving ? "Saving…" : saveError ? "⚠ Not saved" : saved ? "✓ Saved" : ""}
         </span>
       </div>
+      {saveError && (
+        <div className="rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300 flex items-center justify-between gap-2">
+          <span>{saveError}</span>
+          <button type="button" onClick={() => retrySave()} className="underline shrink-0">Retry</button>
+        </div>
+      )}
 
       {/* ── Section 1: Reservation Timing Rules ─────────────────────── */}
       <section className="ticket p-6 space-y-6 border border-[var(--rule)] bg-[var(--paper-raised)]">
@@ -155,9 +163,8 @@ export function ConfigPanel({
               value={bookingConfig.buffer_before_minutes ?? 120}
               onChange={(e) => {
                 const val = parseInt(e.target.value, 10);
-                if (!isNaN(val) && val >= 0) {
-                  updateBookingConfig({ buffer_before_minutes: val });
-                }
+                if (isNaN(val)) return;
+                updateBookingConfig({ buffer_before_minutes: Math.min(720, Math.max(10, val)) });
               }}
               className="input w-28 text-xs py-1 px-2 border border-[var(--rule)] bg-[var(--paper)] rounded"
             />
@@ -242,9 +249,8 @@ export function ConfigPanel({
                 value={bookingConfig.duration_minutes ?? 120}
                 onChange={(e) => {
                   const val = parseInt(e.target.value, 10);
-                  if (!isNaN(val) && val >= 0) {
-                    updateBookingConfig({ duration_minutes: val });
-                  }
+                  if (isNaN(val)) return;
+                  updateBookingConfig({ duration_minutes: Math.min(720, Math.max(30, val)) });
                 }}
                 className="input w-28 text-xs py-1 px-2 border border-[var(--rule)] bg-[var(--paper)] rounded"
               />
@@ -409,19 +415,25 @@ export function ConfigPanel({
           <button
             type="button"
             onClick={async () => {
-              const pwd = (document.getElementById("ownerPassword") as HTMLInputElement)?.value;
-              if (!pwd) return;
-              const res = await fetch("/api/account/update", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ section: "owner", password: pwd }),
-              });
-              const data = await res.json();
-              if (!res.ok) {
-                alert(data.error ?? "Update failed");
-                return;
+              setOwnerError(null);
+              const pwd = (document.getElementById("ownerPassword") as HTMLInputElement)?.value?.trim() ?? "";
+              if (!pwd) { setOwnerError("Enter a new password to save."); return; }
+              if (pwd.length < 8) { setOwnerError("Password must be at least 8 characters."); return; }
+              try {
+                const res = await fetch("/api/account/update", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ section: "owner", password: pwd }),
+                });
+                const data = await res.json().catch(() => null);
+                if (!res.ok) {
+                  setOwnerError(data?.error ?? `Update failed (${res.status})`);
+                  return;
+                }
+                setOwnerSaved(true);
+              } catch {
+                setOwnerError("Network error — owner password not saved. Try again.");
               }
-              setOwnerSaved(true);
             }}
             className="btn btn-accent text-xs px-4 py-2"
           >
@@ -429,6 +441,9 @@ export function ConfigPanel({
           </button>
           {ownerSaved && <span className="text-green-400 text-sm">✓</span>}
         </div>
+        {ownerError && (
+          <p className="text-xs text-red-400 border border-red-800 bg-red-950/40 p-2 rounded-sm">{ownerError}</p>
+        )}
       </section>
 
       {/* ── Staff Account Section ─────────────────────────────────── */}
@@ -465,20 +480,27 @@ export function ConfigPanel({
           <button
             type="button"
             onClick={async () => {
+              setStaffError(null);
               const newEmail = staffEmailInput.trim();
-              const pwd = (document.getElementById("staffPassword") as HTMLInputElement)?.value;
-              if (!newEmail && !pwd) return;
-              const res = await fetch("/api/account/update", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ section: "staff", email: newEmail || undefined, password: pwd || undefined }),
-              });
-              const data = await res.json();
-              if (!res.ok) {
-                alert(data.error ?? "Update failed");
-                return;
+              const pwd = (document.getElementById("staffPassword") as HTMLInputElement)?.value?.trim() ?? "";
+              if (!newEmail && !pwd) { setStaffError("Enter a staff email or new password to save."); return; }
+              if (newEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) { setStaffError("Enter a valid staff email."); return; }
+              if (pwd && pwd.length < 8) { setStaffError("Password must be at least 8 characters."); return; }
+              try {
+                const res = await fetch("/api/account/update", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ section: "staff", email: newEmail || undefined, password: pwd || undefined }),
+                });
+                const data = await res.json().catch(() => null);
+                if (!res.ok) {
+                  setStaffError(data?.error ?? `Update failed (${res.status})`);
+                  return;
+                }
+                setStaffSaved(true);
+              } catch {
+                setStaffError("Network error — staff account not saved. Try again.");
               }
-              setStaffSaved(true);
             }}
             className="btn btn-accent text-xs px-4 py-2"
           >
@@ -486,6 +508,9 @@ export function ConfigPanel({
           </button>
           {staffSaved && <span className="text-green-400 text-sm">✓</span>}
         </div>
+        {staffError && (
+          <p className="text-xs text-red-400 border border-red-800 bg-red-950/40 p-2 rounded-sm">{staffError}</p>
+        )}
       </section>
     </div>
   );

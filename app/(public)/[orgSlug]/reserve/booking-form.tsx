@@ -17,6 +17,7 @@ export function BookingForm({
   inputText,
   inputBorder,
   labelColor = "#000000",
+  durationText = "2h reservation",
 }: {
   orgId: string;
   orgSlug: string;
@@ -25,8 +26,9 @@ export function BookingForm({
   inputText: string;
   inputBorder: string;
   labelColor?: string;
+  durationText?: string;
 }) {
-  const { tables, connected } = useTableRealtime(orgId);
+  const { connectError } = useTableRealtime(orgId);
 
   const [customerName, setCustomerName] = useState("");
   const [size, setSize] = useState(2);
@@ -43,22 +45,40 @@ export function BookingForm({
   const [pendingCombo, setPendingCombo] = useState<{
     message: string;
     tables: ComboTableInfo[];
+    datetime: string;
   } | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (submitting) return;
     setSubmitting(true);
 
-    const parts = date.split("-");
-    if (parts.length !== 3 || parts[0].length !== 2 || parts[1].length !== 2 || parts[2].length !== 4) {
-      setError("Please enter the date in DD-MM-YYYY format.");
+    const trimmedName = customerName.trim();
+    if (trimmedName.length < 2) {
+      setError("Please enter your name (at least 2 characters).");
       setSubmitting(false);
       return;
     }
-    const [day, month, year] = parts;
-    const isoDate = `${year}-${month}-${day}T${time}:00`;
-    const bookingDate = new Date(isoDate);
+    if (!Number.isInteger(size) || size < 1 || size > 20) {
+      setError("Party size must be between 1 and 20.");
+      setSubmitting(false);
+      return;
+    }
+    if (!time) {
+      setError("Please pick a time for your reservation.");
+      setSubmitting(false);
+      return;
+    }
+
+    const trimmedDate = date.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) {
+      setError("Please pick a date for your reservation.");
+      setSubmitting(false);
+      return;
+    }
+    // Interpret the picked date/time as Dubai-local (UTC+04:00), then store UTC.
+    const bookingDate = new Date(`${trimmedDate}T${time}:00+04:00`);
     if (isNaN(bookingDate.getTime())) {
       setError("Invalid date/time. Please check your input.");
       setSubmitting(false);
@@ -76,25 +96,27 @@ export function BookingForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orgSlug,
-          customerName,
+          customerName: trimmedName,
           partySize: size,
           datetime: bookingDate.toISOString(),
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(data.error ?? "Could not create booking");
-      } else if (data.needsConfirmation) {
+        setError(data?.error ?? "Could not create booking");
+      } else if (data?.needsConfirmation) {
         // API found a non-movable combo but needs guest approval
         setPendingCombo({
           message: data.message,
           tables: data.tables,
+          datetime: bookingDate.toISOString(),
         });
       } else {
+        setPendingCombo(null);
         setConfirmedDetails({
-          tableLabel: data.table?.label,
-          capacity: data.table?.capacity,
+          tableLabel: data?.table?.label,
+          capacity: data?.table?.capacity,
         });
       }
     } catch {
@@ -105,7 +127,7 @@ export function BookingForm({
   }
 
   async function handleConfirmCombo() {
-    if (!pendingCombo) return;
+    if (!pendingCombo || submitting) return;
     setError(null);
     setSubmitting(true);
 
@@ -115,20 +137,22 @@ export function BookingForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orgSlug,
-          customerName,
+          customerName: customerName.trim(),
           partySize: size,
+          datetime: pendingCombo.datetime,
           tableIds: pendingCombo.tables.map((t) => t.id),
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(data.error ?? "Could not create booking");
-        setPendingCombo(null);
+        // Keep the combo offer so the guest can retry instead of starting over.
+        setError(data?.error ?? "Could not create booking");
       } else {
+        setPendingCombo(null);
         setConfirmedDetails({
-          tableLabel: data.table?.label,
-          capacity: data.table?.capacity,
+          tableLabel: data?.table?.label,
+          capacity: data?.table?.capacity,
         });
       }
     } catch {
@@ -187,7 +211,11 @@ export function BookingForm({
           min={1}
           max={20}
           value={size}
-          onChange={(e) => setSize(Number(e.target.value))}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (e.target.value === "") return;
+            if (Number.isFinite(n)) setSize(Math.min(20, Math.max(1, Math.floor(n))));
+          }}
           required
           className="w-full rounded-lg border px-3 py-2.5 text-sm"
           style={{ backgroundColor: inputBg, color: inputText, borderColor: inputBorder }}
@@ -201,16 +229,13 @@ export function BookingForm({
         </label>
         <input
           id="date"
-          type="text"
+          type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          placeholder="DD-MM-YYYY"
           required
-          pattern="\d{2}-\d{2}-\d{4}"
-          className="w-full rounded-lg border px-3 py-2.5 text-sm font-mono"
+          className="w-full rounded-lg border px-3 py-2.5 text-sm"
           style={{ backgroundColor: inputBg, color: inputText, borderColor: inputBorder }}
         />
-        <p className="text-xs text-[var(--ink-faint)] mt-1">Format: DD-MM-YYYY (e.g. 15-07-2025)</p>
       </div>
 
       {/* Time */}
@@ -228,7 +253,7 @@ export function BookingForm({
           style={{ backgroundColor: inputBg, color: inputText, borderColor: inputBorder }}
         />
         <p className="text-xs text-[var(--ink-faint)] mt-1">
-          Reservations are booked for a 2-hour duration.
+          Reservations are {durationText}.
         </p>
       </div>
 
@@ -240,15 +265,17 @@ export function BookingForm({
             <button
               type="button"
               onClick={handleConfirmCombo}
-              className="flex-1 py-2.5 rounded-full text-white font-medium shadow transition-transform active:scale-[0.99]"
+              disabled={submitting}
+              className="flex-1 py-2.5 rounded-full text-white font-medium shadow transition-transform active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: accent }}
             >
-              Yes, that works
+              {submitting ? "Reserving…" : "Yes, that works"}
             </button>
             <button
               type="button"
               onClick={() => setPendingCombo(null)}
-              className="flex-1 py-2.5 rounded-full text-white font-medium shadow transition-transform active:scale-[0.99] bg-gray-500"
+              disabled={submitting}
+              className="flex-1 py-2.5 rounded-full text-white font-medium shadow transition-transform active:scale-[0.99] bg-gray-500 disabled:opacity-50"
             >
               No, thanks
             </button>
@@ -256,8 +283,14 @@ export function BookingForm({
         </div>
       )}
 
+      {connectError && (
+        <p className="text-sm text-amber-800 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2" role="status">
+          Live availability is temporarily unavailable — you can still book, but times may be approximate.
+        </p>
+      )}
+
       {error && (
-        <p className="text-sm text-red-600 rounded-lg bg-red-50 border border-red-200 px-3 py-2" style={{ color: inputText }}>
+        <p className="text-sm text-red-700 rounded-lg bg-red-50 border border-red-200 px-3 py-2" role="alert">
           {error}
         </p>
       )}

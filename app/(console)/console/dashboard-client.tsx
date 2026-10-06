@@ -60,13 +60,14 @@ export default function DashboardClient({
     initialOrders,
   ));
   const [todayDateStr, setTodayDateStr] = useState(todayDate);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   // Orders realtime (with polling fallback)
-  const { orders, connected: ordersConnected } = useOrdersRealtime(orgId, initialOrders);
+  const { orders } = useOrdersRealtime(orgId, initialOrders);
 
   // ── Recalculate stats from current tables & bookings ──
   function calculateStats(
@@ -116,8 +117,13 @@ export default function DashboardClient({
   }
 
   const refreshAll = useCallback(async () => {
+    if (!orgId) {
+      setRefreshError("No restaurant selected — stats may be empty. Pick a restaurant from the sidebar.");
+      return;
+    }
+    setRefreshError(null);
     // Refresh tables
-    const { data: tables } = await supabase
+    const { data: tables, error: tablesError } = await supabase
       .from("tables")
       .select("id, label, status, capacity, table_type")
       .eq("org_id", orgId);
@@ -128,7 +134,7 @@ export default function DashboardClient({
     const tomorrowStart = new Date(todayStart);
     tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
-    const { data: bookings } = await supabase
+    const { data: bookings, error: bookingsError } = await supabase
       .from("bookings")
       .select("id, customer_name, party_size, datetime, status, table_id")
       .eq("org_id", orgId)
@@ -137,13 +143,19 @@ export default function DashboardClient({
       .neq("status", "cancelled");
 
     // Refresh live orders
-    const { data: orderData } = await supabase
+    const { data: orderData, error: ordersError } = await supabase
       .from("orders")
       .select("id, customer_name, total, status, created_at, stripe_session_id, items, parent_order_id")
       .eq("org_id", orgId)
       .not("status", "eq", "paid")
       .not("status", "eq", "cancelled")
       .order("created_at", { ascending: false });
+
+    if (tablesError || bookingsError || ordersError) {
+      const first = tablesError ?? bookingsError ?? ordersError;
+      setRefreshError(`Could not refresh dashboard: ${first?.message}. Showing last known data.`);
+      return;
+    }
 
     const freshTables = (tables ?? []) as TableInfo[];
     const freshBookings = (bookings ?? []) as BookingInfo[];
@@ -247,6 +259,17 @@ export default function DashboardClient({
           {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
         </p>
       </div>
+      {refreshError && (
+        <div className="mb-4 rounded-sm border border-amber-700 bg-amber-950/30 p-2 text-xs text-amber-300 flex items-center justify-between gap-2">
+          <span>{refreshError}</span>
+          <button type="button" onClick={() => { setRefreshError(null); void refreshAll(); }} className="underline shrink-0">Retry</button>
+        </div>
+      )}
+      {!orgId && (
+        <div className="mb-4 rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300">
+          No restaurant selected — stats are empty. Pick a restaurant from the sidebar.
+        </div>
+      )}
 
       {/* ── Stats cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">

@@ -28,16 +28,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid section" }, { status: 400 });
   }
   // Password is required for owner; optional (with email) for staff
-  if (password && (typeof password !== "string" || password.length < 8)) {
-    return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+  if (password && (typeof password !== "string" || password.length < 8 || password.length > 128)) {
+    return NextResponse.json({ error: "Password must be 8-128 characters" }, { status: 400 });
   }
-  if (email && (typeof email !== "string" || !email.includes("@"))) {
+  if (email && (typeof email !== "string" || !email.includes("@") || email.length > 255)) {
     return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
   }
   if (!password && !email) {
     return NextResponse.json({ error: "Provide a password or email" }, { status: 400 });
   }
 
+  try {
   // Authenticate
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -65,14 +66,10 @@ export async function POST(request: Request) {
     orgId = cookieStore.get("selected_org")?.value || null;
   }
   if (!orgId) {
-    const result = await (async () => {
-      const s = await createClient();
-      const r = await s.from("staff_users").select("org_id").eq("auth_user_id", user.id).single();
-      return r.data?.org_id ?? null;
-    })();
-    orgId = result;
+    const { data: staffRows } = await supabase.from("staff_users").select("org_id").eq("auth_user_id", user.id).limit(1);
+    orgId = staffRows?.[0]?.org_id ?? null;
   }
-  if (!orgId) return NextResponse.json({ error: "No active restaurant" }, { status: 404 });
+  if (!orgId || typeof orgId !== "string") return NextResponse.json({ error: "No active restaurant" }, { status: 404 });
 
   // Verify caller is the owner of this org
   const { data: ownerRow } = await admin
@@ -80,13 +77,12 @@ export async function POST(request: Request) {
     .select("role, auth_user_id")
     .eq("org_id", orgId)
     .eq("auth_user_id", user.id)
-    .single();
+    .maybeSingle();
 
   if (!ownerRow || ownerRow.role !== "owner") {
     return NextResponse.json({ error: "Forbidden — owners only" }, { status: 403 });
   }
 
-  try {
     if (section === "owner") {
       // Update Supabase auth password
       if (password) {
@@ -94,20 +90,22 @@ export async function POST(request: Request) {
         if (authError) throw authError;
         // Also update console_password_hash so the independent console login path works too
         const hash = await bcrypt.hash(password, 10);
-        await admin
+        const { error: hashError } = await admin
           .from("staff_users")
           .update({ console_password_hash: hash })
           .eq("org_id", orgId)
           .eq("auth_user_id", user.id);
+        if (hashError) throw hashError;
       }
     } else {
-      // section === 'staff': find the staff row for this org
+      // section === 'staff': find the staff row for this org (first match — an org may have several staff rows)
       const { data: staffRow, error: staffError } = await admin
         .from("staff_users")
         .select("auth_user_id")
         .eq("org_id", orgId)
         .eq("role", "staff")
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       if (staffError || !staffRow) {
         return NextResponse.json({ error: "No staff account found for this restaurant" }, { status: 404 });
@@ -128,8 +126,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
+  } catch (err) {
     console.error("account/update error:", err);
-    return NextResponse.json({ error: "Could not update account" }, { status: 500 });
+    return NextResponse.json({ error: "Could not update account. Please try again." }, { status: 500 });
   }
 }

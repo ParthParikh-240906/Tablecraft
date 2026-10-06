@@ -15,18 +15,142 @@ export function AiPanel({
   initialSettings: DesignSettingsV2;
   orgName: string;
 }) {
-  const { settings, updateSettings, saving, saved } = useDesign(initialSettings, orgId);
+  const { settings, updateSettings, saving, saved, saveError, retrySave } = useDesign(initialSettings, orgId);
   const [prompt, setPrompt] = useState("");
   const [reference, setReference] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newFontName, setNewFontName] = useState("");
+  const [newFontWeight, setNewFontWeight] = useState("400");
+  const [fontStatus, setFontStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [addingFont, setAddingFont] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const FONT_WEIGHTS = ["100", "200", "300", "400", "500", "600", "700", "800", "900"];
+
+  const normalizeFamily = (raw: string) => raw.trim().replace(/\s+/g, " ");
+  const familyKey = (family: string) => normalizeFamily(family).toLowerCase();
+
+  /** Base family of a stored entry (strips a trailing _400-style suffix if present). */
+  const storedBaseKey = (name: string) => {
+    const suffix = name.match(/^(.*)_(\d{3,4})$/);
+    return familyKey(suffix ? suffix[1] : name);
+  };
+
+  const handleAddFont = async () => {
+    if (addingFont) return;
+    const family = normalizeFamily(newFontName);
+    if (!family) return;
+    const weightNum = parseInt(newFontWeight, 10);
+    if (!FONT_WEIGHTS.includes(String(weightNum))) {
+      setFontStatus({ type: "error", message: `Invalid weight "${newFontWeight}" — choose 100–900` });
+      return;
+    }
+    const displayName = normalizeFamily(family);
+
+    const existingCustom = (settings.custom_fonts || []).find(
+      (f) => storedBaseKey(f.name) === familyKey(family),
+    );
+    const existingLocal = LOCAL_FONTS.find((f) => familyKey(f.name) === familyKey(family));
+    const existingName = existingCustom?.name ?? existingLocal?.name;
+    if (existingName) {
+      setFontStatus({ type: "error", message: `You already have ${existingName}` });
+      return;
+    }
+
+    setAddingFont(true);
+    setFontStatus(null);
+    try {
+      // Validation + download + self-hosting happen server-side
+      // (/api/design/fonts/add), so visitor browsers never contact Google.
+      const res = await fetch("/api/design/fonts/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ family, weight: weightNum }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.font) {
+        updateSettings({
+          custom_fonts: [...(settings.custom_fonts || []), data.font],
+        });
+        setNewFontName("");
+        setFontStatus({ type: "success", message: `${data.font.name} added` });
+        return;
+      }
+      if (data?.code === "weight_unavailable") {
+        setFontStatus({
+          type: "error",
+          message: `Weight ${weightNum} is not available for ${data.family ?? displayName}`,
+        });
+      } else if (data?.code === "not_found") {
+        setFontStatus({ type: "error", message: `${displayName} not found in googlefonts` });
+      } else if (data?.code === "unreachable" || !res.ok && res.status >= 500) {
+        setFontStatus({
+          type: "error",
+          message: "Could not reach Google Fonts — check your connection and try again",
+        });
+      } else {
+        setFontStatus({ type: "error", message: data?.error ?? "Could not add font — please try again" });
+      }
+    } catch {
+      setFontStatus({
+        type: "error",
+        message: "Could not reach Google Fonts — check your connection and try again",
+      });
+    } finally {
+      setAddingFont(false);
+    }
+  };
+
+  /** Migrate a legacy Google-URL entry to self-hosted files in place. */
+  const [migratingFont, setMigratingFont] = useState<string | null>(null);
+  const selfHostFont = async (idx: number) => {
+    const entry = (settings.custom_fonts || [])[idx];
+    if (!entry || entry.css || migratingFont) return;
+    const base = entry.name.match(/^(.*)_(\d{3,4})$/)?.[1] ?? entry.name;
+    const weights = entry.weight
+      ? [entry.weight]
+      : (entry.url.match(/wght@([\d;]+)/)?.[1].split(";").map((w) => parseInt(w, 10)) ?? [400]);
+    setMigratingFont(entry.name);
+    setFontStatus(null);
+    try {
+      const cssParts: string[] = [];
+      let firstUrl = entry.url;
+      let canonical = base;
+      for (const w of weights.filter((n) => !Number.isNaN(n))) {
+        const res = await fetch("/api/design/fonts/add", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ family: base, weight: w }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.font) {
+          setFontStatus({ type: "error", message: `Could not self-host ${entry.name} — please try again` });
+          return;
+        }
+        cssParts.push(data.font.css);
+        firstUrl = data.font.url;
+        canonical = data.font.name;
+      }
+      const arr = [...(settings.custom_fonts || [])];
+      arr[idx] = { ...entry, name: canonical, value: `'${canonical}', sans-serif`, url: firstUrl, css: cssParts.join("\n") };
+      updateSettings({ custom_fonts: arr });
+      setFontStatus({ type: "success", message: `${canonical} is now self-hosted ✓` });
+    } catch {
+      setFontStatus({ type: "error", message: `Could not self-host ${entry.name} — please try again` });
+    } finally {
+      setMigratingFont(null);
+    }
+  };
 
   const handleReference = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { setError("Reference image exceeds 5MB — compress and try again."); e.target.value = ""; return; }
     const reader = new FileReader();
+    reader.onerror = () => setError("Could not read reference image — try another file.");
     reader.onloadend = () => setReference(reader.result as string);
     reader.readAsDataURL(file);
   };
@@ -53,8 +177,10 @@ export function AiPanel({
 
   const download = async () => {
     if (!result) return;
+    setDownloadError(null);
     try {
       const res = await fetch(result);
+      if (!res.ok) throw new Error(`status ${res.status}`);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -65,7 +191,11 @@ export function AiPanel({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      window.open(result, "_blank");
+      try {
+        window.open(result, "_blank");
+      } catch {
+        setDownloadError("Could not download image — copy the image URL manually.");
+      }
     }
   };
 
@@ -113,9 +243,16 @@ export function AiPanel({
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-semibold text-[var(--ink)]">AI Tools</h2>
             <span className="text-xs text-[var(--ink-faint)]">
-              {saving ? "Saving…" : saved ? "✓ Saved" : ""}
+              {saving ? "Saving…" : saveError ? "⚠ Not saved" : saved ? "✓ Saved" : ""}
             </span>
           </div>
+          {saveError && (
+            <div className="rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300 flex items-center justify-between gap-2">
+              <span>{saveError}</span>
+              <button type="button" onClick={() => retrySave()} className="underline shrink-0">Retry</button>
+            </div>
+          )}
+
 
           {/* AI Image Generator */}
           <section className="ticket p-5 space-y-3">
@@ -247,13 +384,22 @@ export function AiPanel({
                     onChange={async (e) => {
                       const f = e.target.files?.[0];
                       if (!f) return;
-                      const form = new FormData();
-                      form.append("file", f);
-                      form.append("org_id", orgId);
-                      const res = await fetch("/api/design/photos/upload", { method: "POST", body: form });
-                      if (res.ok) {
-                        const data = await res.json();
-                        updateChatbot({ logo_url: data.url });
+                      setLogoError(null);
+                      if (f.size > 5 * 1024 * 1024) { setLogoError("Logo exceeds 5MB — compress and try again."); e.target.value = ""; return; }
+                      try {
+                        const form = new FormData();
+                        form.append("file", f);
+                        form.append("org_id", orgId);
+                        const res = await fetch("/api/design/photos/upload", { method: "POST", body: form });
+                        if (res.ok) {
+                          const data = await res.json();
+                          updateChatbot({ logo_url: data.url });
+                        } else {
+                          const data = await res.json().catch(() => null);
+                          setLogoError(data?.error ?? `Logo upload failed (${res.status}). Try again.`);
+                        }
+                      } catch {
+                        setLogoError("Network error — logo not uploaded. Try again.");
                       }
                     }}
                   />
@@ -264,6 +410,12 @@ export function AiPanel({
                   </button>
                 )}
               </div>
+              {logoError && (
+                <p className="text-xs text-red-400 border border-red-800 bg-red-950/40 p-2 rounded-sm">{logoError}</p>
+              )}
+              {downloadError && (
+                <p className="text-xs text-red-400 border border-red-800 bg-red-950/40 p-2 rounded-sm">{downloadError}</p>
+              )}
             </div>
 
             <ColorField
@@ -296,7 +448,7 @@ export function AiPanel({
                 className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs"
               >
                 {[...LOCAL_FONTS, ...(settings.custom_fonts || [])].map((f) => (
-                  <option key={f.value} value={f.value}>{f.name}</option>
+                  <option key={`${f.name}::${f.value}`} value={f.value}>{f.name}</option>
                 ))}
               </select>
             </div>
@@ -330,67 +482,85 @@ export function AiPanel({
             <div className="flex items-end gap-2">
               <div className="flex-1">
                 <label className="block text-xs text-[var(--ink-soft)] mb-1">
-                  Google Font Name (e.g. Sixtfyfour, Space Mono)
+                  Google Font Name (e.g. Sixtyfour, Space Mono)
                 </label>
                 <input
                   type="text"
                   value={newFontName}
-                  onChange={(e) => setNewFontName(e.target.value)}
+                  onChange={(e) => { setNewFontName(e.target.value); setFontStatus(null); }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      if (!newFontName.trim()) return;
-                      const name = newFontName.trim();
-                      const url = `https://fonts.googleapis.com/css2?family=${name.replace(/ /g, "+")}:wght@400;700&display=swap`;
-                      updateSettings({
-                        custom_fonts: [
-                          ...(settings.custom_fonts || []),
-                          { name, value: `'${name}', sans-serif`, url },
-                        ],
-                      });
-                      setNewFontName("");
+                      void handleAddFont();
                     }
                   }}
                   className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs text-[var(--ink)]"
                   placeholder="Roboto"
                 />
               </div>
+              <div>
+                <label className="block text-xs text-[var(--ink-soft)] mb-1">
+                  Weight
+                </label>
+                <select
+                  value={newFontWeight}
+                  onChange={(e) => { setNewFontWeight(e.target.value); setFontStatus(null); }}
+                  className="bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs text-[var(--ink)] h-[30px]"
+                >
+                  {FONT_WEIGHTS.map((w) => (
+                    <option key={w} value={w}>{w}</option>
+                  ))}
+                </select>
+              </div>
               <button
                 type="button"
-                onClick={() => {
-                  if (!newFontName.trim()) return;
-                  const name = newFontName.trim();
-                  const url = `https://fonts.googleapis.com/css2?family=${name.replace(/ /g, "+")}:wght@400;700&display=swap`;
-                  updateSettings({
-                    custom_fonts: [
-                      ...(settings.custom_fonts || []),
-                      { name, value: `'${name}', sans-serif`, url },
-                    ],
-                  });
-                  setNewFontName("");
-                }}
-                className="btn btn-outline text-xs h-[30px]"
+                onClick={() => void handleAddFont()}
+                disabled={addingFont || !newFontName.trim()}
+                className="btn btn-outline text-xs h-[30px] disabled:opacity-50"
               >
-                Add
+                {addingFont ? "Adding…" : "Add"}
               </button>
             </div>
+            {fontStatus && (
+              <p className={`text-xs ${fontStatus.type === "success" ? "text-green-600" : "text-red-500"}`}>
+                {fontStatus.type === "success" && <span aria-hidden>✓ </span>}
+                {fontStatus.message}
+              </p>
+            )}
             
             {(settings.custom_fonts || []).length > 0 && (
               <ul className="space-y-1">
                 {settings.custom_fonts!.map((font, idx) => (
-                  <li key={idx} className="flex flex-wrap items-center justify-between text-xs py-1 border-b border-[var(--rule)] last:border-0">
-                    <span className="text-[var(--ink)]">{font.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const arr = [...settings.custom_fonts!];
-                        arr.splice(idx, 1);
-                        updateSettings({ custom_fonts: arr });
-                      }}
-                      className="text-red-500 hover:underline"
-                    >
-                      Remove
-                    </button>
+                  <li key={`${font.name}::${font.url}`} className="flex flex-wrap items-center justify-between gap-2 text-xs py-1 border-b border-[var(--rule)] last:border-0">
+                    <span className="text-[var(--ink)]" style={{ fontFamily: font.value }} title={font.url}>
+                      {font.name}
+                      {font.css
+                        ? <span className="ml-1 text-[10px] text-green-600">· self-hosted</span>
+                        : <span className="ml-1 text-[10px] text-[var(--ink-faint)]">· via Google</span>}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      {!font.css && (
+                        <button
+                          type="button"
+                          onClick={() => void selfHostFont(idx)}
+                          disabled={migratingFont !== null}
+                          className="text-[var(--ink-soft)] hover:underline disabled:opacity-50"
+                        >
+                          {migratingFont === font.name ? "Self-hosting…" : "Self-host"}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const arr = [...settings.custom_fonts!];
+                          arr.splice(idx, 1);
+                          updateSettings({ custom_fonts: arr });
+                        }}
+                        className="text-red-500 hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </span>
                   </li>
                 ))}
               </ul>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOwnerForSlug } from "@/lib/api-auth";
 
 /**
  * POST /api/subscription/cancel
@@ -9,13 +10,21 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * The user retains access until the period end date, after which Stripe auto-cancels.
  */
 export async function POST(request: Request) {
+  let body: unknown;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+  try {
     const { orgSlug } = body as { orgSlug: string };
 
     if (!orgSlug) {
       return NextResponse.json({ error: "orgSlug is required" }, { status: 400 });
     }
+
+    const auth = await requireOwnerForSlug(orgSlug);
+    if ("response" in auth) return auth.response;
 
     const supabase = createAdminClient();
 
@@ -53,19 +62,24 @@ export async function POST(request: Request) {
       ? new Date(stripeSub.current_period_end * 1000).toISOString()
       : null;
 
-    await supabase
+    const { error: updateError } = await supabase
       .from("organizations")
       .update({
-        subscription_status: "canceled",
+        subscription_status: "canceling",
         subscription_current_period_end: periodEnd,
       })
       .eq("slug", orgSlug);
 
+    if (updateError) {
+      console.error("cancel: db update failed", updateError);
+      return NextResponse.json({ error: "Subscription will cancel, but we could not update your dashboard. Please refresh." }, { status: 500 });
+    }
+
     return NextResponse.json({ success: true, periodEnd });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Cancel subscription failed:", err);
     return NextResponse.json(
-      { error: err.message || "Failed to cancel subscription" },
+      { error: "Could not cancel subscription. Please try again." },
       { status: 500 },
     );
   }

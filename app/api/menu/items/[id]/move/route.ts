@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireStaffForOrgId } from "@/lib/api-auth";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * PATCH /api/menu/items/[id]/move
@@ -9,28 +12,44 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const { direction }: { direction: "up" | "down" } = await request.json();
-
-  if (!id || !direction) {
-    return NextResponse.json({ error: "Missing id or direction" }, { status: 400 });
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
+  try {
+    const { id } = await params;
+    const { direction } = (body ?? {}) as { direction?: unknown };
 
-  const supabase = createAdminClient();
+    if (typeof id !== "string" || !UUID_RE.test(id)) {
+      return NextResponse.json({ error: "Invalid item id" }, { status: 400 });
+    }
+    if (direction !== "up" && direction !== "down") {
+      return NextResponse.json({ error: "direction must be 'up' or 'down'" }, { status: 400 });
+    }
 
-  // Get current item
-  const { data: currentItem, error: fetchError } = await supabase
-    .from("menu_items")
-    .select("id, org_id, category, sort_order, category_sort_order, name")
-    .eq("id", id)
-    .single();
+    const supabase = createAdminClient();
 
-  if (fetchError || !currentItem) {
-    return NextResponse.json({ error: "Item not found" }, { status: 404 });
-  }
+    // Get current item
+    const { data: currentItem, error: fetchError } = await supabase
+      .from("menu_items")
+      .select("id, org_id, category, sort_order, category_sort_order, name")
+      .eq("id", id)
+      .maybeSingle();
 
-  const { category, sort_order } = currentItem;
-  console.log(`[MOVE ITEM] ${currentItem.name}: sort_order=${sort_order}, direction=${direction}`);
+    if (fetchError) {
+      console.error("[MOVE ITEM] fetch failed:", fetchError);
+      return NextResponse.json({ error: "Could not move item. Please try again." }, { status: 500 });
+    }
+    if (!currentItem) {
+      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    }
+
+    const auth = await requireStaffForOrgId(currentItem.org_id);
+    if ("response" in auth) return auth.response;
+
+    const { category, sort_order } = currentItem;
 
   // Find adjacent item: the one with sort_order just before or after current
   let query = supabase
@@ -49,13 +68,15 @@ export async function PATCH(
 
   const { data: adjacentItems, error: adjError } = await query;
 
-  if (adjError || !adjacentItems || adjacentItems.length === 0) {
-    console.log(`[MOVE ITEM] No adjacent item found for ${currentItem.name}`);
+  if (adjError) {
+    console.error("[MOVE ITEM] adjacent lookup failed:", adjError);
+    return NextResponse.json({ error: "Could not move item. Please try again." }, { status: 500 });
+  }
+  if (!adjacentItems || adjacentItems.length === 0) {
     return NextResponse.json({ error: "Cannot move further" }, { status: 400 });
   }
 
   const target = adjacentItems[0];
-  console.log(`[MOVE ITEM] Swapping ${currentItem.name} (${sort_order}) with ${target.name} (${target.sort_order})`);
 
   // Swap sort_order values
   const { error: err1 } = await supabase
@@ -70,8 +91,12 @@ export async function PATCH(
 
   if (err1 || err2) {
     console.error("Move failed:", err1 || err2);
-    return NextResponse.json({ error: "Failed to move item" }, { status: 500 });
+    return NextResponse.json({ error: "Could not move item. Please try again." }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[MOVE ITEM] unhandled:", err);
+    return NextResponse.json({ error: "Could not move item. Please try again." }, { status: 500 });
+  }
 }

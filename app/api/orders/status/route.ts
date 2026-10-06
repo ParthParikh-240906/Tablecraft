@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isTableOrderName, normalizeTableLabel, parseTableLabelsFromCustomerName } from "@/lib/table-labels";
 
 export async function POST(request: Request) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   try {
     const supabase = await createClient();
     const adminSupabase = createAdminClient();
@@ -14,10 +21,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { orderId, status } = body;
+    const { orderId, status } = body as { orderId?: unknown; status?: unknown };
 
-    if (!orderId || !status) {
+    if (typeof orderId !== "string" || orderId.length === 0 || typeof status !== "string" || status.length === 0) {
       return NextResponse.json({ error: "Missing orderId or status" }, { status: 400 });
     }
 
@@ -56,7 +62,8 @@ export async function POST(request: Request) {
       .eq("org_id", order.org_id);
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      console.error("[orders/status] update failed", updateError);
+      return NextResponse.json({ error: "Could not update order status. Please try again." }, { status: 500 });
     }
 
     // Cascade: original paid → all extras get paid
@@ -67,28 +74,27 @@ export async function POST(request: Request) {
         .eq("parent_order_id", order.id);
     }
 
-    // Free tables when order is paid or cancelled
+    // Free tables when order is paid or cancelled.
+    // Labels are normalized (trimmed, case-insensitive, "Table " prefix
+    // stripped) so renames/case drift don't leave tables stuck occupied.
     if (status === "paid" || status === "cancelled") {
-      const rawName = (order?.customer_name ?? "").replace(/\s+Edit$/, "");
-      if (rawName && rawName.startsWith("Table ")) {
+      const rawName = order?.customer_name ?? "";
+      if (rawName && isTableOrderName(rawName)) {
         // Parse table labels from customer_name: "Table 1, 2, 3" or "Table 7"
-        const labelsStr = rawName.slice("Table ".length);
-        const tableLabels: string[] = labelsStr
-          .split(",")
-          .map((s: string) => s.trim())
-          .filter((s: string) => s.length > 0);
+        const tableLabels = parseTableLabelsFromCustomerName(rawName);
 
         if (tableLabels.length === 0) {
           return NextResponse.json({ success: true, status });
         }
 
-        // Try both formats: raw label ("Group Table 1") and with prefix ("Table Group Table 1")
-        const labelVariants = tableLabels.flatMap((l: string) => [`Table ${l}`, l]);
-        const { data: tables } = await adminSupabase
+        const { data: allTables } = await adminSupabase
           .from("tables")
           .select("id, label")
-          .eq("org_id", order.org_id)
-          .in("label", labelVariants);
+          .eq("org_id", order.org_id);
+
+        const tables = (allTables ?? []).filter((t) =>
+          tableLabels.includes(normalizeTableLabel(t.label)),
+        );
 
         if (!tables || tables.length === 0) {
           console.warn(`[orders/status] No tables found for labels: ${tableLabels.join(", ")}`);
@@ -152,8 +158,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, status });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[orders/status] Error:", err);
-    return NextResponse.json({ error: err?.message || "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Could not update order status. Please try again." }, { status: 500 });
   }
 }

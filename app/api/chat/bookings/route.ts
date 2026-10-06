@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getClientIp, rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 
 type SlotState = {
   name: string | null;
@@ -73,6 +74,10 @@ RULES FOR YOUR REPLY:
 - Do NOT repeat information the user already provided.`;
 
 export async function POST(request: NextRequest) {
+  const rl = rateLimit(`chat-bookings:${getClientIp(request)}`, 15, 60_000);
+  if (!rl.allowed) return rateLimitedResponse(rl.resetMs);
+
+  try {
   const apiKey = process.env.AGNES_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "AI service not configured" }, { status: 500 });
@@ -90,6 +95,22 @@ export async function POST(request: NextRequest) {
   if (!message || typeof message !== "string" || !message.trim()) {
     return NextResponse.json({ error: "message is required" }, { status: 400 });
   }
+  if (message.length > 500) {
+    return NextResponse.json({ error: "message must be under 500 characters" }, { status: 400 });
+  }
+  if (!Array.isArray(history) || history.length > 10) {
+    return NextResponse.json({ error: "history must have at most 10 items" }, { status: 400 });
+  }
+  for (const m of history) {
+    if (typeof (m as { content?: unknown }).content !== "string" || ((m as { content?: unknown }).content as string).length > 1000) {
+      return NextResponse.json({ error: "Invalid history item" }, { status: 400 });
+    }
+    if ((m as { role?: unknown }).role !== "user" && (m as { role?: unknown }).role !== "assistant") {
+      return NextResponse.json({ error: "Invalid history item" }, { status: 400 });
+    }
+  }
+  const safeHistory = history.map((m: { role: string; content: string }) => ({ role: m.role, content: m.content.slice(0, 1000) }));
+  const safeOrgName = typeof orgName === "string" ? orgName.slice(0, 100) : undefined;
 
   // Build state strings for prompts
   const collected = Object.entries(currentSlots)
@@ -97,17 +118,17 @@ export async function POST(request: NextRequest) {
     .map(([k, v]) => `  ${k}: ${v}`)
     .join("\n") || "  (none yet)";
 
-  const historyState = history
-    .map((m: any) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content ?? m.text}`)
+  const historyState = safeHistory
+    .map((m: any) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content ?? m.text}`.slice(0, 1100))
     .join("\n") || "  (no previous messages)";
 
   // ===================================================================
   // Call 1: Extract slots from user message
   // ===================================================================
   const messages1 = [
-    { role: "system", content: EXTRACTION_PROMPT.replace("{name_state}", collected).replace("{org_name}", orgName ?? "this restaurant") },
-    ...history.map((m: any) => ({ role: m.role, content: m.content ?? m.text })),
-    { role: "user", content: message },
+    { role: "system", content: EXTRACTION_PROMPT.replace("{name_state}", collected).replace("{org_name}", safeOrgName ?? "this restaurant") },
+    ...safeHistory.map((m: any) => ({ role: m.role, content: m.content ?? m.text })),
+    { role: "user", content: message.slice(0, 500) },
   ];
 
   let extracted: SlotState & { isComplete?: boolean };
@@ -120,8 +141,8 @@ export async function POST(request: NextRequest) {
 
     if (!res1.ok) {
       const errText = await res1.text();
-      console.error("[CHAT BOOKINGS] Extraction call failed:", res1.status, errText);
-      return NextResponse.json({ error: `AI service error: ${res1.status}` }, { status: 502 });
+      console.error("[CHAT BOOKINGS] Extraction call failed:", res1.status, errText.slice(0, 500));
+      return NextResponse.json({ error: "AI service error. Please try again." }, { status: 502 });
     }
 
     const data1 = await res1.json();
@@ -130,7 +151,9 @@ export async function POST(request: NextRequest) {
 
     const jsonMatch = content1.match(/\{[\s\S]*\}/)?.[0];
     extracted = JSON.parse(jsonMatch ?? "{}");
-    console.log("[CHAT BOOKINGS] extracted:", JSON.stringify(extracted));
+    if (process.env.NODE_ENV === "development") {
+      console.log("[CHAT BOOKINGS] extracted keys:", Object.keys(extracted ?? {}));
+    }
   } catch (err) {
     console.error("[CHAT BOOKINGS] Extraction failed:", err);
     return NextResponse.json({ error: "AI service unavailable" }, { status: 503 });
@@ -169,10 +192,10 @@ export async function POST(request: NextRequest) {
     { role: "system", content: RESPONSE_PROMPT
       .replace("{name_state}", updatedCollected)
       .replace("{history_state}", historyState)
-      .replace("{last_message}", message)
-      .replace("{org_name}", orgName ?? "this restaurant")
+      .replace("{last_message}", message.slice(0, 500))
+      .replace("{org_name}", safeOrgName ?? "this restaurant")
     },
-    { role: "user", content: message },
+    { role: "user", content: message.slice(0, 500) },
   ];
 
   let conversationalReply = "Thanks! Let me confirm your details shortly.";
@@ -201,7 +224,11 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     slots: updatedSlots,
-    response: conversationalReply,
+    response: conversationalReply.slice(0, 1000),
     complete: isComplete,
   });
+  } catch (err) {
+    console.error("[CHAT BOOKINGS] unhandled:", err);
+    return NextResponse.json({ error: "Could not process the message. Please try again." }, { status: 500 });
+  }
 }
