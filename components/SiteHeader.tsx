@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { hexToRgba, type DesignSettingsV2, type HeaderElementKind } from "@/lib/design";
+import { deviceForWidth, hexToRgba, resolveFontSize, resolveLogoSize, type DesignSettingsV2, type DeviceKind, type HeaderElementKind } from "@/lib/design";
 import type { OrgView } from "@/components/OrgPageView";
 
 const DEFAULT_ELEMENT_ORDER: HeaderElementKind[] = ["logo", "name", "menu_link", "book_button"];
@@ -18,16 +18,39 @@ export function SiteHeader({
   colors,
   slug,
   mode,
+  device: deviceProp,
 }: {
   org: OrgView;
   settings: DesignSettingsV2;
   colors: { bg: string; text: string; accent: string };
   slug?: string;
   mode: "preview" | "site";
+  /**
+   * Explicit device for per-device font resolution. Console previews pass
+   * their device toggle (menu/reserve previews are 1:1 but wide, so measuring
+   * would misclassify); standalone public renders omit it and measure.
+   */
+  device?: DeviceKind;
 }) {
   const h = settings.header;
   const ref = useRef<HTMLElement>(null);
   const [scrolled, setScrolled] = useState(false);
+  // Own container width (default 1280 = desktop) so per-device overrides
+  // resolve identically whether the header renders inside OrgPageView or
+  // standalone (menu/reserve pages).
+  const [cw, setCw] = useState(1280);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setCw(el.getBoundingClientRect().width);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const device = deviceProp ?? deviceForWidth(cw || 1280);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -36,10 +59,15 @@ export function SiteHeader({
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Container-relative font sizing (same as OrgPageView). The header sets its
-  // own inline-size container so cqw resolves identically whether it's rendered
-  // inside OrgPageView (landing page) or standalone (menu/reserve pages).
-  const fS = (px: number) => `calc(${(px / 8).toFixed(5)} * 1cqw)`;
+  // Container-relative font sizing (same as OrgPageView): scales with the
+  // container up to the 800px design canvas, then caps at authored px so the
+  // live site never balloons. The header sets its own inline-size container
+  // so cqw resolves identically whether it's rendered inside OrgPageView
+  // (landing page) or standalone (menu/reserve pages).
+  const fS = (px: number) => `min(calc(${(px / 8).toFixed(5)} * 1cqw), ${px}px)`;
+  // Per-device override resolver for header keys, then the usual cap via fS.
+  const fs = (px: number, key: string) =>
+    fS(resolveFontSize(px, key, device, settings.responsive));
 
   // Ordered list of element kinds; fall back to default if not configured.
   const orderedKinds: HeaderElementKind[] = h.header_elements?.map((e) => e.kind) ?? DEFAULT_ELEMENT_ORDER;
@@ -51,14 +79,18 @@ export function SiteHeader({
 
   function renderElement(kind: HeaderElementKind) {
     if (kind === "logo") {
+      // Shared desktop base until this device stores its own override.
+      const logoSize = resolveLogoSize(h.logo_size ?? 32, device, settings.responsive);
       return org.logo_url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           key="logo"
           src={org.logo_url}
           alt={`${org.name} logo`}
-          className="h-8 w-8 rounded-full object-cover"
+          className="rounded-full object-cover"
           style={{
+            width: logoSize,
+            height: logoSize,
             border: h.logo_border_width
               ? `${h.logo_border_width}px solid ${h.logo_border_color}`
               : undefined,
@@ -67,8 +99,11 @@ export function SiteHeader({
       ) : (
         <span
           key="logo"
-          className="h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold"
+          className="rounded-full flex items-center justify-center font-bold"
           style={{
+            width: logoSize,
+            height: logoSize,
+            fontSize: Math.round((logoSize * 14) / 32),
             backgroundColor: h.cta_design.bgColor,
             color: h.logo_color,
             border: h.logo_border_width
@@ -86,7 +121,7 @@ export function SiteHeader({
           key="name"
           style={{
             fontFamily: h.design.fontFamily,
-            fontSize: fS(h.design.fontSize),
+            fontSize: fs(h.design.fontSize, "header.brand"),
             color: h.design.color,
           }}
           className="font-semibold"
@@ -101,29 +136,32 @@ export function SiteHeader({
           key="menu_link"
           href={`/${slug}/menu`}
           className="hover:underline"
-          style={{ color: h.nav_design.color, fontFamily: h.nav_design.fontFamily, fontSize: fS(h.nav_design.fontSize) }}
+          style={{ color: h.nav_design.color, fontFamily: h.nav_design.fontFamily, fontSize: fs(h.nav_design.fontSize, "header.nav") }}
         >
           Menu
         </Link>
       ) : (
         <span
           key="menu_link"
-          style={{ color: h.nav_design.color, fontFamily: h.nav_design.fontFamily, fontSize: fS(h.nav_design.fontSize) }}
+          style={{ color: h.nav_design.color, fontFamily: h.nav_design.fontFamily, fontSize: fs(h.nav_design.fontSize, "header.nav") }}
         >
           Menu
         </span>
       );
     }
     if (kind === "book_button") {
+      // Padding is em-based so the CTA text-size control visibly resizes the
+      // whole button (fixed px/cqw padding + a min-height floor used to make
+      // the button look unchanged when only the font size was lowered).
       const btnStyle = {
-        backgroundColor: h.cta_design.bgColor,
+        backgroundColor: hexToRgba(h.cta_design.bgColor, (h.cta_design.opacity ?? 100) / 100),
         color: h.cta_design.textColor,
         borderColor: h.cta_design.borderColor,
         borderRadius: h.cta_design.borderRadius,
         borderWidth: h.cta_design.borderWidth,
-        fontSize: fS(h.cta_design.fontSize),
+        fontSize: fs(h.cta_design.fontSize, "header.cta"),
         fontFamily: h.cta_design.fontFamily,
-        padding: `${fS(8)} ${fS(16)}`,
+        padding: "0.55em 1.1em",
         whiteSpace: "nowrap" as const,
         lineHeight: 1.2,
       };
@@ -131,7 +169,7 @@ export function SiteHeader({
         <Link
           key="book_button"
           href={`/${slug}/reserve`}
-          className="font-medium border-2 hover:opacity-90 transition-opacity inline-flex items-center min-h-[44px]"
+          className="font-medium border-2 hover:opacity-90 transition-opacity inline-flex items-center"
           style={btnStyle}
         >
           Book a table

@@ -7,15 +7,22 @@ import { ResizableBox } from "../resizable-box";
 import { PreviewShell } from "../preview-shell";
 import { DesignNav } from "../design-nav";
 import { CanvasHeightControl } from "../canvas-height-control";
-import { ColorField, DesignField, OpacityField } from "../design-fields";
+import { ColorField, DesignField } from "../design-fields";
+import { useDesignDevice } from "../design-device";
 import { AnimationBuilder } from "@/components/AnimationBuilder";
 import { type OrgView } from "@/components/OrgPageView";
 import {
   newContentElement,
+  getFontOverride,
+  withFontOverride,
+  getRectOverride,
+  withRectOverride,
+  resolveRect,
+  pruneElementOverrides,
   type ContentElement,
   type ContentElementKind,
   type DesignSettingsV2,
-  type ContentTemplateStyle,
+  type Rect,
   buildContentTemplate,
 } from "@/lib/design";
 
@@ -27,6 +34,50 @@ const KIND_LABELS: Record<string, string> = {
   shape: "Shape",
   button: "Button",
 };
+
+/** Editable fields keep native keys (Tab moves focus, Enter types). */
+function isEditableTarget(t: HTMLElement | null): boolean {
+  if (!t) return false;
+  return t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable;
+}
+
+function previewScrollBehavior(): ScrollBehavior {
+  try {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return "auto";
+  } catch {}
+  return "smooth";
+}
+
+function escId(id: string): string {
+  try {
+    if (typeof CSS !== "undefined" && CSS.escape) return CSS.escape(id);
+  } catch {}
+  return id;
+}
+
+/** Scroll the preview PANE (not the window) so the box is visible. The pane
+ *  is exposed via `data-preview-pane` in PreviewShell; boxes carry
+ *  `data-el-id`. Retries briefly so just-created boxes scroll after commit. */
+function scrollPreviewToId(id: string) {
+  const behavior = previewScrollBehavior();
+  let attempts = 0;
+  const tryScroll = () => {
+    const pane = document.querySelector("[data-preview-pane]");
+    const box = pane?.querySelector(`[data-el-id="${escId(id)}"]`);
+    if (box) {
+      (box as HTMLElement).scrollIntoView({ block: "nearest", behavior });
+      return;
+    }
+    if (++attempts < 12) setTimeout(tryScroll, 50);
+  };
+  tryScroll();
+}
+
+/** Scroll the page (editor column) to the Edit card. */
+function scrollToEditor() {
+  const card = document.querySelector("[data-edit-card]");
+  if (card) (card as HTMLElement).scrollIntoView({ block: "nearest", behavior: previewScrollBehavior() });
+}
 
 function useOverlaySlot(name: string) {
   const [el, setEl] = useState<HTMLElement | null>(null);
@@ -50,7 +101,9 @@ function ContentOverlay({
   elements: ContentElement[];
   selected: string[];
   onSelect: (id: string, additive: boolean) => void;
-  onUpdate: (id: string, patch: Partial<ContentElement>) => void;
+  /** Single-box drag/resize result: full rect (panel routes to base or a
+   *  per-device override depending on the active device). */
+  onUpdate: (id: string, rect: Rect) => void;
   /** dx/dy are TOTAL deltas from drag start; startRects are the rects at
    *  drag start so the group moves 1:1 with the pointer (no accumulation). */
   onMoveMany: (dx: number, dy: number, startRects: ContentElement[]) => void;
@@ -120,6 +173,7 @@ function ContentOverlay({
       {elements.map((el) => (
         <ResizableBox
           key={el.id}
+          elementId={el.id}
           rect={{ x: el.x, y: el.y, w: el.w, h: el.h }}
           unit="cvH"
           onChange={(r) => onUpdate(el.id, r)}
@@ -162,16 +216,11 @@ export function ContentPanel({
   paragraphs: { id: string; title: string | null; content: string | null }[];
 }) {
   const { settings, updateSettings, saving, saved, saveError, retrySave } = useDesign(initialSettings, orgId);
+  const { device } = useDesignDevice();
   const [selected, setSelected] = useState<string[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [previewHeight, setPreviewHeight] = useState(640);
-  const [activeContentTemplate, setActiveContentTemplate] = useState<ContentTemplateStyle | null>(
-    (settings.content as any)?.template ?? null,
-  );
-  useEffect(() => {
-    const t = (settings.content as any)?.template as ContentTemplateStyle | undefined;
-    if (t && t !== activeContentTemplate) setActiveContentTemplate(t);
-  }, [settings.content]);
+  const [choosingButtonType, setChoosingButtonType] = useState(false);
   useEffect(() => {
     try {
       const stored = Number(localStorage.getItem("tablecraft_preview_height"));
@@ -180,12 +229,53 @@ export function ContentPanel({
   }, []);
 
   const elements = settings.content.elements;
+  const deviceLabel = device === "tablet" ? "Tablet" : "Mobile";
+  // Device-resolved rects for the overlay: shared desktop base until this
+  // device stores its own `rects[content:<id>]` override (created on first
+  // move/resize off-desktop). Overlay and OrgPageView use the same resolver.
+  const viewElements: ContentElement[] = elements.map((e) => ({
+    ...e,
+    ...resolveRect(e, `content:${e.id}`, device, settings.responsive),
+  }));
 
-  // Esc clears selection; Backspace / Delete removes selected elements.
+  // Esc clears selection; Backspace / Delete removes selected elements;
+  // Tab / Shift-Tab cycles blocks (outside editable fields); Enter focuses
+  // the Edit textarea for the single selection.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setSelected([]);
+        return;
+      }
+      if (e.key === "Tab") {
+        const target = e.target as HTMLElement | null;
+        if (isEditableTarget(target)) return;
+        if (elements.length === 0) return;
+        e.preventDefault();
+        const ids = elements.map((el) => el.id);
+        const cur = selected.length === 1 ? ids.indexOf(selected[0]) : -1;
+        const next =
+          cur === -1
+            ? e.shiftKey
+              ? ids[ids.length - 1]
+              : ids[0]
+            : ids[(cur + (e.shiftKey ? -1 : 1) + ids.length) % ids.length];
+        setSelected([next]);
+        // Discrete keyboard select (never multi/marquee) may scroll the
+        // preview pane; drag/move/resize paths never call this.
+        scrollPreviewToId(next);
+        return;
+      }
+      if (e.key === "Enter") {
+        const target = e.target as HTMLElement | null;
+        // Editable fields keep native Enter; buttons/links keep activation.
+        if (target && (isEditableTarget(target) || target.closest("button, a"))) return;
+        if (selected.length !== 1) return;
+        const ta = document.querySelector("[data-edit-card] textarea") as HTMLElement | null;
+        if (ta) {
+          e.preventDefault();
+          ta.focus();
+        }
         return;
       }
       if (e.key === "Backspace" || e.key === "Delete") {
@@ -200,10 +290,16 @@ export function ContentPanel({
         }
         if (selected.length > 0) {
           e.preventDefault();
-          updateSettings({
-            content: {
-              elements: elements.filter((el) => !selected.includes(el.id)),
-            },
+          updateSettings((prev) => {
+            const kept = prev.content.elements.filter((el) => !selected.includes(el.id));
+            return {
+              content: { elements: kept },
+              responsive: pruneElementOverrides(
+                prev.responsive,
+                prev.hero.elements.map((e) => e.id),
+                kept.map((e) => e.id),
+              ),
+            };
           });
           setSelected([]);
         }
@@ -237,11 +333,35 @@ export function ContentPanel({
   };
 
   const updateEl = (id: string, patch: Partial<ContentElement>) => {
-    updateSettings({ content: { elements: elements.map((e) => (e.id === id ? { ...e, ...patch } : e)) } });
+    updateSettings((prev) => ({
+      content: {
+        elements: prev.content.elements.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+      },
+    }));
+  };
+
+  // Persist a dragged/resized rect: desktop edits the shared base; off-desktop
+  // stores a per-device override (other devices keep inheriting the base).
+  const persistRect = (id: string, r: Rect) => {
+    if (device === "desktop") {
+      updateEl(id, r);
+      return;
+    }
+    updateSettings((prev) => ({
+      responsive: withRectOverride(prev.responsive, device, `content:${id}`, r),
+    }));
   };
 
   const removeEl = (id: string) => {
-    updateSettings({ content: { elements: elements.filter((e) => e.id !== id) } });
+    updateSettings((prev) => ({
+      content: { elements: prev.content.elements.filter((e) => e.id !== id) },
+      // Drop this element's per-device values so stale overrides can't linger.
+      responsive: pruneElementOverrides(
+        prev.responsive,
+        prev.hero.elements.map((e) => e.id),
+        prev.content.elements.filter((e) => e.id !== id).map((e) => e.id),
+      ),
+    }));
     setSelected((prev) => prev.filter((x) => x !== id));
   };
 
@@ -250,6 +370,8 @@ export function ContentPanel({
     // Shapes go to the back (bottom of the stack); everything else on top.
     updateSettings({ content: { elements: kind === "shape" ? [el, ...elements] : [...elements, el] } });
     setSelected([el.id]);
+    // Discrete create scrolls the preview pane to the new box (never multi).
+    scrollPreviewToId(el.id);
   };
 
   const addButton = (buttonType: "book" | "menu") => {
@@ -257,6 +379,7 @@ export function ContentPanel({
     el.buttonType = buttonType;
     updateSettings({ content: { elements: [...elements, el] } });
     setSelected([el.id]);
+    scrollPreviewToId(el.id);
   };
 
   // Click (or ⇧/⌘ + click) on a box: additive toggles, plain click selects one.
@@ -267,9 +390,10 @@ export function ContentPanel({
     });
   };
 
-  // Group drag from start-rects: 1:1 pointer tracking (same feel as a single
-  // box, no accumulation) and clamped as ONE bounding box so the group keeps
-  // its relative layout when it hits an edge.
+  // Group drag from device-resolved start-rects: 1:1 pointer tracking (same
+  // feel as a single box, no accumulation) and clamped as ONE bounding box so
+  // the group keeps its relative layout when it hits an edge. Off-desktop the
+  // result is stored as per-device overrides; desktop edits the shared base.
   const moveMany = (dx: number, dy: number, startRects: ContentElement[]) => {
     if (selected.length === 0) return;
     const items = startRects.filter((e) => selected.includes(e.id));
@@ -284,25 +408,42 @@ export function ContentPanel({
     const nx = bw >= 100 ? b.x0 + dx : Math.min(100 - bw, Math.max(0, b.x0 + dx));
     const ny = bh >= 1000 ? b.y0 + dy : Math.min(1000 - bh, Math.max(0, b.y0 + dy));
     const adx = nx - b.x0, ady = ny - b.y0;
+    if (device !== "desktop") {
+      updateSettings((prev) => {
+        let responsive = prev.responsive;
+        for (const s of items) {
+          responsive = withRectOverride(responsive, device, `content:${s.id}`, {
+            x: s.x + adx,
+            y: s.y + ady,
+            w: s.w,
+            h: s.h,
+          });
+        }
+        return { responsive };
+      });
+      return;
+    }
     const startById = new Map(startRects.map((e) => [e.id, e]));
-    updateSettings({
+    updateSettings((prev) => ({
       content: {
-        elements: elements.map((e) => {
+        elements: prev.content.elements.map((e) => {
           if (!selected.includes(e.id)) return e;
           const s = startById.get(e.id);
           return { ...e, x: (s?.x ?? e.x) + adx, y: (s?.y ?? e.y) + ady };
         }),
       },
-    });
+    }));
   };
 
   const moveEl = (id: string, dir: -1 | 1) => {
-    const arr = [...elements];
-    const i = arr.findIndex((e) => e.id === id);
-    const j = i + dir;
-    if (i < 0 || j < 0 || j >= arr.length) return;
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-    updateSettings({ content: { elements: arr } });
+    updateSettings((prev) => {
+      const arr = [...prev.content.elements];
+      const i = arr.findIndex((e) => e.id === id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= arr.length) return {};
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+      return { content: { elements: arr } };
+    });
   };
 
   const uploadImage = async (file: File): Promise<string | null> => {
@@ -326,11 +467,11 @@ export function ContentPanel({
   const sel = selected.length === 1 ? (elements.find((e) => e.id === selected[0]) ?? null) : null;
 
   return (
-    <div>
+    <div data-design-stable>
       <DesignNav />
-      <div className="grid lg:grid-cols-2 gap-8 items-start">
-        {/* ── Controls ─────────────────────────────────────────── */}
-        <div className="space-y-8">
+      <div className="space-y-8">
+        {/* ── Controls (top, full width) ─────────────────────────── */}
+        <div className="space-y-5">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Content</h2>
             <span className="text-xs text-[var(--ink-faint)]">
@@ -350,12 +491,13 @@ export function ContentPanel({
             </div>
           )}
 
-          <p className="text-xs text-[var(--ink-soft)] -mt-4">
+          <p className="text-xs text-[var(--ink-soft)]">
             About us, paragraphs, location &amp; contact — every block is a
             Word-style rectangle you can move and resize. Full font/color/size
             controls inside each rectangle.
           </p>
 
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
           {/* Templates */}
           <section className="ticket p-5 space-y-3">
             <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
@@ -366,38 +508,36 @@ export function ContentPanel({
                 { style: "about" as const, label: "About Us", desc: "Title + text + image right" },
                 { style: "location" as const, label: "Location & Contact", desc: "Centered title + 2 text boxes" },
               ]).map((t) => {
-                const isActive = activeContentTemplate === t.style;
                 return (
                   <button
                     key={t.style}
                     type="button"
                     onClick={() => {
+                      // Content templates APPEND blocks — confirm when the canvas
+                      // isn't empty so repeated clicks don't silently duplicate
+                      // content. No "Active" indicator: appended output can't be
+                      // reliably matched back to edited elements.
+                      if (elements.length > 0) {
+                        const ok = window.confirm(
+                          `Add the "${t.label}" blocks? They will be appended to your existing content blocks.`,
+                        );
+                        if (!ok) return;
+                      }
                       const newEls = buildContentTemplate(t.style, orgContent);
                       const newIds = newEls.map((e) => e.id);
-                      setActiveContentTemplate(t.style);
                       updateSettings({
                         content: {
                           ...settings.content,
                           elements: [...elements, ...newEls],
-                          template: t.style,
                         },
                       });
                       setSelected((prev) => prev.length === 0 ? newIds : [...prev, ...newIds]);
                     }}
                     disabled={saving}
-                    className={`p-3 text-left rounded border transition-all ${
-                      isActive
-                        ? "border-[var(--accent)] bg-[var(--accent)]/10"
-                        : "border-[var(--rule)] hover:border-[var(--ink-soft)]"
-                    }`}
+                    className="p-3 text-left rounded border transition-all border-[var(--rule)] hover:border-[var(--ink-soft)]"
                   >
                     <div className="text-xs font-semibold text-[var(--ink)]">{t.label}</div>
                     <div className="text-[10px] text-[var(--ink-soft)] mt-0.5">{t.desc}</div>
-                    {isActive && (
-                      <div className="text-[10px] text-[var(--accent)] mt-1">
-                        {saving ? "Applying…" : "✓ Active"}
-                      </div>
-                    )}
                   </button>
                 );
               })}
@@ -416,7 +556,14 @@ export function ContentPanel({
                     selected.includes(e.id) ? "border-[var(--accent)] bg-[var(--accent)]/5" : "border-[var(--rule)]"
                   }`}
                 >
-                  <button type="button" onClick={(ev) => handleSelect(e.id, ev.shiftKey || ev.metaKey || ev.ctrlKey)} className="flex-1 text-left truncate">
+                  <button type="button" onClick={(ev) => {
+                    const additive = ev.shiftKey || ev.metaKey || ev.ctrlKey;
+                    handleSelect(e.id, additive);
+                    // Discrete single-select from the list scrolls the
+                    // PREVIEW PANE (not the window) to the box; additive
+                    // multi-select never auto-scrolls.
+                    if (!additive) scrollPreviewToId(e.id);
+                  }} className="flex-1 text-left truncate">
                     <span className="font-mono mr-2 text-[10px] opacity-60">{KIND_LABELS[e.kind]?.slice(0, 3).toUpperCase()}</span>
                     {e.kind === "title" || e.kind === "text" ? (e.content || (e.ref && "org" in e.ref ? `(${e.ref.org})` : "") || resolveText(e).slice(0, 30) || `Empty ${KIND_LABELS[e.kind]}`) : KIND_LABELS[e.kind]}
                   </button>
@@ -427,12 +574,36 @@ export function ContentPanel({
               ))}
             </div>
             <div className="flex flex-wrap gap-2">
-              {(["title", "text", "image", "images", "shape", "button"] as ContentElementKind[]).map((k) => (
+              {(["title", "text", "image", "images", "shape"] as ContentElementKind[]).map((k) => (
                 <button key={k} type="button" onClick={() => addEl(k)} className="btn btn-outline text-xs">
                   + {KIND_LABELS[k]}
                 </button>
               ))}
+              <button type="button" onClick={() => setChoosingButtonType((v) => !v)} className="btn btn-outline text-xs">
+                {choosingButtonType ? "Cancel" : "+ Button"}
+              </button>
             </div>
+            {/* Two-step subtype chooser (same as hero): "+ Button" reveals the
+                destination first, then creates a typed button already selected
+                so its editor (with the Book/Menu type toggle) opens at once. */}
+            {choosingButtonType && (
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => { addButton("book"); setChoosingButtonType(false); }}
+                  className="block w-full text-left px-3 py-2 text-xs border border-[var(--accent)]/50 rounded hover:bg-[var(--accent)]/10 text-[var(--accent)]"
+                >
+                  Book a table
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { addButton("menu"); setChoosingButtonType(false); }}
+                  className="block w-full text-left px-3 py-2 text-xs border border-[var(--accent)]/50 rounded hover:bg-[var(--accent)]/10 text-[var(--accent)]"
+                >
+                  Menu
+                </button>
+              </div>
+            )}
             {selected.length === 1 && sel?.kind === "button" && (
               <div className="space-y-1">
                 <button
@@ -453,34 +624,53 @@ export function ContentPanel({
             )}
           </section>
 
-          {/* Selected element controls */}
-          {sel && (
-            <section className="ticket p-5 space-y-3">
-              <div className="flex items-center justify-between">
+          {/* Selected element controls — always rendered (placeholder when
+              nothing is selected) with a min-height so mounting the editor
+              never changes page height, which would toggle the window
+              scrollbar and rescale the width-measured preview zoom. */}
+          <section data-edit-card className="ticket p-5 space-y-3 min-h-[380px]">
+            {sel ? (
+              <>
+              <div className="flex items-center justify-between gap-2">
                 <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
                   Edit {KIND_LABELS[sel.kind]}
                 </h3>
-                <button type="button" onClick={() => removeEl(sel.id)} className="text-red-500 underline text-[10px]">
-                  Delete
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => scrollPreviewToId(sel.id)}
+                    className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--rule-strong)] text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                    title="Scroll the preview to this block"
+                  >
+                    Jump to preview ↓
+                  </button>
+                  <button type="button" onClick={() => removeEl(sel.id)} className="text-red-500 underline text-[10px]">
+                    Delete
+                  </button>
+                </div>
               </div>
 
               {(sel.kind === "title" || sel.kind === "text") && (
                 <>
                   {sel.ref && "org" in sel.ref && (
                     <p className="text-[10px] text-[var(--ink-faint)]">
-                      Bound to <b>{sel.ref.org}</b> — edit from the public site or via the Text tab.
+                      Bound to <b>{sel.ref.org}</b> — showing live text from your restaurant profile.
+                      Editing below unlinks this block (it becomes fixed text).
                     </p>
                   )}
-                  {!sel.ref && (
+                  {(!sel.ref || "org" in sel.ref) && (
                     <div>
                       <label className="block text-xs text-[var(--ink-soft)] mb-1">
                         {sel.kind === "title" ? "Title text" : "Text content"}
                       </label>
                       <textarea
                         rows={3}
-                        value={sel.content ?? ""}
-                        onChange={(e) => updateEl(sel.id, { content: e.target.value })}
+                        value={sel.ref ? resolveText(sel) : sel.content ?? ""}
+                        onChange={(e) =>
+                          sel.ref
+                            ? updateEl(sel.id, { content: e.target.value, ref: undefined })
+                            : updateEl(sel.id, { content: e.target.value })
+                        }
                         className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-3 py-2 text-sm resize-y"
                       />
                     </div>
@@ -555,6 +745,9 @@ export function ContentPanel({
                     label=""
                     design={sel.design}
                     onChange={(d) => updateEl(sel.id, { design: d })}
+                    fontKey={`content:${sel.id}`}
+                    overrideValue={getFontOverride(settings.responsive, device, `content:${sel.id}`)}
+                    onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, `content:${sel.id}`, v) }))}
                   />
                 </>
               )}
@@ -575,7 +768,7 @@ export function ContentPanel({
                         onChange={(e) => updateEl(sel.id, { borderRadius: parseInt(e.target.value, 10) })}
                         className="w-full accent-[var(--accent)]" />
                     </div>
-                    <ColorField label="Border color" value={sel.borderColor ?? "#ffffff"} onChange={(v) => updateEl(sel.id, { borderColor: v })} />
+                    <ColorField label="Border color" value={sel.borderColor ?? "#000000"} onChange={(v) => updateEl(sel.id, { borderColor: v })} />
                     <div>
                       <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Opacity: {sel.opacity ?? 100}%</label>
                       <input type="range" min={0} max={100} value={sel.opacity ?? 100}
@@ -586,27 +779,103 @@ export function ContentPanel({
                 </>
               )}
 
-              {sel.kind !== "shape" && sel.kind !== "button" && (
+              {/* Image blocks render as placeholders in preview and plain
+                  media on the live site — no text reads design.fontSize, so
+                  no typography controls (avoids placebo per-device sizes). */}
+              {(sel.kind === "title" || sel.kind === "text") && (
                 <DesignField customFonts={settings.custom_fonts}
                   label=""
                   design={sel.design}
                   onChange={(d) => updateEl(sel.id, { design: d })}
+                  fontKey={`content:${sel.id}`}
+                  overrideValue={getFontOverride(settings.responsive, device, `content:${sel.id}`)}
+                  onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, `content:${sel.id}`, v) }))}
                 />
               )}
-              {sel.kind !== "shape" && sel.kind !== "button" && (
+              {(sel.kind === "title" || sel.kind === "text") && (
                 <AnimationBuilder design={sel.design} onChange={(d) => updateEl(sel.id, { design: d })} />
               )}
-            </section>
-          )}
+              {/* Per-device layout status lives INSIDE the edit card (not a
+                  separate grid item) so toggling devices never changes page
+                  height. Moves/resizes on tablet/mobile are stored as
+                  overrides for that device only — desktop stays shared. */}
+              {device !== "desktop" && (
+                <div className="space-y-2 border-t border-[var(--rule)] pt-3">
+                  <h3 className="font-display text-sm font-semibold text-[var(--ink)]">
+                    {deviceLabel} layout
+                  </h3>
+                  {(() => {
+                    const layoutOverride = getRectOverride(settings.responsive, device, `content:${sel.id}`);
+                    return (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-[10px] text-[var(--ink-faint)]">
+                          {deviceLabel}: {layoutOverride ? "custom position" : "inherits desktop"}
+                        </p>
+                        {layoutOverride && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateSettings((prev) => ({
+                                responsive: withRectOverride(prev.responsive, device, `content:${sel.id}`, undefined),
+                              }))
+                            }
+                            className="text-[10px] underline text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                          >
+                            Reset (inherits)
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  <p className="text-[10px] text-[var(--ink-faint)]">
+                    Dragging or resizing on {deviceLabel} only affects {deviceLabel} — other devices keep the desktop layout.
+                  </p>
+                </div>
+              )}
+              </>
+            ) : (
+              <div className="space-y-2">
+                <h3 className="font-display text-sm font-semibold text-[var(--ink)]">
+                  Edit block
+                </h3>
+                <p className="text-xs text-[var(--ink-faint)]">
+                  Select a block on the canvas or in the list to edit its content and style.
+                </p>
+                <p className="text-[10px] text-[var(--ink-faint)]">
+                  Tip: Tab cycles blocks, Enter focuses the text field.
+                </p>
+              </div>
+            )}
+          </section>
+          </div>
         </div>
 
-        {/* ── Preview ──────────────────────────────────────────── */}
-        <div className="space-y-4">
-          <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Live Preview</h2>
-          <CanvasHeightControl
-            previewHeight={previewHeight}
-            setPreviewHeight={setPreviewHeight}
-          />
+        {/* ── Preview (below, full width) ──────────────────────── */}
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Live Preview</h2>
+              {selected.length === 1 && (
+                <button
+                  type="button"
+                  onClick={scrollToEditor}
+                  className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--rule-strong)] text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                  title="Scroll to the editor for the selected block"
+                >
+                  Jump to editor ↑
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-[11px] text-[var(--ink-faint)]">
+                Drag boxes to move • drag handles to resize • Shift-click for multi-select • Tab cycles blocks • Enter edits text • click list to locate in preview
+              </span>
+              <CanvasHeightControl
+                previewHeight={previewHeight}
+                setPreviewHeight={setPreviewHeight}
+              />
+            </div>
+          </div>
           <PreviewShell
             settings={settings}
             org={orgContent}
@@ -619,15 +888,15 @@ export function ContentPanel({
             orgName={orgName}
             previewHeight={previewHeight}
           />
-        </div>
+        </section>
       </div>
 
       {/* Content element overlay portals */}
       <ContentOverlay
-        elements={elements}
+        elements={viewElements}
         selected={selected}
         onSelect={handleSelect}
-        onUpdate={updateEl}
+        onUpdate={persistRect}
         onMoveMany={moveMany}
         setSelected={setSelected}
       />

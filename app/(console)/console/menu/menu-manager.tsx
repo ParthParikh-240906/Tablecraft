@@ -38,13 +38,24 @@ export function MenuManager({ orgId }: { orgId: string }) {
   // Scan/upload state
   const [scanning, setScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string>("");
-  const [scanError, setScanError] = useState<string | null>(null);
-  const [deleteCatTarget, setDeleteCatTarget] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);  const [deleteCatTarget, setDeleteCatTarget] = useState<string | null>(null);
   const [showDeleteCatConfirm, setShowDeleteCatConfirm] = useState(false);
   const [deleteItemTarget, setDeleteItemTarget] = useState<MenuItem | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Review-before-save state (Step 2 of AI scan)
+  interface PreviewRow {
+    name: string;
+    description: string;
+    price: string;
+    category: string;
+    included: boolean;
+  }
+  const [previewItems, setPreviewItems] = useState<PreviewRow[] | null>(null);
+  const [previewMode, setPreviewMode] = useState<"append" | "replace">("append");
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     if (!orgId) return;
@@ -284,6 +295,8 @@ export function MenuManager({ orgId }: { orgId: string }) {
     formData.append("orgId", orgId);
     // Scanned menus always append to the existing menu.
     formData.append("mode", "append");
+    // Preview first: extract without inserting, then review before saving.
+    formData.append("preview", "true");
 
     try {
       const res = await fetch("/api/menu/vision-parse", {
@@ -297,6 +310,28 @@ export function MenuManager({ orgId }: { orgId: string }) {
         throw new Error(result.error || "Scan failed");
       }
 
+      // Preview path: show the review-before-save step (no DB writes yet).
+      if (result.preview === true && Array.isArray(result.items)) {
+        const rows: PreviewRow[] = result.items.map(
+          (item: { name?: unknown; description?: unknown; price?: unknown; category?: unknown }) => ({
+            name: typeof item.name === "string" ? item.name : String(item.name ?? ""),
+            description: typeof item.description === "string" ? item.description : "",
+            price: item.price != null ? String(item.price) : "",
+            category: typeof item.category === "string" ? item.category : "",
+            included: true,
+          })
+        );
+        if (rows.length === 0) {
+          setScanError("No items found in scan — try a clearer image.");
+        } else {
+          setPreviewItems(rows);
+          setPreviewMode("append");
+          setScanStatus(`Detected ${rows.length} items — review below, then confirm.`);
+        }
+        return;
+      }
+
+      // Backward-compatible direct-insert path (route without preview).
       if (!result.itemCount || result.itemCount === 0) { setScanError("No items found in scan — try a clearer image."); } else { setScanStatus(`✓ Added ${result.itemCount} items`); }
       // Refresh menu list
       const { data } = await supabase
@@ -312,6 +347,72 @@ export function MenuManager({ orgId }: { orgId: string }) {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+    }
+  }
+
+  function updatePreviewRow(index: number, patch: Partial<PreviewRow>) {
+    setPreviewItems((prev) =>
+      prev ? prev.map((row, i) => (i === index ? { ...row, ...patch } : row)) : prev
+    );
+  }
+
+  async function handleConfirmPreview() {
+    if (!previewItems) return;
+    const selected = previewItems.filter((row) => row.included);
+    if (selected.length === 0) {
+      setScanError("Select at least one item to add.");
+      return;
+    }
+    const payload: Array<{ name: string; description?: string; price: number; category?: string }> = [];
+    for (const row of selected) {
+      const name = row.name.trim();
+      const price = Number(row.price);
+      if (!name || !Number.isFinite(price) || price < 0) {
+        setScanError(`Fix invalid row: "${row.name.trim() || "(unnamed)"}" needs a name and a valid price.`);
+        return;
+      }
+      payload.push({
+        name,
+        description: row.description.trim() || undefined,
+        price,
+        category: row.category.trim() || undefined,
+      });
+    }
+    if (previewMode === "replace") {
+      const ok = window.confirm(
+        `Replace mode will DELETE all ${items.length} existing menu items and insert only the ${payload.length} selected scanned items. This cannot be undone. Continue?`
+      );
+      if (!ok) return;
+    }
+    setConfirming(true);
+    setScanError(null);
+    setScanStatus(previewMode === "replace" ? "Replacing menu…" : "Adding reviewed items…");
+    try {
+      const confirmData = new FormData();
+      confirmData.append("orgId", orgId);
+      confirmData.append("mode", previewMode);
+      confirmData.append("items", JSON.stringify(payload));
+      const res = await fetch("/api/menu/vision-parse", {
+        method: "POST",
+        body: confirmData,
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result.error || "Save failed");
+      }
+      setScanStatus(`✓ Added ${result.itemCount} items`);
+      setPreviewItems(null);
+      // Refresh menu list
+      const { data } = await supabase
+        .from("menu_items")
+        .select("id, name, description, price, category, available")
+        .eq("org_id", orgId);
+      setItems(data as MenuItem[]);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to save items";
+      setScanError(message);
+    } finally {
+      setConfirming(false);
     }
   }
 
@@ -374,6 +475,135 @@ export function MenuManager({ orgId }: { orgId: string }) {
           }`}
         >
           {scanError || scanStatus}
+        </div>
+      )}
+
+      {/* Review-before-save step: editable preview of scanned items */}
+      {previewItems && (
+        <div className="ticket p-5 mb-6 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-medium text-sm">
+              Review scanned items — {previewItems.length} detected (
+              {previewItems.filter((row) => row.included).length} selected)
+            </h2>
+            <button
+              type="button"
+              onClick={() =>
+                setPreviewItems((prev) => {
+                  const allIncluded = (prev ?? []).length > 0 && (prev ?? []).every((row) => row.included);
+                  return (prev ?? []).map((row) => ({ ...row, included: !allIncluded }));
+                })
+              }
+              className="btn btn-ghost text-xs py-1"
+            >
+              {previewItems.length > 0 && previewItems.every((row) => row.included)
+                ? "Select none"
+                : "Select all"}
+            </button>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-[var(--ink-faint)]">Mode:</span>
+            <button
+              type="button"
+              onClick={() => setPreviewMode("append")}
+              className={`btn text-xs py-1 ${previewMode === "append" ? "btn-accent" : "btn-outline"}`}
+            >
+              Append
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreviewMode("replace")}
+              className={`btn text-xs py-1 ${previewMode === "replace" ? "btn-accent" : "btn-outline"}`}
+            >
+              Replace
+            </button>
+          </div>
+          {previewMode === "replace" && (
+            <p className={`text-sm rounded-sm px-3 py-2 ${theme === "light" ? "bg-red-600 text-white" : "text-red-400 bg-red-900/40"}`}>
+              Replace will delete all {items.length} existing menu items and insert only the
+              selected scanned items. This cannot be undone.
+            </p>
+          )}
+          <ul className="space-y-2">
+            {previewItems.map((row, index) => (
+              <li
+                key={index}
+                className="flex flex-col gap-2 sm:grid sm:grid-cols-12 sm:items-center rounded-sm border border-[var(--rule)] p-2"
+              >
+                <input
+                  type="checkbox"
+                  checked={row.included}
+                  onChange={(e) => updatePreviewRow(index, { included: e.target.checked })}
+                  title="Include this item"
+                  className="sm:col-span-1 justify-self-start"
+                />
+                <input
+                  type="text"
+                  placeholder="Name"
+                  value={row.name}
+                  onChange={(e) => updatePreviewRow(index, { name: e.target.value })}
+                  className="input sm:col-span-3"
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Price (AED)"
+                  value={row.price}
+                  onChange={(e) => updatePreviewRow(index, { price: e.target.value })}
+                  className="input sm:col-span-2"
+                />
+                <input
+                  type="text"
+                  placeholder="Category"
+                  value={row.category}
+                  onChange={(e) => updatePreviewRow(index, { category: e.target.value })}
+                  className="input sm:col-span-2"
+                />
+                <input
+                  type="text"
+                  placeholder="Description (optional)"
+                  value={row.description}
+                  onChange={(e) => updatePreviewRow(index, { description: e.target.value })}
+                  className="input sm:col-span-3"
+                />
+                <button
+                  type="button"
+                  onClick={() => setPreviewItems((prev) => (prev ? prev.filter((_, i) => i !== index) : prev))}
+                  className="btn btn-ghost text-xs py-1 text-red-400 sm:col-span-1"
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+          {previewItems.length === 0 && (
+            <p className="text-sm text-[var(--ink-faint)]">All rows removed — go back and scan again, or add items manually.</p>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleConfirmPreview}
+              disabled={confirming || scanning}
+              className="btn btn-accent"
+            >
+              {confirming
+                ? "Saving…"
+                : previewMode === "replace"
+                  ? `Replace with ${previewItems.filter((row) => row.included).length} items`
+                  : `Add ${previewItems.filter((row) => row.included).length} items`}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPreviewItems(null);
+                setScanStatus("");
+              }}
+              className="btn btn-outline"
+            >
+              Back
+            </button>
+          </div>
         </div>
       )}
 
@@ -452,7 +682,6 @@ export function MenuManager({ orgId }: { orgId: string }) {
           {(() => {
             const grouped: Record<string, MenuItem[]> = {};
             const categoryOrder: string[] = [];
-            const seen = new Set<string>();
 
             for (const item of items) {
               const cat = item.category || "Uncategorized";

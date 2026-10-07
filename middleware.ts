@@ -66,7 +66,7 @@ export async function middleware(request: NextRequest) {
     if (!isUUID) {
       try {
         const { data: org } = await supabase
-          .from("organizations")
+          .from("public_organizations")
           .select("id")
           .eq("slug", orgParam)
           .single();

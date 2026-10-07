@@ -9,10 +9,16 @@ import { PreviewShell } from "./preview-shell";
 import { DesignNav } from "./design-nav";
 import { CanvasHeightControl } from "./canvas-height-control";
 import { ColorField, DesignField, OpacityField } from "./design-fields";
+import { useDesignDevice } from "./design-device";
 import { AnimationBuilder } from "@/components/AnimationBuilder";
 import { type OrgView } from "@/components/OrgPageView";
 import {
   LOCAL_FONTS,
+  getFontOverride,
+  withFontOverride,
+  getLogoSizeOverride,
+  withLogoSizeOverride,
+  resolveLogoSize,
   type DesignSettingsV2,
 } from "@/lib/design";
 
@@ -77,6 +83,7 @@ export function CanvasPanel({
 }) {
   const router = useRouter();
   const { settings, updateSettings, saving, saved, saveError, retrySave } = useDesign(initialSettings, orgId);
+  const { device } = useDesignDevice();
   const [selected, setSelected] = useState<string | "hero" | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
@@ -92,12 +99,24 @@ export function CanvasPanel({
 
   const selectedIsHero = selected === "hero";
 
+  // Per-device font-size overrides (v1: size only). Off-desktop the size
+  // inputs below show `override ?? base` and write into settings.responsive;
+  // family / color always edit the shared base.
+  const deviceLabel = device === "tablet" ? "Tablet" : "Mobile";
+  const navOverride = getFontOverride(settings.responsive, device, "header.nav");
+  const ctaOverride = getFontOverride(settings.responsive, device, "header.cta");
+  const logoOverride = getLogoSizeOverride(settings.responsive, device);
+  const logoBase = settings.header.logo_size ?? 32;
+  const shownLogoSize = device !== "desktop" ? (logoOverride ?? logoBase) : logoBase;
+  // Control-area thumbnail mirrors what the site header renders on this device.
+  const previewLogoSize = resolveLogoSize(logoBase, device, settings.responsive);
+
   return (
     <div>
       <DesignNav />
-      <div className="grid lg:grid-cols-2 gap-8 items-start">
-        {/* ── Controls ─────────────────────────────────────────── */}
-        <div className="space-y-8">
+      <div className="space-y-10">
+        {/* ── Controls (full width, top) ───────────────────────── */}
+        <div>
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Design</h2>
             <span className="text-xs text-[var(--ink-faint)]">
@@ -112,6 +131,7 @@ export function CanvasPanel({
           )}
 
 
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5 items-start mt-6">
           {/* Page colors */}
           <section className="ticket p-5 space-y-3">
             <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
@@ -123,7 +143,7 @@ export function CanvasPanel({
           </section>
 
           {/* Header */}
-          <section className="ticket p-5 space-y-3">
+          <section className="ticket p-5 space-y-3 md:col-span-2 xl:col-span-2">
             <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Header</h3>
             <div>
               <label className="block text-xs font-medium text-[var(--ink-soft)] mb-1">
@@ -132,9 +152,9 @@ export function CanvasPanel({
               <div className="flex items-center gap-2">
                 {org.logo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={org.logo_url} alt="Logo" className="h-9 w-9 rounded-full object-cover" />
+                  <img src={org.logo_url} alt="Logo" className="rounded-full object-cover" style={{ width: previewLogoSize, height: previewLogoSize }} />
                 ) : (
-                  <span className="h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold" style={{ backgroundColor: settings.header.cta_design.bgColor, color: settings.header.logo_color }}>
+                  <span className="rounded-full flex items-center justify-center font-bold" style={{ width: previewLogoSize, height: previewLogoSize, fontSize: Math.round((previewLogoSize * 14) / 32), backgroundColor: settings.header.cta_design.bgColor, color: settings.header.logo_color }}>
                     {orgName.charAt(0).toUpperCase()}
                   </span>
                 )}
@@ -219,6 +239,43 @@ export function CanvasPanel({
                 className="w-full accent-[var(--accent)]"
               />
             </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--ink-soft)] mb-1">
+                Logo size · {shownLogoSize}px
+              </label>
+              <input
+                type="range"
+                min={16}
+                max={64}
+                step={1}
+                value={Math.min(64, Math.max(16, shownLogoSize))}
+                onChange={(e) => {
+                  const next = parseInt(e.target.value, 10) || 32;
+                  if (device !== "desktop") {
+                    updateSettings((prev) => ({ responsive: withLogoSizeOverride(prev.responsive, device, next) }));
+                  } else {
+                    updateSettings({ header: { ...settings.header, logo_size: next } });
+                  }
+                }}
+                className="w-full accent-[var(--accent)]"
+              />
+              {device !== "desktop" && (
+                <div className="flex items-center gap-2 flex-wrap mt-1">
+                  <p className="text-[10px] text-[var(--ink-faint)]">
+                    {deviceLabel}: {logoOverride != null ? "custom" : `inherits desktop (${logoBase}px)`}
+                  </p>
+                  {logoOverride != null && (
+                    <button
+                      type="button"
+                      onClick={() => updateSettings((prev) => ({ responsive: withLogoSizeOverride(prev.responsive, device, undefined) }))}
+                      className="text-[10px] underline text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                    >
+                      Reset (inherits)
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             <ColorField label="Header Background" value={settings.header.background_color} onChange={(v) => updateSettings({ header: { ...settings.header, background_color: v } })} />
             <OpacityField label="Header Background Opacity (on scroll)" value={settings.header.opacity} onChange={(v) => updateSettings({ header: { ...settings.header, opacity: v } })} />
             <ColorField label="Logo color" value={settings.header.logo_color} onChange={(v) => updateSettings({ header: { ...settings.header, logo_color: v } })} />
@@ -228,11 +285,14 @@ export function CanvasPanel({
                 label=""
                 design={settings.header.design}
                 onChange={(d) => updateSettings({ header: { ...settings.header, design: d } })}
+                fontKey="header.brand"
+                overrideValue={getFontOverride(settings.responsive, device, "header.brand")}
+                onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "header.brand", v) }))}
               />
               <AnimationBuilder design={settings.header.design} onChange={(d) => updateSettings({ header: { ...settings.header, design: d } })} />
             </div>
             <div>
-              <p className="text-xs text-[var(--ink-soft)] mb-1">Nav text (Menu / Cart)</p>
+              <p className="text-xs text-[var(--ink-soft)] mb-1">Menu Text</p>
               <div className="grid grid-cols-3 gap-2 items-end">
                 <select
                   value={settings.header.nav_design.fontFamily}
@@ -245,14 +305,34 @@ export function CanvasPanel({
                 </select>
                 <input
                   type="number" min={8} max={160}
-                  value={settings.header.nav_design.fontSize}
-                  onChange={(e) => updateSettings({ header: { ...settings.header, nav_design: { ...settings.header.nav_design, fontSize: parseInt(e.target.value, 10) || 14 } } })}
+                  value={device !== "desktop" ? (navOverride ?? settings.header.nav_design.fontSize) : settings.header.nav_design.fontSize}
+                  onChange={(e) => {
+                    const next = parseInt(e.target.value, 10) || 14;
+                    if (device !== "desktop") updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "header.nav", next) }));
+                    else updateSettings({ header: { ...settings.header, nav_design: { ...settings.header.nav_design, fontSize: next } } });
+                  }}
                   className="col-span-1 w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-sm"
                 />
                 <div className="col-span-1">
                   <ColorField label="" value={settings.header.nav_design.color} onChange={(v) => updateSettings({ header: { ...settings.header, nav_design: { ...settings.header.nav_design, color: v } } })} />
                 </div>
               </div>
+              {device !== "desktop" && (
+                <div className="flex items-center gap-2 flex-wrap mt-1">
+                  <p className="text-[10px] text-[var(--ink-faint)]">
+                    {deviceLabel}: {navOverride != null ? "custom" : `inherits desktop (${settings.header.nav_design.fontSize}px)`}
+                  </p>
+                  {navOverride != null && (
+                    <button
+                      type="button"
+                      onClick={() => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "header.nav", undefined) }))}
+                      className="text-[10px] underline text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                    >
+                      Reset (inherits)
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
             <div>
               <p className="text-xs text-[var(--ink-soft)] mb-1">Book a table button</p>
@@ -268,8 +348,12 @@ export function CanvasPanel({
                 </select>
                 <input
                   type="number" min={8} max={160}
-                  value={settings.header.cta_design.fontSize}
-                  onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, fontSize: parseInt(e.target.value, 10) || 14 } } })}
+                  value={device !== "desktop" ? (ctaOverride ?? settings.header.cta_design.fontSize) : settings.header.cta_design.fontSize}
+                  onChange={(e) => {
+                    const next = parseInt(e.target.value, 10) || 14;
+                    if (device !== "desktop") updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "header.cta", next) }));
+                    else updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, fontSize: next } } });
+                  }}
                   className="col-span-1 w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-sm"
                 />
                 <div className="col-span-1">
@@ -282,10 +366,13 @@ export function CanvasPanel({
                   <ColorField label="Border" value={settings.header.cta_design.borderColor} onChange={(v) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, borderColor: v } } })} />
                 </div>
                 <div className="col-span-1">
-                  <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Radius: {settings.header.cta_design.borderRadius}</label>
-                  <input type="range" min={0} max={9999} value={settings.header.cta_design.borderRadius}
+                  <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Radius: {Math.min(settings.header.cta_design.borderRadius, 24)}px</label>
+                  <input type="range" min={0} max={24} step={1} value={Math.min(settings.header.cta_design.borderRadius, 24)}
                     onChange={(e) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, borderRadius: parseInt(e.target.value, 10) } } })}
                     className="w-full accent-[var(--accent)]" />
+                </div>
+                <div className="col-span-1">
+                  <OpacityField label="Opacity" value={settings.header.cta_design.opacity ?? 100} onChange={(v) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, opacity: v } } })} />
                 </div>
                 <div className="col-span-1">
                   <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Width: {settings.header.cta_design.borderWidth}</label>
@@ -294,6 +381,22 @@ export function CanvasPanel({
                     className="w-full accent-[var(--accent)]" />
                 </div>
               </div>
+              {device !== "desktop" && (
+                <div className="flex items-center gap-2 flex-wrap mt-1">
+                  <p className="text-[10px] text-[var(--ink-faint)]">
+                    {deviceLabel}: {ctaOverride != null ? "custom" : `inherits desktop (${settings.header.cta_design.fontSize}px)`}
+                  </p>
+                  {ctaOverride != null && (
+                    <button
+                      type="button"
+                      onClick={() => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "header.cta", undefined) }))}
+                      className="text-[10px] underline text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                    >
+                      Reset (inherits)
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Header element order */}
@@ -361,15 +464,18 @@ export function CanvasPanel({
               </p>
             </section>
           )}
+          </div>
         </div>
 
-        {/* ── Preview ──────────────────────────────────────────── */}
+        {/* ── Preview (full width, below) ──────────────────────── */}
         <div className="space-y-4">
-          <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Live Preview</h2>
-          <CanvasHeightControl
-            previewHeight={previewHeight}
-            setPreviewHeight={setPreviewHeight}
-          />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-lg font-semibold text-[var(--ink)]">Live Preview</h2>
+            <CanvasHeightControl
+              previewHeight={previewHeight}
+              setPreviewHeight={setPreviewHeight}
+            />
+          </div>
           <PreviewShell
             settings={settings}
             org={org}

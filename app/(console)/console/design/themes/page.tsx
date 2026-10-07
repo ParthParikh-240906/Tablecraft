@@ -2,11 +2,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
-import { HeroPanel } from "./hero-panel";
-import { DesignDeviceProvider } from "../design-device";
+import { ThemesPanel } from "./themes-panel";
 export const dynamic = "force-dynamic";
 
-export default async function ConsoleDesignHeroPage({
+export default async function ConsoleDesignThemesPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string>>;
@@ -28,18 +27,13 @@ export default async function ConsoleDesignHeroPage({
   const org = data.org;
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="font-display text-2xl font-bold mb-2 text-[var(--ink)]">
-            Hero
-          </h1>
-          <p className="text-sm text-[var(--ink-soft)]">
-            Hero background and the text/logo elements that sit on top of it.
-          </p>
-        </div>
-        {data.org.slug && (
+      <div className="flex items-center justify-between gap-4 flex-wrap mb-2">
+        <h1 className="font-display text-2xl font-bold text-[var(--ink)]">
+          Themes
+        </h1>
+        {data.slug && (
           <a
-            href={`/${data.org.slug}`}
+            href={`/${data.slug}`}
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn-outline text-xs px-3 py-1.5"
@@ -48,11 +42,16 @@ export default async function ConsoleDesignHeroPage({
           </a>
         )}
       </div>
-      <DesignDeviceProvider><HeroPanel key={orgId}
+      <p className="text-sm text-[var(--ink-soft)] mb-6">
+        One-click full-page looks — preview a theme below, then apply it to
+        restyle the whole site at once. Your photos are kept.
+      </p>
+      <ThemesPanel key={orgId}
         orgId={orgId}
         orgName={data.orgName}
+        orgSlug={data.slug ?? null}
         initialSettings={data.settings}
-        org={{
+        orgContent={{
           name: org.name,
           tagline: org.tagline ?? null,
           logo_url: org.logo_url,
@@ -66,7 +65,7 @@ export default async function ConsoleDesignHeroPage({
           restaurant_photos: (org.restaurant_photos as string[] | null) ?? [],
         }}
         paragraphs={data.paragraphs}
-      /></DesignDeviceProvider>
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { buildDefaultContentElements } from "@/lib/design";
 import { ContentPanel } from "./content-panel";
+import { DesignDeviceProvider } from "../design-device";
 export const dynamic = "force-dynamic";
 
 export default async function ConsoleDesignContentPage({
@@ -46,13 +47,27 @@ export default async function ConsoleDesignContentPage({
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="font-display text-2xl font-bold mb-2 text-[var(--ink)]">
-        Content
-      </h1>
-      <p className="text-sm text-[var(--ink-soft)] mb-6">
-        About us, paragraphs, location and contact.
-      </p>
-      <ContentPanel key={orgId}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="font-display text-2xl font-bold mb-2 text-[var(--ink)]">
+            Content
+          </h1>
+          <p className="text-sm text-[var(--ink-soft)]">
+            About us, paragraphs, location and contact.
+          </p>
+        </div>
+        {data.org.slug && (
+          <a
+            href={`/${data.org.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-outline text-xs px-3 py-1.5"
+          >
+            Preview Site →
+          </a>
+        )}
+      </div>
+      <DesignDeviceProvider><ContentPanel key={orgId}
         orgId={orgId}
         orgName={data.orgName}
         initialSettings={settings}
@@ -70,7 +85,7 @@ export default async function ConsoleDesignContentPage({
           restaurant_photos: (org.restaurant_photos as string[] | null) ?? [],
         }}
         paragraphs={data.paragraphs}
-      />
+      /></DesignDeviceProvider>
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org";
-import { defaultReservePageDesign, type ReservePageDesign, getShadowStyle } from "@/lib/design";
-import { BookingForm } from "./booking-form";
+import { defaultReservePageDesign, type ReservePageDesign, type ResponsiveOverrides, getShadowStyle } from "@/lib/design";
+import { BookingForm, ReserveHeadings } from "./booking-form";
 
 // Cache for 60s — booking page content is mostly static per visit
 export const revalidate = 60;
@@ -45,6 +45,7 @@ export default async function ReservePage({
   const reserveDesign = org.design_settings
     ? { ...defaultReservePageDesign(), ...((org.design_settings as Record<string, unknown>)?.reserve_page as Record<string, unknown> ?? {}) }
     : defaultReservePageDesign();
+  const responsive = (org.design_settings as Record<string, unknown> | null)?.responsive as ResponsiveOverrides | undefined;
   const isCleanSlate = org.theme_color === "#fafaf9";
 
   const bookingConfig = (org.design_settings as Record<string, unknown> | null)?.booking_config as {
@@ -75,28 +76,13 @@ export default async function ReservePage({
         </Link>
       </div>
 
-      <h1
-        style={{
-          fontFamily: reserveDesign.title_design.fontFamily,
-          fontSize: `${reserveDesign.title_design.fontSize}px`,
-          color: reserveDesign.title_design.color,
-          fontWeight: 700,
-          marginBottom: "0.5rem",
-        }}
-      >
-        Book a Table
-      </h1>
-      <p
-        style={{
-          fontFamily: reserveDesign.subtitle_design.fontFamily,
-          fontSize: `${reserveDesign.subtitle_design.fontSize}px`,
-          color: reserveDesign.subtitle_design.color,
-          marginBottom: "2rem",
-        }}
-      >
-        Reserve your spot at {org.name}. Choose your party size, tell us when, and
-        we will automatically prepare the optimal table for you ({durationText}).
-      </p>
+      <ReserveHeadings
+        titleDesign={reserveDesign.title_design}
+        subtitleDesign={reserveDesign.subtitle_design}
+        responsive={responsive}
+        orgName={org.name}
+        durationText={durationText}
+      />
 
       <div
         className="rounded-lg p-5"
@@ -113,6 +99,9 @@ export default async function ReservePage({
           inputText={reserveDesign.input_text_color}
           inputBorder={reserveDesign.input_border_color}
           labelColor={reserveDesign.label_design.color}
+          labelDesign={reserveDesign.label_design}
+          buttonDesign={reserveDesign.button_design}
+          responsive={responsive}
           durationText={durationText}
         />
       </div>

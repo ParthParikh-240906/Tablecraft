@@ -19,6 +19,8 @@ export interface TextDesign {
     duration: number;
     delay: number;
   };
+  /** Accent-gradient word treatment (OrgPageView `.gradient-text`). Off when absent. */
+  gradient?: boolean;
 }
 
 export function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -55,6 +57,7 @@ export interface HeaderCtaDesign {
   fontSize: number;
   borderRadius: number; // px
   borderWidth: number; // px
+  opacity: number; // 0-100, default 100
 }
 export type LayerType = "color" | "image" | "images" | "video";
 export type HeroElementKind = "logo" | "title" | "tagline" | "text" | "shape" | "image" | "button";
@@ -90,6 +93,10 @@ export interface HeroBackground {
   aspectRatio?: number; // width/height of the single background image, filled on upload
   border_color?: string; // border for image/video backgrounds
   border_width?: number; // px, 0 = no border
+  /** Accent radial-glow layer behind hero content. Off when absent. */
+  glow?: boolean;
+  /** Dark gradient overlay for text legibility. Off when absent. */
+  scrim?: boolean;
 }
 
 export interface MediaBorderStyle {
@@ -107,6 +114,8 @@ export interface MenuPageDesign {
   border_color: string;
   border_width: number; // px
   back_button_color?: string;
+  /** Menu card hover-lift. Default true when absent (old orgs lift). */
+  hover_lift?: boolean;
 }
 
 export interface ReservePageDesign {
@@ -188,6 +197,7 @@ export interface DesignSettingsV2 {
     logo_color: string;
     logo_border_color: string;
     logo_border_width: number; // px, 0 = no border
+    logo_size: number; // px, default 32
     nav_design: HeaderNavDesign;
     cta_design: HeaderCtaDesign;
     header_elements?: HeaderElement[];
@@ -211,6 +221,250 @@ export interface DesignSettingsV2 {
   menu_page_shapes?: { id: string; style: ShapeStyle }[];
   reserve_page_shapes?: { id: string; style: ShapeStyle }[];
   custom_fonts?: { name: string; value: string; url: string; weight?: number; css?: string }[];
+  ai_gallery?: string[];
+  responsive?: ResponsiveOverrides;
+}
+
+// ─── Per-device overrides ───────────────────────────────────────────────────
+// Tablet/mobile can override individual font sizes by key (e.g. `hero:<id>`,
+// `header.brand`, `menu.title`) and individual element rects by key
+// (`hero:<id>`, `content:<id>`). Desktop always uses the authored base values
+// — overrides are fallbacks, so switching devices never moves or resizes
+// anything until the user edits on that device.
+
+export type DeviceKind = "desktop" | "tablet" | "mobile";
+
+export interface DeviceFontOverrides {
+  fonts?: Record<string, number>;
+  /** Per-element layout overrides: key → rect (same %/cvH units as base). */
+  rects?: Record<string, Rect>;
+}
+
+export interface ResponsiveOverrides {
+  tablet?: DeviceFontOverrides;
+  mobile?: DeviceFontOverrides;
+}
+
+/** <640 → mobile, <1024 → tablet, else desktop (width<=0 → desktop). */
+export function deviceForWidth(width: number): DeviceKind {
+  if (!(width > 0)) return "desktop";
+  if (width < 640) return "mobile";
+  if (width < 1024) return "tablet";
+  return "desktop";
+}
+
+/**
+ * Resolve an authored font size for a device: when device isn't desktop and
+ * `responsive[device].fonts[key]` is a finite number, use it; else base.
+ * No overrides → returns base (no behavior change).
+ */
+export function resolveFontSize(
+  base: number,
+  key: string | undefined,
+  device: DeviceKind,
+  responsive?: ResponsiveOverrides | null,
+): number {
+  if (device !== "desktop" && key) {
+    const v = responsive?.[device]?.fonts?.[key];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+  }
+  return base;
+}
+
+/**
+ * Read a single font override for console inputs: the override number, or
+ * null when inheriting (desktop, or no override stored). Safe to call with
+ * any DeviceKind — desktop always yields null.
+ */
+export function getFontOverride(
+  responsive: ResponsiveOverrides | undefined | null,
+  device: DeviceKind,
+  key: string,
+): number | null {
+  if (device === "desktop") return null;
+  const v = responsive?.[device]?.fonts?.[key];
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+/**
+ * Return a new ResponsiveOverrides with `fonts[key]` set (finite number) or
+ * omitted when `value` is undefined (reset-to-inherit). Never mutates `prev`.
+ * Desktop is a no-op (desktop always uses base values) so panels can pass the
+ * current device through without narrowing.
+ */
+export function withFontOverride(
+  prev: ResponsiveOverrides | undefined,
+  device: DeviceKind,
+  key: string,
+  value: number | undefined,
+): ResponsiveOverrides {
+  if (device === "desktop") return prev ? { ...prev } : {};
+  const prevFonts = prev?.[device]?.fonts ?? {};
+  let nextFonts: Record<string, number>;
+  if (value === undefined || !Number.isFinite(value)) {
+    // Reset-to-inherit (and non-finite values are never persisted).
+    if (!(key in prevFonts)) return prev ? { ...prev } : {};
+    nextFonts = { ...prevFonts };
+    delete nextFonts[key];
+  } else {
+    nextFonts = { ...prevFonts, [key]: value };
+  }
+  return { ...prev, [device]: { ...prev?.[device], fonts: nextFonts } };
+}
+
+/**
+ * Logo-size override key. The logo size is a plain number like a font size,
+ * so it reuses the per-device `fonts` override map (same sanitize / prune /
+ * persist behavior) instead of growing a second override mechanism.
+ * Desktop always uses the authored `header.logo_size` base.
+ */
+export const LOGO_SIZE_KEY = "header.logo_size";
+
+/** Resolve the header logo size for a device (px, clamped 16..96). */
+export function resolveLogoSize(
+  base: number,
+  device: DeviceKind,
+  responsive?: ResponsiveOverrides | null,
+): number {
+  const v = resolveFontSize(base, LOGO_SIZE_KEY, device, responsive);
+  return Math.min(96, Math.max(16, Math.round(v)));
+}
+
+/** Read the logo-size override for the console slider, or null when inheriting. */
+export function getLogoSizeOverride(
+  responsive: ResponsiveOverrides | undefined | null,
+  device: DeviceKind,
+): number | null {
+  return getFontOverride(responsive, device, LOGO_SIZE_KEY);
+}
+
+/** Write (or reset, with undefined) the logo-size override. Never mutates `prev`. */
+export function withLogoSizeOverride(
+  prev: ResponsiveOverrides | undefined,
+  device: DeviceKind,
+  value: number | undefined,
+): ResponsiveOverrides {
+  return withFontOverride(prev, device, LOGO_SIZE_KEY, value);
+}
+/**
+ * Resolve an element rect for a device: the stored `rects[key]` override when
+ * off-desktop, else the authored base rect. Never mutates either.
+ */
+export function resolveRect(
+  base: Rect,
+  key: string | undefined,
+  device: DeviceKind,
+  responsive?: ResponsiveOverrides | null,
+): Rect {
+  if (device !== "desktop" && key) {
+    const r = responsive?.[device]?.rects?.[key];
+    if (r && [r.x, r.y, r.w, r.h].every((v) => typeof v === "number" && Number.isFinite(v))) {
+      return { x: r.x, y: r.y, w: r.w, h: r.h };
+    }
+  }
+  return base;
+}
+
+/**
+ * Read a single layout override for console inputs: the override rect, or
+ * null when inheriting (desktop, or no override stored). Desktop always
+ * yields null.
+ */
+export function getRectOverride(
+  responsive: ResponsiveOverrides | undefined | null,
+  device: DeviceKind,
+  key: string,
+): Rect | null {
+  if (device === "desktop") return null;
+  const r = responsive?.[device]?.rects?.[key];
+  if (!r || ![r.x, r.y, r.w, r.h].every((v) => typeof v === "number" && Number.isFinite(v))) return null;
+  return { x: r.x, y: r.y, w: r.w, h: r.h };
+}
+
+/**
+ * Return a new ResponsiveOverrides with `rects[key]` set or omitted when
+ * `value` is undefined (reset-to-inherit). Never mutates `prev`. Desktop is
+ * a no-op so panels can pass the current device through without narrowing.
+ */
+export function withRectOverride(
+  prev: ResponsiveOverrides | undefined,
+  device: DeviceKind,
+  key: string,
+  value: Rect | undefined,
+): ResponsiveOverrides {
+  if (device === "desktop") return prev ? { ...prev } : {};
+  const prevRects = prev?.[device]?.rects ?? {};
+  let nextRects: Record<string, Rect>;
+  if (value === undefined) {
+    if (!(key in prevRects)) return prev ? { ...prev } : {};
+    nextRects = { ...prevRects };
+    delete nextRects[key];
+  } else {
+    nextRects = { ...prevRects, [key]: { x: value.x, y: value.y, w: value.w, h: value.h } };
+  }
+  return { ...prev, [device]: { ...prev?.[device], rects: nextRects } };
+}
+
+/**
+ * Drop `hero:*` / `content:*` font + rect overrides whose element id no longer
+ * exists. Static keys (`menu.title`, `header.brand`, …) always survive.
+ * Call after deleting elements or applying templates so stale per-device
+ * values can't resurrect moved/deleted boxes.
+ */
+export function pruneElementOverrides(
+  prev: ResponsiveOverrides | undefined,
+  heroIds: Set<string> | string[],
+  contentIds: Set<string> | string[],
+): ResponsiveOverrides | undefined {
+  if (!prev) return prev;
+  const hero = heroIds instanceof Set ? heroIds : new Set(heroIds);
+  const content = contentIds instanceof Set ? contentIds : new Set(contentIds);
+  const keep = (key: string): boolean => {
+    if (key.startsWith("hero:")) return hero.has(key.slice(5));
+    if (key.startsWith("content:")) return content.has(key.slice(8));
+    return true;
+  };
+  let changed = false;
+  const out: ResponsiveOverrides = { ...prev };
+  for (const dev of ["tablet", "mobile"] as const) {
+    const node = prev[dev];
+    if (!node) continue;
+    const nextNode = { ...node };
+    for (const field of ["fonts", "rects"] as const) {
+      const map = node[field];
+      if (!map) continue;
+      const nextMap: Record<string, number | Rect> = {};
+      for (const [k, v] of Object.entries(map)) {
+        if (keep(k)) nextMap[k] = v as number & Rect;
+        else changed = true;
+      }
+      (nextNode as Record<string, unknown>)[field] = nextMap;
+    }
+    out[dev] = nextNode as DeviceFontOverrides;
+  }
+  return changed ? out : prev;
+}
+
+/**
+ * Drop all `menu.*` / `reserve.*` font overrides (used when a theme replaces
+ * those page bases wholesale — surviving overrides would look like random
+ * size changes when toggling devices afterwards).
+ */
+export function dropPageFontOverrides(prev: ResponsiveOverrides | undefined): ResponsiveOverrides | undefined {
+  if (!prev) return prev;
+  let changed = false;
+  const out: ResponsiveOverrides = { ...prev };
+  for (const dev of ["tablet", "mobile"] as const) {
+    const fonts = prev[dev]?.fonts;
+    if (!fonts) continue;
+    const nextFonts: Record<string, number> = {};
+    for (const [k, v] of Object.entries(fonts)) {
+      if (k.startsWith("menu.") || k.startsWith("reserve.")) changed = true;
+      else nextFonts[k] = v;
+    }
+    out[dev] = { ...prev[dev], fonts: nextFonts };
+  }
+  return changed ? out : prev;
 }
 
 // ─── Fonts (local) ────────────────────────────────────────────────────────────
@@ -360,6 +614,7 @@ export function defaultHeaderDesign(): DesignSettingsV2["header"] {
     logo_color: "#f5f5f4",
     logo_border_color: "#000000",
     logo_border_width: 0,
+    logo_size: 32,
     nav_design: { color: "#f5f5f4", fontFamily: "Inter", fontSize: 14 },
     cta_design: {
       bgColor: "#f97316",
@@ -369,6 +624,7 @@ export function defaultHeaderDesign(): DesignSettingsV2["header"] {
       fontSize: 14,
       borderRadius: 9999,
       borderWidth: 2,
+      opacity: 100,
     },
     header_elements: [...DEFAULT_HEADER_ELEMENTS],
   };
@@ -406,6 +662,7 @@ export function defaultMenuPageDesign(): MenuPageDesign {
     border_color: "#000000",
     border_width: 1,
     back_button_color: "#ffffff",
+    hover_lift: true,
   };
 }
 
@@ -490,7 +747,23 @@ function shapeToHeroElement(l: any): HeroElement {
 function normalizeHeader(h: any): DesignSettingsV2["header"] {
   const d = defaultHeaderDesign();
   if (!h || typeof h !== "object") return d;
-  if (h.design) return { ...d, ...h }; // already the final shape
+  const ctaOf = (raw: any) => {
+    const base = raw && typeof raw === "object" ? raw : {};
+    const opacity =
+      typeof base.opacity === "number" && Number.isFinite(base.opacity)
+        ? Math.min(100, Math.max(0, Math.round(base.opacity)))
+        : d.cta_design.opacity;
+    return { ...d.cta_design, ...base, opacity };
+  };
+  const logoSizeOf = (raw: any) =>
+    typeof raw === "number" && Number.isFinite(raw)
+      ? Math.min(96, Math.max(16, Math.round(raw)))
+      : d.logo_size;
+  if (h.design) {
+    // already the final shape — spread preserves user values, then backfill
+    // new keys (logo_size, cta opacity) so partial/legacy docs hydrate.
+    return { ...d, ...h, logo_size: logoSizeOf(h.logo_size), cta_design: ctaOf(h.cta_design) };
+  }
   // experiment shape: opacity 0..1, brand design under title_design
   return {
     ...d,
@@ -498,9 +771,94 @@ function normalizeHeader(h: any): DesignSettingsV2["header"] {
     opacity: h.opacity !== undefined ? Math.round(h.opacity * 100) : d.opacity,
     design: h.title_design ?? d.design,
     logo_color: h.logo_color ?? d.logo_color,
+    logo_size: logoSizeOf(h.logo_size),
     nav_design: h.nav_design ?? d.nav_design,
-    cta_design: h.cta_design ?? d.cta_design,
+    cta_design: ctaOf(h.cta_design),
   };
+}
+
+/** Sanitize raw custom-font entries: {name,value,url} strings required,
+ *  optional finite weight + css string. Caps at 50 entries. Returns undefined
+ *  when nothing valid survives (field stays absent). */
+function sanitizeCustomFonts(v: any): DesignSettingsV2["custom_fonts"] {
+  if (!Array.isArray(v)) return undefined;
+  const clean: NonNullable<DesignSettingsV2["custom_fonts"]> = [];
+  for (const f of v) {
+    if (!f || typeof f !== "object" || Array.isArray(f)) continue;
+    const { name, value, url, weight, css } = f as Record<string, unknown>;
+    if (typeof name !== "string" || !name || typeof value !== "string" || !value) continue;
+    if (typeof url !== "string" || !url) continue;
+    const entry: { name: string; value: string; url: string; weight?: number; css?: string } = { name, value, url };
+    if (typeof weight === "number" && Number.isFinite(weight)) entry.weight = weight;
+    if (typeof css === "string" && css) entry.css = css;
+    if (clean.length >= 50) break;
+    clean.push(entry);
+  }
+  return clean.length > 0 ? clean : undefined;
+}
+
+/** Sanitize raw page-shape entries: {id, style} with a plain-object style.
+ *  Returns undefined when nothing valid survives. */
+function sanitizePageShapes(v: any): { id: string; style: ShapeStyle }[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const clean: { id: string; style: ShapeStyle }[] = [];
+  for (const s of v) {
+    if (!s || typeof s !== "object" || Array.isArray(s)) continue;
+    const { id, style } = s as Record<string, unknown>;
+    if (typeof id !== "string" || !id) continue;
+    if (!style || typeof style !== "object" || Array.isArray(style)) continue;
+    if (clean.length >= 200) break;
+    const st = style as Record<string, unknown>;
+    const out: ShapeStyle = {};
+    if (typeof st.color === "string") out.color = st.color;
+    if (typeof st.image_url === "string") out.image_url = st.image_url;
+    if (typeof st.borderWidth === "number" && Number.isFinite(st.borderWidth)) out.borderWidth = st.borderWidth;
+    if (typeof st.borderColor === "string") out.borderColor = st.borderColor;
+    if (typeof st.borderRadius === "number" && Number.isFinite(st.borderRadius)) out.borderRadius = st.borderRadius;
+    if (typeof st.opacity === "number" && Number.isFinite(st.opacity)) out.opacity = st.opacity;
+    clean.push({ id, style: out });
+  }
+  return clean.length > 0 ? clean : undefined;
+}
+/** Sanitize raw per-device overrides: plain object, tablet/mobile each
+ *  {fonts: string->finite-number, rects: string->Rect}, capped at 200 keys
+ *  per map. Returns undefined when nothing valid survives (field stays
+ *  absent). */
+function sanitizeResponsive(r: any): ResponsiveOverrides | undefined {
+  if (!r || typeof r !== "object" || Array.isArray(r)) return undefined;
+  const out: ResponsiveOverrides = {};
+  for (const dev of ["tablet", "mobile"] as const) {
+    const node = r[dev];
+    if (!node || typeof node !== "object" || Array.isArray(node)) continue;
+    const next: DeviceFontOverrides = {};
+    const fonts = node.fonts;
+    if (fonts && typeof fonts === "object" && !Array.isArray(fonts)) {
+      const clean: Record<string, number> = {};
+      for (const [k, v] of Object.entries(fonts)) {
+        if (typeof k !== "string" || k.length === 0) continue;
+        if (typeof v !== "number" || !Number.isFinite(v)) continue;
+        if (Object.keys(clean).length >= 200) break;
+        clean[k] = v;
+      }
+      if (Object.keys(clean).length > 0) next.fonts = clean;
+    }
+    const rects = node.rects;
+    if (rects && typeof rects === "object" && !Array.isArray(rects)) {
+      const clean: Record<string, Rect> = {};
+      for (const [k, v] of Object.entries(rects)) {
+        if (typeof k !== "string" || k.length === 0) continue;
+        const rv = v as Partial<Rect> | null | undefined;
+        if (!rv || typeof rv !== "object") continue;
+        const { x, y, w, h } = rv;
+        if (![x, y, w, h].every((n) => typeof n === "number" && Number.isFinite(n))) continue;
+        if (Object.keys(clean).length >= 200) break;
+        clean[k] = { x: x as number, y: y as number, w: w as number, h: h as number };
+      }
+      if (Object.keys(clean).length > 0) next.rects = clean;
+    }
+    if (next.fonts || next.rects) out[dev] = next;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 export function hydrateSettings(raw: Record<string, any> | null | undefined): DesignSettingsV2 {
@@ -570,27 +928,55 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
     menu_page: { ...defaultMenuPageDesign(), ...(legacy.menu_page ?? {}) },
     reserve_page: { ...defaultReservePageDesign(), ...(legacy.reserve_page ?? {}) },
     booking_config: { ...defaultBookingConfig(), ...(legacy.booking_config ?? {}) },
+    ai_gallery: Array.isArray(legacy.ai_gallery)
+      ? legacy.ai_gallery.filter((u: unknown) => typeof u === "string").slice(0, 3)
+      : [],
+    responsive: sanitizeResponsive(legacy.responsive),
+    // Custom fonts + page shapes live in the same JSONB blob — they must
+    // survive hydration or added fonts vanish on every page navigation (and
+    // never reach the public @font-face injection in SiteHeader).
+    custom_fonts: sanitizeCustomFonts(legacy.custom_fonts),
+    menu_page_shapes: sanitizePageShapes(legacy.menu_page_shapes),
+    reserve_page_shapes: sanitizePageShapes(legacy.reserve_page_shapes),
   };
 
-  // Seed default content if empty (new restaurant with no content yet)
+  // Seed default content as LIVE refs (not hardcoded strings): the renderer
+  // resolves these from the org row at view time, so a new restaurant shows
+  // the about text typed at creation. The `content` doubles as fallback text
+  // when the org column is empty.
   if (base.content.elements.length === 0 && !legacy.content) {
     base.content.elements = [
       {
         id: uid(),
         kind: "title",
         content: "About Us",
+        ref: { org: "about_title" },
         design: { ...DEFAULT_TEXT_DESIGN, fontSize: 28, textAlign: "left" },
         x: 10, y: 0, w: 80, h: 10,
       },
       {
         id: uid(),
         kind: "text",
-        content: "Welcome to our restaurant! We serve delicious food made with fresh ingredients.",
+        ref: { org: "about_text" },
         design: { ...DEFAULT_TEXT_DESIGN, fontSize: 16, textAlign: "left" },
         x: 10, y: 12, w: 80, h: 20,
       },
     ];
   }
+  // One-time repair: orgs that previously saved the hardcoded placeholder copy
+  // get converted to live refs so they show the owner's real profile text.
+  // Only exact matches of the old placeholder strings convert; everything the
+  // owner actually typed is untouched.
+  base.content.elements = base.content.elements.map((el) => {
+    if ((el.kind === "title" || el.kind === "text") && !el.ref && typeof el.content === "string") {
+      const t = el.content.trim();
+      if (el.kind === "title" && t === "About Us") return { ...el, ref: { org: "about_title" } };
+      if (el.kind === "text" && t === "Welcome to our restaurant! We serve delicious food made with fresh ingredients.") {
+        return { ...el, ref: { org: "about_text" } };
+      }
+    }
+    return el;
+  });
   const legacyShapes = legacy.canvas?.shapes ?? legacy.canvas?.layers ?? legacy.page_layers;
   if (Array.isArray(legacyShapes) && legacyShapes.length > 0) {
     base.hero.elements.push(...legacyShapes.map(shapeToHeroElement));

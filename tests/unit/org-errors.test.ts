@@ -60,7 +60,7 @@ describe("getOrgs", () => {
     mockState.result = { data: [{ id: "1", slug: "a" }], error: null };
     const data = await getOrgs();
     expect(data).toHaveLength(1);
-    expect(mockState.table).toBe("organizations");
+    expect(mockState.table).toBe("public_organizations");
   });
 
   it("throws OrgFetchError (not null, not empty) on DB failure", async () => {

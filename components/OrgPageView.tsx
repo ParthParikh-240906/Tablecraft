@@ -3,11 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  deviceForWidth,
+  resolveFontSize,
+  resolveRect,
   type ContentElement,
   type DesignSettingsV2,
+  type DeviceKind,
   type HeroBackground,
   type HeroElement,
+  type ResponsiveOverrides,
   type ShapeStyle,
+  type TextDesign,
 } from "@/lib/design";
 import { FitText } from "./fit-text";
 import { AutoBackgroundCarousel } from "./AutoBackgroundCarousel";
@@ -31,10 +37,11 @@ export interface OrgView {
 }
 
 // Design canvas is 800w x 640h: heights are `pct * 0.8` cqw (= % world width at
-// 800px), fonts are `px / 8` cqw. Container units make every size proportional
-// to the container, so the preview (narrow) and the site (wide) look identical.
+// 800px). Fonts scale with the container up to the 800px canvas, then cap at
+// their authored px size — so the narrow console preview and the wide live
+// site render type at the same absolute size instead of ballooning live.
 const cvH = (pct: number) => `calc(${((pct * 0.8) / 100).toFixed(5)} * 100cqw)`;
-const fS = (px: number) => `calc(${(px / 8).toFixed(5)} * 1cqw)`;
+const fS = (px: number) => `min(calc(${(px / 8).toFixed(5)} * 1cqw), ${px}px)`;
 
 function useContainerWidth() {
   const ref = useRef<HTMLDivElement>(null);
@@ -52,8 +59,11 @@ function useContainerWidth() {
 }
 
 function ShapeVisual({ s, image }: { s: ShapeStyle; image: boolean }) {
+  // Default border is black, matching every "Border color" picker default in
+  // the console. (A previous white default here disagreed with the pickers:
+  // picking black was a no-op change event, so borders were stuck white.)
   const borderStyle: React.CSSProperties = s.borderWidth
-    ? { borderWidth: s.borderWidth, borderColor: s.borderColor ?? "#ffffff", borderStyle: "solid" as const }
+    ? { borderWidth: s.borderWidth, borderColor: s.borderColor ?? "#000000", borderStyle: "solid" as const }
     : {};
   const content =
     image
@@ -82,11 +92,11 @@ function BackgroundVisual({ bg }: { bg: HeroBackground }) {
   const mediaBorder: React.CSSProperties = bg.border_width
     ? { border: `${bg.border_width}px solid ${bg.border_color ?? "#000000"}`, boxSizing: "border-box" as const }
     : {};
+  let base: React.ReactNode = null;
   if (bg.type === "color") {
-    return <div className="w-full h-full" style={{ backgroundColor: bg.color }} />;
-  }
-  if (bg.type === "image") {
-    return bg.image_url ? (
+    base = <div className="w-full h-full" style={{ backgroundColor: bg.color }} />;
+  } else if (bg.type === "image") {
+    base = bg.image_url ? (
       // With a stored aspect ratio the band matches the image (no crop);
       // without one, contain keeps the whole image visible instead of cropping.
       // eslint-disable-next-line @next/next/no-img-element
@@ -98,17 +108,47 @@ function BackgroundVisual({ bg }: { bg: HeroBackground }) {
         className={`w-full h-full ${bg.aspectRatio ? "object-cover" : "object-contain"}`}
       />
     ) : null;
-  }
-  if (bg.type === "images") {
-    return bg.image_urls && bg.image_urls.length > 0 ? (
+  } else if (bg.type === "images") {
+    base = bg.image_urls && bg.image_urls.length > 0 ? (
       <div className="w-full h-full" style={mediaBorder}>
         <AutoBackgroundCarousel urls={bg.image_urls} intervalMs={bg.intervalMs || 4000} />
       </div>
     ) : null;
+  } else {
+    base = bg.video_url ? (
+      <video src={bg.video_url} muted autoPlay loop playsInline style={mediaBorder} className="w-full h-full object-cover" />
+    ) : null;
   }
-  return bg.video_url ? (
-    <video src={bg.video_url} muted autoPlay loop playsInline style={mediaBorder} className="w-full h-full object-cover" />
-  ) : null;
+  // Glow + scrim default off (flags absent on old orgs). When on, they sit
+  // above the base media but behind hero content (content lives in a sibling
+  // layer at zIndex 6).
+  if (!bg.glow && !bg.scrim) return <>{base}</>;
+  return (
+    <div className="w-full h-full relative">
+      {base}
+      {bg.glow && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: "radial-gradient(ellipse at center, rgba(249,115,22,0.22) 0%, rgba(249,115,22,0.08) 40%, transparent 70%)",
+            filter: "blur(30px)",
+            zIndex: 1,
+          }}
+        />
+      )}
+      {bg.scrim && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: "linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) 45%, rgba(0,0,0,0.65) 100%)",
+            zIndex: 1,
+          }}
+        />
+      )}
+    </div>
+  );
 }
 
 function HeroText({
@@ -118,6 +158,8 @@ function HeroText({
   heroPx,
   onGrow,
   mode,
+  device,
+  responsive,
 }: {
   el: HeroElement;
   orgName: string;
@@ -125,24 +167,34 @@ function HeroText({
   heroPx: number;
   onGrow?: (id: string, h: number) => void;
   mode?: "preview" | "site";
+  device: DeviceKind;
+  responsive?: ResponsiveOverrides | null;
 }) {
   const s = el.design;
   if (el.kind === "logo") return null; // rendered separately
   const text =
     el.kind === "title" ? orgName : el.kind === "tagline" ? tagline : el.content;
   if (!text) return null;
+  // Per-device override for this hero element (`hero:<id>`), then the usual
+  // container cap via fS.
+  const resolvedSize = resolveFontSize(s.fontSize, `hero:${el.id}`, device, responsive);
+  // On the live site there is no auto-grow save path, so the box must never
+  // hard-clip: it sizes to its content (anchored at its top %) instead of a
+  // fixed % height. In preview the fixed height is kept so FitText can measure
+  // overflow and grow the saved rect.
+  const siteMode = mode === "site";
   return (
     <FitText
       bandPx={heroPx}
       onGrow={onGrow ? (h) => onGrow(el.id, h) : undefined}
-      fontSize={s.fontSize}
+      fontSize={resolvedSize}
       fontFamily={s.fontFamily}
       text={text}
       widthPct={el.w}
-      className="w-full h-full overflow-hidden leading-tight"
+      className={siteMode ? "w-full leading-tight" : "w-full h-full overflow-hidden leading-tight"}
       style={{
         fontFamily: s.fontFamily,
-        fontSize: fS(s.fontSize),
+        fontSize: fS(resolvedSize),
         color: s.color,
         textAlign: s.textAlign,
       }}
@@ -151,6 +203,7 @@ function HeroText({
         design={s}
         style={{ display: "inline" }}
         preview={mode === "preview"}
+        className={s.gradient ? "gradient-text" : undefined}
       >
         <span className="whitespace-pre-line">{text}</span>
       </AnimatedText>
@@ -162,18 +215,25 @@ function ButtonVisual({
   el,
   slug,
   mode,
+  fontKey,
+  device,
+  responsive,
 }: {
-  el: { buttonType?: "book" | "menu"; bgColor?: string; design: { fontFamily: string; fontSize: number; color: string; textAlign: string } };
+  el: { buttonType?: "book" | "menu"; bgColor?: string; design: TextDesign };
   slug?: string;
   mode: "preview" | "site";
+  fontKey?: string;
+  device?: DeviceKind;
+  responsive?: ResponsiveOverrides | null;
 }) {
   const label = el.buttonType === "menu" ? "Menu" : "Book a table";
   const href = el.buttonType === "menu" ? `/${slug}/menu` : `/${slug}/reserve`;
+  const resolvedSize = resolveFontSize(el.design.fontSize, fontKey, device ?? "desktop", responsive);
   const style: React.CSSProperties = {
     backgroundColor: el.bgColor ?? "#f97316",
     color: el.design.color,
     fontFamily: el.design.fontFamily,
-    fontSize: fS(el.design.fontSize),
+    fontSize: fS(resolvedSize),
     textAlign: el.design.textAlign as React.CSSProperties["textAlign"],
     display: "flex",
     alignItems: "center",
@@ -191,15 +251,20 @@ function ButtonVisual({
     fontWeight: 600,
     lineHeight: 1.2,
   };
+  // Buttons reveal on scroll via their own design.animation. When the
+  // animation is none/absent no wrapper is added, so the render is byte-
+  // identical to before (flex label directly in the pill).
+  const animActive = !!el.design.animation && el.design.animation.type !== "none";
+  const labelNode = animActive ? <AnimatedText design={el.design} preview={mode === "preview"}>{label}</AnimatedText> : label;
 
   if (mode === "site" && slug) {
     return (
       <Link href={href} className="w-full h-full block" style={style}>
-        {label}
+        {labelNode}
       </Link>
     );
   }
-  return <div className="w-full h-full" style={style}>{label}</div>;
+  return <div className="w-full h-full" style={style}>{labelNode}</div>;
 }
 
 function ContentVisual({
@@ -208,12 +273,16 @@ function ContentVisual({
   paragraphs,
   mode,
   slug,
+  device,
+  responsive,
 }: {
   el: ContentElement;
   org: OrgView;
   paragraphs: { id: string; title: string | null; content: string | null }[];
   mode: "preview" | "site";
   slug?: string;
+  device: DeviceKind;
+  responsive?: ResponsiveOverrides | null;
 }) {
   const s = el.design;
 
@@ -222,7 +291,7 @@ function ContentVisual({
   }
 
   if (el.kind === "button") {
-    return <ButtonVisual el={el} slug={slug} mode={mode} />;
+    return <ButtonVisual el={el} slug={slug} mode={mode} fontKey={`content:${el.id}`} device={device} responsive={responsive} />;
   }
 
   if (el.kind === "image" || el.kind === "images") {
@@ -278,7 +347,9 @@ function ContentVisual({
       location: org.location,
       contact_body: contactBody || null,
     };
-    text = map[key] ?? "";
+    // Live org text wins; stored element content is the fallback (e.g. the
+    // "About Us" heading when no custom title was set).
+    text = map[key] || el.content || "";
   } else if (el.ref && typeof (el.ref as Record<string, unknown>).para === "string") {
     const p = paragraphs.find((x) => x.id === (el.ref as { para: string }).para);
     if (p) text = el.kind === "title" ? p.title ?? "" : p.content ?? "";
@@ -290,17 +361,17 @@ function ContentVisual({
       text={text}
       design={s}
       preview={mode === "preview"}
-      className={`w-full h-full overflow-hidden leading-relaxed whitespace-pre-line ${el.kind === "title" ? "font-bold" : ""}`}
-      style={{ fontFamily: s.fontFamily, fontSize: fS(s.fontSize), color: s.color, textAlign: s.textAlign }}
+      className={`w-full h-full overflow-hidden leading-relaxed whitespace-pre-line ${el.kind === "title" ? "font-bold" : ""}${s.gradient ? " gradient-text" : ""}`}
+      style={{ fontFamily: s.fontFamily, fontSize: fS(resolveFontSize(s.fontSize, `content:${el.id}`, device, responsive)), color: s.color, textAlign: s.textAlign }}
     />
   );
 }
 
 /**
  * The full restaurant landing page: header, decorative layers, hero section
- * (background + positioned elements) and content section. Rendered identically
- * in the console preview (mode="preview", narrow container) and on the public
- * site (mode="site"), where every size scales with the container via cqw.
+ * (background + positioned elements) and content section. Type sizes cap at
+ * their authored px values above the 800px design canvas, so the console
+ * preview (narrow) and the public site (wide) render text identically.
  */
 export function OrgPageView({
   org,
@@ -311,6 +382,7 @@ export function OrgPageView({
   slug,
   onGrowHero,
   previewHeight,
+  device: deviceProp,
 }: {
   org: OrgView;
   settings: DesignSettingsV2;
@@ -320,12 +392,28 @@ export function OrgPageView({
   slug?: string;
   onGrowHero?: (id: string, h: number) => void;
   previewHeight?: number;
+  /**
+   * Explicit device for per-device font/rect resolution. The console preview
+   * passes its device toggle (zoomed measured widths would misclassify);
+   * the live site omits it so the real container width decides.
+   */
+  device?: DeviceKind;
 }) {
   const { ref, width: cw } = useContainerWidth();
   const hero = settings.hero;
   const heroRect = settings.canvas.hero_rect;
   const contentEls = settings.content.elements;
   const heroBg = hero.background;
+  // Per-device overrides key off the console toggle in preview (same
+  // breakpoints as the viewport hook; default 1280 = desktop while
+  // measuring). On the live site the measured container width decides.
+  const device = deviceProp ?? deviceForWidth(cw || 1280);
+  const responsive = settings.responsive;
+  // Element rects resolve per-device too: shared base until the user edits
+  // on tablet/mobile, which stores a `rects[key]` override. Overlay boxes
+  // and rendered content use the same resolver, so they can't diverge.
+  const heroRectOf = (el: HeroElement) => resolveRect(el, `hero:${el.id}`, device, responsive);
+  const contentRectOf = (el: ContentElement) => resolveRect(el, `content:${el.id}`, device, responsive);
 
   // Effective hero band height in px at the current container width.
   const heroPx =
@@ -342,17 +430,17 @@ export function OrgPageView({
       : cvH(heroRect.h);
 
   return (
-    <div
-      ref={ref}
-      className="relative"
-      style={{
-        containerType: "inline-size",
-        backgroundColor: colors.bg,
-        color: colors.text,
-      }}
-    >
+    <div style={{ backgroundColor: colors.bg, color: colors.text }}>
+      <div
+        ref={ref}
+        className="relative mx-auto w-full"
+        style={{
+          containerType: "inline-size",
+          maxWidth: 1280,
+        }}
+      >
       {/* Header — sticky, with page-text-colored bottom border */}
-      <SiteHeader org={org} settings={settings} colors={colors} slug={slug} mode={mode} />
+      <SiteHeader org={org} settings={settings} colors={colors} slug={slug} mode={mode} device={device} />
 
       {/* Hero section */}
       <section
@@ -367,12 +455,15 @@ export function OrgPageView({
           <div className="absolute inset-0 z-20 pointer-events-none" data-panel-overlays="hero-band" />
         )}
         <div className="absolute inset-0">
-          {hero.elements.map((el) =>
-            el.kind === "shape" || el.kind === "image" ? (
+          {hero.elements.map((el) => {
+            // Device-resolved rect (base desktop values until a tablet/mobile
+            // override is stored) — identical resolver to the console overlay.
+            const r = heroRectOf(el);
+            return el.kind === "shape" || el.kind === "image" ? (
               <div
                 key={el.id}
                 className="absolute"
-                style={{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.w}%`, height: `${el.h}%`, zIndex: 6 }}
+                style={{ left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, height: `${r.h}%`, zIndex: 6 }}
               >
                 <ShapeVisual s={el} image={el.kind === "image"} />
               </div>
@@ -380,9 +471,9 @@ export function OrgPageView({
               <div
                 key={el.id}
                 className="absolute"
-                style={{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.w}%`, height: `${el.h}%`, zIndex: 6 }}
+                style={{ left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, height: `${r.h}%`, zIndex: 6 }}
               >
-                <ButtonVisual el={el} slug={slug} mode={mode} />
+                <ButtonVisual el={el} slug={slug} mode={mode} fontKey={`hero:${el.id}`} device={device} responsive={responsive} />
               </div>
             ) : el.kind === "logo" ? (
               org.logo_url ? (
@@ -392,7 +483,7 @@ export function OrgPageView({
                   src={org.logo_url}
                   alt={`${org.name} logo`}
                   className="absolute object-cover rounded-full shadow-lg"
-                  style={{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.w}%`, height: `${el.h}%`, zIndex: 6 }}
+                  style={{ left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, height: `${r.h}%`, zIndex: 6 }}
                   draggable={false}
                 />
               ) : (
@@ -400,7 +491,7 @@ export function OrgPageView({
                   key={el.id}
                   className="absolute rounded-full flex items-center justify-center text-3xl font-bold shadow-lg"
                   style={{
-                    left: `${el.x}%`, top: `${el.y}%`, width: `${el.w}%`, height: `${el.h}%`, zIndex: 6,
+                    left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, height: `${r.h}%`, zIndex: 6,
                     backgroundColor: colors.accent, color: colors.text,
                   }}
                 >
@@ -411,19 +502,25 @@ export function OrgPageView({
               <div
                 key={el.id}
                 className="absolute"
-                style={{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.w}%`, height: `${el.h}%`, zIndex: 6 }}
+                style={
+                  mode === "site"
+                    ? { left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, minHeight: `${r.h}%`, zIndex: 6 }
+                    : { left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, height: `${r.h}%`, zIndex: 6 }
+                }
               >
                 <HeroText
-                  el={el}
+                  el={{ ...el, x: r.x, y: r.y, w: r.w, h: r.h }}
                   orgName={org.name}
                   tagline={org.tagline}
                   heroPx={heroPx}
                   onGrow={onGrowHero}
                   mode={mode}
+                  device={device}
+                  responsive={responsive}
                 />
               </div>
-            ),
-          )}
+            );
+          })}
         </div>
         {/* Console overlay slot: hero element drag/resize boxes */}
         {mode === "preview" && (
@@ -437,27 +534,32 @@ export function OrgPageView({
           className="relative w-full"
           style={{ height: cvH(sectionHeightUnits), minHeight: 280, zIndex: 5 }}
         >
-          {contentEls.map((el) => (
-            <div
-              key={el.id}
-              className="absolute"
-              style={{
-                left: `${el.x}%`,
-                top: cvH(el.y),
-                width: `${el.w}%`,
-                height: cvH(el.h),
-                zIndex: 6,
-              }}
-            >
-              <ContentVisual
-                el={el}
-                org={org}
-                paragraphs={paragraphs}
-                mode={mode}
-                slug={slug}
-              />
-            </div>
-          ))}
+          {contentEls.map((el) => {
+            const r = contentRectOf(el);
+            return (
+              <div
+                key={el.id}
+                className="absolute"
+                style={{
+                  left: `${r.x}%`,
+                  top: cvH(r.y),
+                  width: `${r.w}%`,
+                  height: cvH(r.h),
+                  zIndex: 6,
+                }}
+              >
+                <ContentVisual
+                  el={el}
+                  org={org}
+                  paragraphs={paragraphs}
+                  mode={mode}
+                  slug={slug}
+                  device={device}
+                  responsive={responsive}
+                />
+              </div>
+            );
+          })}
           {/* Console overlay slot: drag/resize boxes spanning full section */}
           {mode === "preview" && (
             <div
@@ -467,6 +569,7 @@ export function OrgPageView({
           )}
         </section>
       )}
+      </div>
     </div>
   );
 }

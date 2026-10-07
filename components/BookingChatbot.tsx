@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { resolveFontSize, type ResponsiveOverrides } from "@/lib/design";
+import { useViewportDevice } from "@/lib/use-device";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -25,6 +27,19 @@ type ComboDetails = {
 type Status = "idle" | "collecting" | "confirming" | "waiting_for_combo" | "submitting" | "done" | "error";
 
 // ---------------------------------------------------------------------------
+// Display helper: render a resolved YYYY-MM-DD slot as a friendly date.
+// Pure display — the stored slot value stays YYYY-MM-DD.
+// ---------------------------------------------------------------------------
+function formatDateDisplay(ymd: string | null): string {
+  if (!ymd) return "";
+  const m = ymd.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return ymd;
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const month = months[Number(m[2]) - 1] ?? m[2];
+  return `${month} ${Number(m[3])}, ${m[1]}`;
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 export function BookingChatbot({
@@ -32,6 +47,7 @@ export function BookingChatbot({
   orgName,
   accent,
   chatbot,
+  responsive,
 }: {
   orgSlug: string;
   orgName: string;
@@ -45,10 +61,14 @@ export function BookingChatbot({
     border_color?: string;
     border_width?: number;
   };
+  /** Per-device font overrides (console) — resolved against the viewport. */
+  responsive?: ResponsiveOverrides | null;
 }) {
   const chatColor = chatbot?.color ?? accent;
   const chatTextColor = chatbot?.text_color ?? "#ffffff";
-  const chatTextSize = chatbot?.text_size ?? 14;
+  const viewportDevice = useViewportDevice();
+  // Console "chatbot.text" size override for tablet/mobile; desktop/base otherwise.
+  const chatTextSize = resolveFontSize(chatbot?.text_size ?? 14, "chatbot.text", viewportDevice, responsive);
   const chatFontFamily = chatbot?.font_family ?? "Inter";
   const chatLogo = chatbot?.logo_url ?? null;
   const chatBorderColor = chatbot?.border_color ?? "transparent";
@@ -446,7 +466,7 @@ export function BookingChatbot({
                       : key === "party_size"
                       ? `${slots.party_size} guests`
                       : key === "date"
-                      ? slots.date
+                      ? formatDateDisplay(slots.date)
                       : slots.time}
                   </button>
                 )}
@@ -487,7 +507,7 @@ export function BookingChatbot({
             Booking confirmed!
           </p>
           <p className="text-xs" style={{ color: "var(--ink-soft)" }}>
-            {slots.name} · {slots.party_size} guests · {slots.date} at {slots.time}
+            {slots.name} · {slots.party_size} guests · {formatDateDisplay(slots.date)} at {slots.time}
           </p>
           <button
             onClick={() => { setStatus("idle"); setMessages([]); setSlots({ name: null, party_size: null, date: null, time: null }); }}

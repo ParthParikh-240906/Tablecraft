@@ -1,10 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDesign } from "../use-design";
+import { useDesignDevice } from "../design-device";
 import { DesignNav } from "../design-nav";
 import { ColorField } from "../design-fields";
-import { LOCAL_FONTS, newContentElement, newHeroElement, type DesignSettingsV2 } from "@/lib/design";
+import { LOCAL_FONTS, getFontOverride, newContentElement, newHeroElement, withFontOverride, type DesignSettingsV2, type DeviceKind } from "@/lib/design";
+
+type ImageRatio = "1:1" | "16:9" | "9:16";
+const RATIOS: { value: ImageRatio; label: string }[] = [
+  { value: "1:1", label: "Square 1:1" },
+  { value: "16:9", label: "Landscape 16:9" },
+  { value: "9:16", label: "Portrait 9:16" },
+];
+
+type QuotaHint = { used: number; limit: number; remaining: number; plan?: string };
+
+const MAX_GALLERY_ITEMS = 3;
 
 export function AiPanel({
   orgId,
@@ -16,6 +28,8 @@ export function AiPanel({
   orgName: string;
 }) {
   const { settings, updateSettings, saving, saved, saveError, retrySave } = useDesign(initialSettings, orgId);
+  const { device, setDevice } = useDesignDevice();
+  const deviceLabel = device === "tablet" ? "Tablet" : device === "mobile" ? "Mobile" : "Desktop";
   const [prompt, setPrompt] = useState("");
   const [reference, setReference] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
@@ -27,6 +41,49 @@ export function AiPanel({
   const [addingFont, setAddingFont] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  // Image sizes / gallery / quota
+  const [ratio, setRatio] = useState<ImageRatio>("16:9");
+  const [gallery, setGallery] = useState<string[]>([]);
+  const [imageQuota, setImageQuota] = useState<QuotaHint | null>(null);
+  const [metaLoading, setMetaLoading] = useState(true);
+
+  // Staff-gated meta read: plan quota status and the persisted AI gallery.
+  // Never consumes quota.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/content/generate?org_id=${encodeURIComponent(orgId)}`);
+        const data = await res.json().catch(() => null);
+        if (cancelled || !res.ok || !data) return;
+        if (data.image) setImageQuota(data.image);
+        if (Array.isArray(data.gallery)) {
+          setGallery(
+            data.gallery
+              .filter((u: unknown): u is string => typeof u === "string" && u.length > 0)
+              .slice(0, MAX_GALLERY_ITEMS),
+          );
+        }
+      } catch {
+        // Meta is a hint — the panel works without it.
+      } finally {
+        if (!cancelled) setMetaLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId]);
+
+  const persistGallery = (next: string[]) => {
+    setGallery(next);
+    // NEW top-level design_settings key (the settings API allows ≤50
+    // top-level keys). Deep-merged server-side, so other panels' saves never
+    // clobber it — but hydrateSettings() drops unknown keys, so this local
+    // state (seeded from the GET above) is the gallery's source of truth.
+    updateSettings({ ai_gallery: next } as unknown as Partial<DesignSettingsV2>);
+  };
 
   const FONT_WEIGHTS = ["100", "200", "300", "400", "500", "600", "700", "800", "900"];
 
@@ -72,9 +129,9 @@ export function AiPanel({
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.font) {
-        updateSettings({
-          custom_fonts: [...(settings.custom_fonts || []), data.font],
-        });
+        updateSettings((prev) => ({
+          custom_fonts: [...(prev.custom_fonts || []), data.font],
+        }));
         setNewFontName("");
         setFontStatus({ type: "success", message: `${data.font.name} added` });
         return;
@@ -134,9 +191,14 @@ export function AiPanel({
         firstUrl = data.font.url;
         canonical = data.font.name;
       }
-      const arr = [...(settings.custom_fonts || [])];
-      arr[idx] = { ...entry, name: canonical, value: `'${canonical}', sans-serif`, url: firstUrl, css: cssParts.join("\n") };
-      updateSettings({ custom_fonts: arr });
+      updateSettings((prev) => {
+        // Apply onto latest state so a concurrent font add isn't lost.
+        const next = [...(prev.custom_fonts || [])];
+        const target = next[idx];
+        if (!target) return {};
+        next[idx] = { ...target, name: canonical, value: `'${canonical}', sans-serif`, url: firstUrl, css: cssParts.join("\n") };
+        return { custom_fonts: next };
+      });
       setFontStatus({ type: "success", message: `${canonical} is now self-hosted ✓` });
     } catch {
       setFontStatus({ type: "error", message: `Could not self-host ${entry.name} — please try again` });
@@ -163,10 +225,14 @@ export function AiPanel({
       const res = await fetch("/api/design/ai-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: prompt.trim(), imageBase64: reference }),
+        body: JSON.stringify({ prompt: prompt.trim(), imageBase64: reference ?? undefined, org_id: orgId, ratio }),
       });
       const data = await res.json();
-      if (res.ok && data.url) setResult(data.url);
+      if (data?.quota) setImageQuota(data.quota);
+      if (res.ok && data.url) {
+        setResult(data.url);
+        persistGallery([data.url, ...gallery.filter((u) => u !== data.url)].slice(0, MAX_GALLERY_ITEMS));
+      }
       else setError(data.error ?? "Generation failed");
     } catch {
       setError("Generation failed");
@@ -175,48 +241,68 @@ export function AiPanel({
     }
   };
 
-  const download = async () => {
-    if (!result) return;
+  const downloadUrl = async (url: string) => {
     setDownloadError(null);
     try {
-      const res = await fetch(result);
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`status ${res.status}`);
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
+      a.href = objectUrl;
       a.download = `tablecraft-generated-${Date.now()}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(objectUrl);
     } catch {
       try {
-        window.open(result, "_blank");
+        window.open(url, "_blank");
       } catch {
         setDownloadError("Could not download image — copy the image URL manually.");
       }
     }
   };
 
-  const useAsHeroBackground = () => {
+  const download = () => {
     if (!result) return;
-    updateSettings({ hero: { ...settings.hero, background: { ...settings.hero.background, type: "image", image_url: result } } });
+    void downloadUrl(result);
   };
 
-  const addAsContentImages = () => {
+  const applyUrlAsHeroBackground = (url: string) => {
+    updateSettings({ hero: { ...settings.hero, background: { ...settings.hero.background, type: "image", image_url: url } } });
+  };
+
+  const useAsHeroBackground = () => {
     if (!result) return;
+    applyUrlAsHeroBackground(result);
+  };
+
+  const addUrlAsContentImages = (url: string) => {
     const el = newContentElement("images");
-    el.image_urls = [result];
+    el.image_urls = [url];
     el.y = Math.max(...settings.content.elements.map((e) => e.y + e.h), 0) + 2;
     updateSettings({ content: { elements: [...settings.content.elements, el] } });
   };
 
+  const addAsContentImages = () => {
+    if (!result) return;
+    addUrlAsContentImages(result);
+  };
+
+  const addUrlAsHeroImage = (url: string) => {
+    const el = newHeroElement("image", 18);
+    el.image_url = url;
+    updateSettings({ hero: { ...settings.hero, elements: [...settings.hero.elements, el] } });
+  };
+
   const addAsHeroImage = () => {
     if (!result) return;
-    const el = newHeroElement("image", 18);
-    el.image_url = result;
-    updateSettings({ hero: { ...settings.hero, elements: [...settings.hero.elements, el] } });
+    addUrlAsHeroImage(result);
+  };
+
+  const removeFromGallery = (url: string) => {
+    persistGallery(gallery.filter((u) => u !== url));
   };
 
   // Chatbot settings
@@ -302,6 +388,24 @@ export function AiPanel({
               )}
             </div>
 
+            <div>
+              <label className="block text-xs text-[var(--ink-soft)] mb-1">
+                Aspect Ratio
+              </label>
+              <div className="flex gap-2">
+                {RATIOS.map((r) => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => setRatio(r.value)}
+                    className={`btn text-xs flex-1 ${ratio === r.value ? "btn-accent" : "btn-outline"}`}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={generate}
@@ -310,6 +414,17 @@ export function AiPanel({
             >
               {generating ? "Generating…" : "Generate Image"}
             </button>
+
+            {metaLoading ? (
+              <p className="text-[11px] text-[var(--ink-faint)]">Checking monthly AI quota…</p>
+            ) : imageQuota ? (
+              <p className="text-[11px] text-[var(--ink-faint)]">
+                {imageQuota.remaining} of {imageQuota.limit} AI images left this month
+                {imageQuota.plan ? ` · ${imageQuota.plan} plan` : ""}
+              </p>
+            ) : (
+              <p className="text-[11px] text-[var(--ink-faint)]">Monthly AI image limits apply by plan.</p>
+            )}
 
             {error && <p className="text-xs text-red-500">{error}</p>}
           </section>
@@ -343,8 +458,51 @@ export function AiPanel({
                 </button>
               </div>
               <p className="text-[10px] text-[var(--ink-faint)] break-all">{result}</p>
+              <p className="text-[10px] text-[var(--ink-faint)]">
+                Clear only hides this preview — the image is kept in your gallery below.
+              </p>
             </section>
           )}
+
+          {/* Image Gallery */}
+          <section className="ticket p-5 space-y-3">
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
+              Image Gallery
+            </h3>
+            <p className="text-xs text-[var(--ink-soft)]">
+              Every generation is kept here (newest first, up to {MAX_GALLERY_ITEMS}).
+              Apply any image straight into your design.
+            </p>
+            {gallery.length === 0 ? (
+              <p className="text-xs text-[var(--ink-faint)]">No images yet — generate your first one above.</p>
+            ) : (
+              <ul className="grid grid-cols-2 gap-3">
+                {gallery.map((url) => (
+                  <li key={url} className="space-y-1.5 rounded border border-[var(--rule)] p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="AI generated" className="h-28 w-full object-cover rounded" />
+                    <div className="flex flex-wrap gap-1">
+                      <button type="button" onClick={() => applyUrlAsHeroBackground(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
+                        Hero BG
+                      </button>
+                      <button type="button" onClick={() => addUrlAsContentImages(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
+                        Content
+                      </button>
+                      <button type="button" onClick={() => addUrlAsHeroImage(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
+                        Hero Img
+                      </button>
+                      <button type="button" onClick={() => void downloadUrl(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
+                        Download
+                      </button>
+                      <button type="button" onClick={() => removeFromGallery(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5 text-red-500">
+                        Delete
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           {/* AI Chatbot Configurables */}
           <section className="ticket p-5 space-y-3">
@@ -368,7 +526,6 @@ export function AiPanel({
               </label>
               <div className="flex items-center gap-2">
                 {chatbot.logo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-black">
                     <img src={chatbot.logo_url} alt="Chatbot logo" className="h-full w-full object-cover" />
                   </div>
@@ -425,17 +582,62 @@ export function AiPanel({
             />
 
             <div>
-              <label className="block text-xs text-[var(--ink-soft)] mb-1">
-                Text Size: {chatbot.text_size}px
-              </label>
+              <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+                <label className="block text-xs text-[var(--ink-soft)]">
+                  Text Size: {device !== "desktop" ? (getFontOverride(settings.responsive, device, "chatbot.text") ?? chatbot.text_size) : chatbot.text_size}px
+                </label>
+                {/* This panel has no storefront preview, so it owns a compact
+                    device switch for the per-device chatbot text size. */}
+                <div role="group" aria-label="Chatbot text size device" className="flex items-center gap-1">
+                  {(["desktop", "tablet", "mobile"] as const).map((d: DeviceKind) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setDevice(d)}
+                      aria-pressed={device === d}
+                      className={`px-2 py-0.5 text-[10px] rounded-full border transition-colors ${
+                        device === d
+                          ? "bg-[var(--accent)] border-[var(--accent)] text-white"
+                          : "border-[var(--rule)] text-[var(--ink-soft)]"
+                      }`}
+                    >
+                      {d === "desktop" ? "Desktop" : d === "tablet" ? "Tablet" : "Mobile"}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <input
                 type="range"
                 min={10}
                 max={24}
-                value={chatbot.text_size}
-                onChange={(e) => updateChatbot({ text_size: parseInt(e.target.value, 10) })}
+                value={device !== "desktop" ? (getFontOverride(settings.responsive, device, "chatbot.text") ?? chatbot.text_size) : chatbot.text_size}
+                onChange={(e) => {
+                  const next = parseInt(e.target.value, 10);
+                  if (!Number.isFinite(next)) return;
+                  if (device !== "desktop") {
+                    updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "chatbot.text", next) }));
+                  } else {
+                    updateChatbot({ text_size: next });
+                  }
+                }}
                 className="w-full accent-[var(--accent)]"
               />
+              {device !== "desktop" && (
+                <div className="flex items-center gap-2 flex-wrap mt-1">
+                  <p className="text-[10px] text-[var(--ink-faint)]">
+                    {deviceLabel}: {getFontOverride(settings.responsive, device, "chatbot.text") != null ? "custom" : `inherits desktop (${chatbot.text_size}px)`}
+                  </p>
+                  {getFontOverride(settings.responsive, device, "chatbot.text") != null && (
+                    <button
+                      type="button"
+                      onClick={() => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "chatbot.text", undefined) }))}
+                      className="text-[10px] underline text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                    >
+                      Reset (inherits)
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
@@ -552,9 +754,9 @@ export function AiPanel({
                       <button
                         type="button"
                         onClick={() => {
-                          const arr = [...settings.custom_fonts!];
-                          arr.splice(idx, 1);
-                          updateSettings({ custom_fonts: arr });
+                          updateSettings((prev) => ({
+                            custom_fonts: (prev.custom_fonts || []).filter((_, i) => i !== idx),
+                          }));
                         }}
                         className="text-red-500 hover:underline"
                       >
@@ -583,6 +785,7 @@ export function AiPanel({
               <li>• <span className="text-[var(--ink)]">Use as Hero Background</span> — swaps the hero image background.</li>
               <li>• <span className="text-[var(--ink)]">Add to Content Images</span> — new carousel block on the Content page.</li>
               <li>• <span className="text-[var(--ink)]">Add as Hero Image</span> — new image element on the Hero page.</li>
+              <li>• <span className="text-[var(--ink)]">Gallery</span> — every generation is kept (newest first, up to {MAX_GALLERY_ITEMS}); Delete only removes it from the gallery.</li>
             </ul>
           </div>
         </div>

@@ -166,7 +166,7 @@ export async function getDesignData(orgId: string) {
 export async function getOrgs() {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("organizations")
+    .from("public_organizations")
     .select("id, name, slug, logo_url, theme_color, tagline")
     .order("created_at", { ascending: true });
 
@@ -189,7 +189,7 @@ export async function getOrgs() {
 export async function getOrgById(orgId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("organizations")
+    .from("public_organizations")
     .select("id, name, slug, logo_url, theme_color, theme_text_color, theme_secondary_color, theme_font_pair, theme_motif, tagline, about_text, about_title, contact_heading, location, restaurant_image_url, branches, contact_phone, contact_email, contact_address, design_settings, restaurant_photos, background_image_url")
     .eq("id", orgId)
     .maybeSingle();
@@ -201,7 +201,7 @@ export async function getOrgBySlug(slug: string) {
   return cached(`org:${slug}`, async () => {
     const supabase = await createClient();
     const { data, error } = await supabase
-      .from("organizations")
+      .from("public_organizations")
       .select("id, name, slug, logo_url, theme_color, theme_text_color, theme_secondary_color, theme_font_pair, theme_motif, tagline, about_text, about_title, contact_heading, location, restaurant_image_url, branches, contact_phone, contact_email, contact_address, design_settings, restaurant_photos, background_image_url")
       .eq("slug", slug)
       .maybeSingle();

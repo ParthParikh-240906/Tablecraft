@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { CanvasPanel } from "./canvas-panel";
+import { DesignDeviceProvider } from "./design-device";
 export const dynamic = "force-dynamic";
 
 export default async function ConsoleDesignPage({
@@ -62,7 +63,7 @@ export default async function ConsoleDesignPage({
           </a>
         )}
       </div>
-      <CanvasPanel key={orgId}
+      <DesignDeviceProvider><CanvasPanel key={orgId}
         orgId={orgId}
         orgName={data.orgName}
         initialSettings={data.settings}
@@ -80,7 +81,7 @@ export default async function ConsoleDesignPage({
           restaurant_photos: (data.org.restaurant_photos as string[] | null) ?? [],
         }}
         paragraphs={data.paragraphs}
-      />
+      /></DesignDeviceProvider>
     </div>
   );
 }

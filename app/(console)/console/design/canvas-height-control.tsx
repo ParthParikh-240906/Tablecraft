@@ -29,17 +29,24 @@ export function CanvasHeightControl({
     } catch {}
   };
 
+  const atMax = multiplier >= 5;
+
   return (
     <div className="space-y-2 mb-3">
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
           onClick={handleStep}
+          aria-label={
+            atMax
+              ? "Reset preview height to 1×"
+              : `Set preview height to ${nextMultiplier}×`
+          }
           className="btn btn-outline text-xs px-2.5 py-1"
         >
-          {multiplier >= 5
-            ? "Collapse canvas (1×)"
-            : `Extend canvas (${nextMultiplier}×)`}
+          {atMax
+            ? "Preview height (1×)"
+            : `Preview height (${nextMultiplier}×)`}
         </button>
         <span className="text-[10px] text-[var(--ink-faint)] font-mono">
           {previewHeight}px ({multiplier}×)
@@ -54,10 +61,14 @@ export function CanvasHeightControl({
           step={0.5}
           value={multiplier}
           onChange={handleSliderChange}
+          aria-label="Preview height"
           className="w-full accent-[var(--accent)] cursor-pointer h-1.5 bg-[var(--rule)] rounded-lg"
         />
         <span className="text-[10px] text-[var(--ink-soft)] font-medium">5×</span>
       </div>
+      <p className="text-[10px] text-[var(--ink-faint)]">
+        Changes preview size only — not your live site.
+      </p>
     </div>
   );
 }

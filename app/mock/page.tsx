@@ -604,7 +604,7 @@ function RestaurantsSection() {
       try {
         const supabase = createClient();
         const { data, error: queryError } = await supabase
-          .from("organizations")
+          .from("public_organizations")
           .select("id, name, slug, logo_url, theme_color, tagline")
           .order("created_at", { ascending: true });
         if (queryError) {

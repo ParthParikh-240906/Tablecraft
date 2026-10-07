@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { BookATablePanel } from "./book-a-table-panel";
+import { DesignDeviceProvider } from "../design-device";
 export const dynamic = "force-dynamic";
 
 export default async function ConsoleDesignBookATablePage({
@@ -27,17 +28,33 @@ export default async function ConsoleDesignBookATablePage({
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="font-display text-2xl font-bold mb-2 text-[var(--ink)]">
-        Book a Table Page
-      </h1>
-      <p className="text-sm text-[var(--ink-soft)] mb-6">
-        Style the public booking page — headings, labels, and the submit button.
-      </p>
-      <BookATablePanel key={orgId}
-        orgId={orgId}
-        orgName={data.orgName}
-        initialSettings={data.settings}
-      />
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="font-display text-2xl font-bold mb-2 text-[var(--ink)]">
+            Book a Table Page
+          </h1>
+          <p className="text-sm text-[var(--ink-soft)]">
+            Style the public booking page — headings, labels, and the submit button.
+          </p>
+        </div>
+        {data.org.slug && (
+          <a
+            href={`/${data.org.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-outline text-xs px-3 py-1.5"
+          >
+            Preview Site →
+          </a>
+        )}
+      </div>
+      <DesignDeviceProvider>
+        <BookATablePanel key={orgId}
+          orgId={orgId}
+          orgName={data.orgName}
+          initialSettings={data.settings}
+        />
+      </DesignDeviceProvider>
     </div>
   );
 }

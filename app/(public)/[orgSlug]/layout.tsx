@@ -91,6 +91,7 @@ export default async function PublicLayout({
         orgName={org.name}
         accent={highlightColor}
         chatbot={design.chatbot}
+        responsive={design.responsive}
       />
     </div>
   );

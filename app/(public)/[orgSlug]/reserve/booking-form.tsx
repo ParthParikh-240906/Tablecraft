@@ -2,11 +2,64 @@
 
 import { useState } from "react";
 import { useTableRealtime } from "@/lib/realtime";
+import { resolveFontSize, type ResponsiveOverrides, type TextDesign } from "@/lib/design";
+import { useViewportDevice } from "@/lib/use-device";
 
 interface ComboTableInfo {
   id: string;
   label: string;
   capacity: number;
+}
+
+/**
+ * Client headings for the reserve page title/subtitle (reserve.title,
+ * reserve.subtitle). The server page cannot use the viewport hook, so it
+ * renders this component for per-device font-size overrides. Labels and the
+ * submit button also resolve their per-device sizes here (reserve.label,
+ * reserve.button) via the props passed from reserve/page.tsx.
+ */
+export function ReserveHeadings({
+  titleDesign,
+  subtitleDesign,
+  responsive,
+  orgName,
+  durationText,
+}: {
+  titleDesign: TextDesign;
+  subtitleDesign: TextDesign;
+  responsive?: ResponsiveOverrides | null;
+  orgName: string;
+  durationText: string;
+}) {
+  const device = useViewportDevice();
+  return (
+    <>
+      <h1
+        className={titleDesign.gradient ? "gradient-text" : undefined}
+        style={{
+          fontFamily: titleDesign.fontFamily,
+          fontSize: `${resolveFontSize(titleDesign.fontSize, "reserve.title", device, responsive)}px`,
+          color: titleDesign.color,
+          fontWeight: 700,
+          marginBottom: "0.5rem",
+        }}
+      >
+        Book a Table
+      </h1>
+      <p
+        className={subtitleDesign.gradient ? "gradient-text" : undefined}
+        style={{
+          fontFamily: subtitleDesign.fontFamily,
+          fontSize: `${resolveFontSize(subtitleDesign.fontSize, "reserve.subtitle", device, responsive)}px`,
+          color: subtitleDesign.color,
+          marginBottom: "2rem",
+        }}
+      >
+        Reserve your spot at {orgName}. Choose your party size, tell us when, and
+        we will automatically prepare the optimal table for you ({durationText}).
+      </p>
+    </>
+  );
 }
 
 export function BookingForm({
@@ -17,6 +70,9 @@ export function BookingForm({
   inputText,
   inputBorder,
   labelColor = "#000000",
+  labelDesign,
+  buttonDesign,
+  responsive,
   durationText = "2h reservation",
 }: {
   orgId: string;
@@ -26,9 +82,30 @@ export function BookingForm({
   inputText: string;
   inputBorder: string;
   labelColor?: string;
+  /** reserve.label design (family + desktop size); size resolves per-device. */
+  labelDesign?: { fontFamily: string; fontSize: number; gradient?: boolean } | null;
+  /** reserve.button design (family + color + desktop size); size per-device. */
+  buttonDesign?: { fontFamily: string; fontSize: number; color: string; gradient?: boolean } | null;
+  responsive?: ResponsiveOverrides | null;
   durationText?: string;
 }) {
   const { connectError } = useTableRealtime(orgId);
+  const viewportDevice = useViewportDevice();
+  const labelStyle: React.CSSProperties = {
+    color: labelColor,
+    fontFamily: labelDesign?.fontFamily,
+    fontSize: labelDesign
+      ? `${resolveFontSize(labelDesign.fontSize, "reserve.label", viewportDevice, responsive)}px`
+      : undefined,
+  };
+  const submitStyle: React.CSSProperties = {
+    backgroundColor: accent,
+    fontFamily: buttonDesign?.fontFamily,
+    color: buttonDesign?.color ?? "#ffffff",
+    fontSize: buttonDesign
+      ? `${resolveFontSize(buttonDesign.fontSize, "reserve.button", viewportDevice, responsive)}px`
+      : undefined,
+  };
 
   const [customerName, setCustomerName] = useState("");
   const [size, setSize] = useState(2);
@@ -184,7 +261,7 @@ export function BookingForm({
 
       {/* Name */}
       <div>
-        <label htmlFor="name" className="block text-sm font-medium mb-1.5" style={{ color: labelColor }}>
+        <label htmlFor="name" className={`block font-medium mb-1.5${labelDesign?.gradient ? " gradient-text" : ""}`} style={labelStyle}>
           Your name
         </label>
         <input
@@ -202,7 +279,7 @@ export function BookingForm({
 
       {/* Size */}
       <div>
-        <label htmlFor="size" className="block text-sm font-medium mb-1.5" style={{ color: labelColor }}>
+        <label htmlFor="size" className={`block font-medium mb-1.5${labelDesign?.gradient ? " gradient-text" : ""}`} style={labelStyle}>
           Party Size (Guests)
         </label>
         <input
@@ -224,7 +301,7 @@ export function BookingForm({
 
       {/* Date */}
       <div>
-        <label htmlFor="date" className="block text-sm font-medium mb-1.5" style={{ color: labelColor }}>
+        <label htmlFor="date" className={`block font-medium mb-1.5${labelDesign?.gradient ? " gradient-text" : ""}`} style={labelStyle}>
           Date
         </label>
         <input
@@ -240,7 +317,7 @@ export function BookingForm({
 
       {/* Time */}
       <div>
-        <label htmlFor="time" className="block text-sm font-medium mb-1.5" style={{ color: labelColor }}>
+        <label htmlFor="time" className={`block font-medium mb-1.5${labelDesign?.gradient ? " gradient-text" : ""}`} style={labelStyle}>
           Time
         </label>
         <input
@@ -298,8 +375,8 @@ export function BookingForm({
       <button
         type="submit"
         disabled={submitting || !!pendingCombo}
-        className="w-full py-3 rounded-full text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow transition-transform active:scale-[0.99]"
-        style={{ backgroundColor: accent }}
+        className={`w-full py-3 rounded-full font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow transition-transform active:scale-[0.99]${buttonDesign?.gradient ? " gradient-text" : ""}`}
+        style={submitStyle}
       >
         {submitting ? "Reserving table…" : "Confirm booking"}
       </button>

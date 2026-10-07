@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaffForOrgId } from "@/lib/api-auth";
+import {
+  getClientIp,
+  rateLimit,
+  rateLimitedResponse,
+  PLAN_AI_LIMITS,
+} from "@/lib/rate-limit";
 import { spawn } from "child_process";
 import { promises as fs } from "fs";
 import path from "path";
@@ -29,8 +35,16 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File | null;
     const orgId = formData.get("orgId") as string | null;
     const mode = formData.get("mode") as "append" | "replace";
+    const previewFlag = String(
+      formData.get("preview") ??
+        formData.get("dry_run") ??
+        formData.get("dryRun") ??
+        ""
+    ).toLowerCase();
+    const isPreview = previewFlag === "true" || previewFlag === "1";
+    const itemsParam = formData.get("items") as string | null;
 
-    if (!file || !orgId) {
+    if (!orgId) {
       return NextResponse.json(
         { error: "Missing file or orgId" },
         { status: 400 }
@@ -49,6 +63,117 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Confirm path: client posts reviewed items as JSON (from the
+    // review-before-save step) — insert directly, skipping re-extraction.
+    // Already quota-counted at preview time, so no additional quota hit.
+    if (typeof itemsParam === "string" && itemsParam.trim().length > 0) {
+      let submitted: unknown;
+      try {
+        submitted = JSON.parse(itemsParam);
+      } catch {
+        return NextResponse.json({ error: "Invalid items JSON" }, { status: 400 });
+      }
+      if (!Array.isArray(submitted) || submitted.length === 0) {
+        return NextResponse.json(
+          { error: "No menu items to save" },
+          { status: 400 }
+        );
+      }
+      if (submitted.length > MAX_ITEMS) {
+        return NextResponse.json(
+          { error: "Too many menu items in the image" },
+          { status: 400 }
+        );
+      }
+      // Same validation as extracted items: name must be a non-empty
+      // string, price must be a finite number.
+      const validItems = (
+        submitted as Array<Record<string, unknown>>
+      ).filter(
+        (item) =>
+          item != null &&
+          typeof item === "object" &&
+          typeof (item as { name?: unknown }).name === "string" &&
+          ((item as { name: string }).name as string).trim().length > 0 &&
+          (item as { price?: unknown }).price != null &&
+          Number.isFinite(Number((item as { price?: unknown }).price))
+      );
+      if (validItems.length === 0) {
+        return NextResponse.json(
+          { error: "No valid menu items found in the image" },
+          { status: 400 }
+        );
+      }
+      if (validItems.length > MAX_ITEMS) {
+        return NextResponse.json(
+          { error: "Too many menu items in the image" },
+          { status: 400 }
+        );
+      }
+      const normalized: InsertableItem[] = validItems.map((item) => ({
+        name: (item as { name: string }).name,
+        description:
+          typeof (item as { description?: unknown }).description === "string"
+            ? ((item as { description: string }).description as string)
+            : undefined,
+        price: Number((item as { price: unknown }).price),
+        category:
+          typeof (item as { category?: unknown }).category === "string"
+            ? ((item as { category: string }).category as string)
+            : undefined,
+      }));
+      const confirmed = await insertItems(orgId, mode, normalized);
+      if ("response" in confirmed) return confirmed.response;
+      return NextResponse.json({
+        success: true,
+        itemCount: confirmed.count,
+        mode,
+      });
+    }
+
+    if (!file) {
+      return NextResponse.json(
+        { error: "Missing file or orgId" },
+        { status: 400 }
+      );
+    }
+
+    // Monthly AI scan quota per org (marketed 10/15/40 per month) —
+    // same rateLimit() pattern as the legacy scan route, but with a
+    // 30-day window and the org's plan-tier limit.
+    const quotaAdmin = createAdminClient();
+    let planTier: keyof typeof PLAN_AI_LIMITS = "free";
+    try {
+      const { data: orgRow } = await quotaAdmin
+        .from("organizations")
+        .select("subscription_plan")
+        .eq("id", orgId)
+        .maybeSingle();
+      const plan = (orgRow as { subscription_plan?: string } | null)
+        ?.subscription_plan;
+      if (plan === "pro" || plan === "max") planTier = plan;
+    } catch {
+      // Fail open to the free-tier quota on lookup errors.
+    }
+    const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+    const scanQuota = PLAN_AI_LIMITS[planTier].scan;
+    const orgRl = rateLimit(`vision-parse:org:${orgId}`, scanQuota, MONTH_MS);
+    if (!orgRl.allowed) {
+      const retryAfter = Math.max(1, Math.ceil(orgRl.resetMs / 1000));
+      return NextResponse.json(
+        {
+          error: `Monthly AI menu scan quota reached (${scanQuota}/month on the ${planTier} plan). Quota resets soon — or upgrade your plan for more scans.`,
+        },
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
+      );
+    }
+    const ipRl = rateLimit(
+      `vision-parse:ip:${getClientIp(request)}`,
+      10,
+      24 * 60 * 60 * 1000
+    );
+    if (!ipRl.allowed) return rateLimitedResponse(ipRl.resetMs);
 
     // Validate image type
     const ext = (file.name ?? "").toLowerCase().split(".").pop();
@@ -194,55 +319,38 @@ Rules:
       return NextResponse.json({ error: "Too many menu items in the image" }, { status: 400 });
     }
 
-    // Insert into DB
-    const supabase = createAdminClient();
-    if (mode === "replace") {
-      const { error: deleteError } = await supabase.from("menu_items").delete().eq("org_id", orgId);
-      if (deleteError) {
-        console.error("[VISION PARSE] Delete error:", deleteError);
-        return NextResponse.json(
-          { error: "Could not save menu items. Please try again." },
-          { status: 500 }
-        );
-      }
+    // Preview mode: run the same extraction pipeline but return the items
+    // WITHOUT inserting — the client shows the review-before-save step and
+    // POSTs back `items` JSON to confirm. Same length/cap sanitization.
+    if (isPreview) {
+      const previewItems = validItems.map((item) => ({
+        name: String(item.name).slice(0, MAX_NAME_LEN),
+        description:
+          typeof item.description === "string"
+            ? item.description.slice(0, MAX_DESC_LEN)
+            : undefined,
+        price: Number(item.price),
+        category:
+          typeof item.category === "string"
+            ? item.category.slice(0, MAX_CATEGORY_LEN)
+            : undefined,
+      }));
+      return NextResponse.json({
+        success: true,
+        preview: true,
+        items: previewItems,
+        itemCount: previewItems.length,
+        mode,
+      });
     }
 
-    // Calculate category_sort_order based on first appearance of each category
-    const categoryOrder: Record<string, number> = {};
-    let catIdx = 0;
-    for (const item of validItems) {
-      const cat = item.category || "Other";
-      if (!(cat in categoryOrder)) {
-        categoryOrder[cat] = catIdx++;
-      }
-    }
-
-    const rows = validItems.slice(0, MAX_ITEMS).map((item, index) => ({
-      org_id: orgId,
-      name: String(item.name).slice(0, MAX_NAME_LEN),
-      description: typeof item.description === "string" ? item.description.slice(0, MAX_DESC_LEN) : null,
-      price: Number(item.price),
-      category: typeof item.category === "string" ? item.category.slice(0, MAX_CATEGORY_LEN) : null,
-      available: true,
-      sort_order: index + 1,
-      category_sort_order: categoryOrder[item.category || "Other"] ?? 0,
-    }));
-
-    const { error: insertError } = await supabase
-      .from("menu_items")
-      .insert(rows);
-
-    if (insertError) {
-      console.error("[VISION PARSE] Insert error:", insertError);
-      return NextResponse.json(
-        { error: "Could not save menu items. Please try again." },
-        { status: 500 }
-      );
-    }
+    // Insert into DB (unchanged legacy path, via shared helper)
+    const inserted = await insertItems(orgId, mode, validItems);
+    if ("response" in inserted) return inserted.response;
 
     return NextResponse.json({
       success: true,
-      itemCount: rows.length,
+      itemCount: inserted.count,
       mode,
     });
   } catch {
@@ -252,6 +360,84 @@ Rules:
       { status: 500 }
     );
   }
+}
+
+type InsertableItem = {
+  name: string;
+  description?: string;
+  price: number;
+  category?: string;
+};
+
+/**
+ * Shared insert path for extracted AND client-reviewed items.
+ * Same caps/validation, same replace-mode delete-then-insert logic.
+ */
+async function insertItems(
+  orgId: string,
+  mode: "append" | "replace",
+  items: InsertableItem[]
+): Promise<
+  | { count: number }
+  | { response: ReturnType<typeof NextResponse.json> }
+> {
+  const supabase = createAdminClient();
+  if (mode === "replace") {
+    const { error: deleteError } = await supabase
+      .from("menu_items")
+      .delete()
+      .eq("org_id", orgId);
+    if (deleteError) {
+      console.error("[VISION PARSE] Delete error:", deleteError);
+      return {
+        response: NextResponse.json(
+          { error: "Could not save menu items. Please try again." },
+          { status: 500 }
+        ),
+      };
+    }
+  }
+
+  // Calculate category_sort_order based on first appearance of each category
+  const categoryOrder: Record<string, number> = {};
+  let catIdx = 0;
+  for (const item of items) {
+    const cat = item.category || "Other";
+    if (!(cat in categoryOrder)) {
+      categoryOrder[cat] = catIdx++;
+    }
+  }
+
+  const rows = items.slice(0, MAX_ITEMS).map((item, index) => ({
+    org_id: orgId,
+    name: String(item.name).slice(0, MAX_NAME_LEN),
+    description:
+      typeof item.description === "string"
+        ? item.description.slice(0, MAX_DESC_LEN)
+        : null,
+    price: Number(item.price),
+    category:
+      typeof item.category === "string"
+        ? item.category.slice(0, MAX_CATEGORY_LEN)
+        : null,
+    available: true,
+    sort_order: index + 1,
+    category_sort_order: categoryOrder[item.category || "Other"] ?? 0,
+  }));
+
+  const { error: insertError } = await supabase.from("menu_items").insert(rows);
+
+  if (insertError) {
+    console.error("[VISION PARSE] Insert error:", insertError);
+    return {
+      response: NextResponse.json(
+        { error: "Could not save menu items. Please try again." },
+        { status: 500 }
+      ),
+    };
+  }
+
+  return { count: rows.length };
 }
 
 async function compressImage(data: Buffer, ext: string): Promise<Buffer> {

@@ -567,4 +567,14 @@ body {
   opacity: 0.4;
 }
 
+/* ---------------------------------------------------------------------------
+   Console design pages: reserve the viewport scrollbar gutter so mounting the
+   Edit card (which can push the page past viewport height) never changes the
+   preview pane width. PreviewShell zoom is width-measured, so a stable width
+   means a stable zoom. Scoped via :has so every other page is unaffected.
+   --------------------------------------------------------------------------- */
+html:has([data-design-stable]) {
+  scrollbar-gutter: stable;
+}
+
 
