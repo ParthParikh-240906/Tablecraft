@@ -18,7 +18,9 @@ export function useOrdersRealtime(orgId: string | null, initialOrders: OrderReco
   setOrdersRef.current = setOrders;
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const startPolling = useRef(false);
+  // Tracks whether realtime is actually live — see lib/realtime.ts. The 3s
+  // fallback must not start polling once SUBSCRIBED fired.
+  const subscribedRef = useRef(false);
 
   useEffect(() => {
     if (!orgId) return;
@@ -27,6 +29,7 @@ export function useOrdersRealtime(orgId: string | null, initialOrders: OrderReco
 
     // ── Initial fetch ────────────────────────────────────────────────────────
     let active = true;
+    subscribedRef.current = false;
     async function refresh() {
       const { data } = await supabase
         .from("orders")
@@ -37,6 +40,24 @@ export function useOrdersRealtime(orgId: string | null, initialOrders: OrderReco
       setOrders((data ?? []) as OrderRecord[]);
     }
     refresh();
+
+    // ── Polling fallback (15 s) when realtime never connects ────────────────
+    // Skipped while the tab is hidden so background tabs don't burn quota.
+    // Never starts once SUBSCRIBED fired.
+    const ensurePolling = () => {
+      if (!active || subscribedRef.current || pollRef.current) return;
+      pollRef.current = setInterval(async () => {
+        if (document.hidden) return;
+        const { data } = await supabase
+          .from("orders")
+          .select("id, customer_name, total, status, created_at, stripe_session_id, items, parent_order_id")
+          .eq("org_id", orgId)
+          .order("created_at", { ascending: false });
+        if (data) setOrders(data as OrderRecord[]);
+      }, 15000);
+    };
+
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = setTimeout(ensurePolling, 3000);
 
     // ── Realtime channel ─────────────────────────────────────────────────────
     const channel = supabase
@@ -76,35 +97,30 @@ export function useOrdersRealtime(orgId: string | null, initialOrders: OrderReco
         if (!active) return;
         if (status === "SUBSCRIBED") {
           setConnected(true);
-          // Realtime is live — stop polling to avoid a redundant request loop.
+          subscribedRef.current = true;
+          // Realtime is live — cancel the pending fallback and any polling.
+          if (fallbackTimer) {
+            clearTimeout(fallbackTimer);
+            fallbackTimer = null;
+          }
           if (pollRef.current) {
             clearInterval(pollRef.current);
             pollRef.current = null;
           }
-          startPolling.current = true; // stop polling once realtime is live
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setConnected(false);
+          subscribedRef.current = false;
+          ensurePolling();
         }
       });
 
-    // ── Polling fallback (15 s) when realtime never connects ────────────────
-    // Skipped while the tab is hidden so background tabs don't burn quota.
-    const ensurePolling = () => {
-      if (pollRef.current) return;
-      pollRef.current = setInterval(async () => {
-        if (document.hidden) return;
-        const { data } = await supabase
-          .from("orders")
-          .select("id, customer_name, total, status, created_at, stripe_session_id, items, parent_order_id")
-          .eq("org_id", orgId)
-          .order("created_at", { ascending: false });
-        if (data) setOrders(data as OrderRecord[]);
-      }, 15000);
-    };
-
-    const fallbackTimer = setTimeout(ensurePolling, 3000);
-
     return () => {
       active = false;
-      clearTimeout(fallbackTimer);
+      subscribedRef.current = false;
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
       if (pollRef.current) {
         clearInterval(pollRef.current);
         pollRef.current = null;

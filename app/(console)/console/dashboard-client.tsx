@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useOrdersRealtime } from "@/lib/orders-realtime";
 import type { OrderRecord } from "./orders/orders-list";
@@ -53,7 +53,10 @@ export default function DashboardClient({
   tableLabelMap,
 }: DashboardClientProps) {
   const [mounted, setMounted] = useState(false);
-  const supabase = createClient();
+  // Memoized: a fresh client every render would change refreshAll's identity
+  // and tear down + rebuild the realtime channels on every render, dropping
+  // events in the gap (numbers then lag seconds behind the toggle).
+  const supabase = useMemo(() => createClient(), []);
   const [stats, setStats] = useState<DashboardStats>(() => calculateStats(
     initialTables,
     initialBookings,
@@ -164,13 +167,21 @@ export default function DashboardClient({
   }, [orgId, supabase, orders]);
 
   // ── Realtime subscriptions ──
+  // Channels subscribe once per orgId. refreshAll is read through a ref so
+  // orders/state updates never tear the channels down (missed events = stale
+  // numbers until the next poll tick).
+  const refreshRef = useRef(refreshAll);
+  refreshRef.current = refreshAll;
   useEffect(() => {
+    const onChange = () => {
+      void refreshRef.current();
+    };
     const bookingsChannel = supabase
       .channel(`dashboard-bookings-${orgId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "bookings", filter: `org_id=eq.${orgId}` },
-        refreshAll,
+        onChange,
       )
       .subscribe();
 
@@ -179,7 +190,7 @@ export default function DashboardClient({
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "tables", filter: `org_id=eq.${orgId}` },
-        refreshAll,
+        onChange,
       )
       .subscribe();
 
@@ -187,7 +198,7 @@ export default function DashboardClient({
       supabase.removeChannel(bookingsChannel);
       supabase.removeChannel(tablesChannel);
     };
-  }, [orgId, supabase, refreshAll]);
+  }, [orgId, supabase]);
 
   // Recalculate stats whenever orders update via realtime/polling
   useEffect(() => {

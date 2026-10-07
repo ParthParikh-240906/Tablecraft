@@ -32,8 +32,10 @@ export function useTableRealtime(orgId: string | null) {
   // Poll interval ref so we can clear it on unmount.
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const startPolling = useRef(false);
-  startPolling.current = false;
+  // Tracks whether realtime is actually live. The 3s fallback timer must NOT
+  // start polling once SUBSCRIBED fired — otherwise every tab polls forever
+  // alongside realtime and load grows without bound.
+  const subscribedRef = useRef(false);
 
   useEffect(() => {
     if (!orgId) return;
@@ -42,6 +44,7 @@ export function useTableRealtime(orgId: string | null) {
 
     // ── Initial fetch ────────────────────────────────────────────────────────
     let active = true;
+    subscribedRef.current = false;
     async function refresh() {
       const { data, error } = await supabase
         .from("tables")
@@ -55,6 +58,23 @@ export function useTableRealtime(orgId: string | null) {
       setTables((data ?? []) as TableRow[]);
     }
     refresh();
+
+    // ── Polling fallback (15 s) when realtime never connects ─────────────────
+    // Skipped while the tab is hidden so background tabs don't burn quota.
+    // Never starts once SUBSCRIBED fired.
+    const ensurePolling = () => {
+      if (!active || subscribedRef.current || pollRef.current) return;
+      pollRef.current = setInterval(async () => {
+        if (document.hidden) return;
+        const { data } = await supabase
+          .from("tables")
+          .select("id, org_id, label, capacity, status, table_type")
+          .eq("org_id", orgId);
+        if (data) setTables(data as TableRow[]);
+      }, 15000);
+    };
+
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = setTimeout(ensurePolling, 3000);
 
     // ── Realtime channel ─────────────────────────────────────────────────────
     const channel = supabase
@@ -99,12 +119,17 @@ export function useTableRealtime(orgId: string | null) {
         if (status === "SUBSCRIBED") {
           setConnected(true);
           setConnectError(null);
-          // Realtime is live — stop polling to avoid a redundant request loop.
+          subscribedRef.current = true;
+          // Realtime is live — cancel the pending fallback and any polling
+          // so we don't run a redundant request loop forever.
+          if (fallbackTimer) {
+            clearTimeout(fallbackTimer);
+            fallbackTimer = null;
+          }
           if (pollRef.current) {
             clearInterval(pollRef.current);
             pollRef.current = null;
           }
-          startPolling.current = true; // stop polling once realtime is live
         }
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           setConnected(false);
@@ -113,33 +138,19 @@ export function useTableRealtime(orgId: string | null) {
               ? "WebSocket connection failed — check Supabase Realtime settings"
               : "Connection timed out",
           );
-          // Start polling as fallback
-          if (!startPolling.current) {
-            startPolling.current = true;
-          }
+          // Realtime is down — fall back to polling.
+          subscribedRef.current = false;
+          ensurePolling();
         }
       });
 
-    // ── Polling fallback (15 s) when realtime never connects ─────────────────
-    // Skipped while the tab is hidden so background tabs don't burn quota.
-    const ensurePolling = () => {
-      if (pollRef.current) return;
-      pollRef.current = setInterval(async () => {
-        if (document.hidden) return;
-        const { data } = await supabase
-          .from("tables")
-          .select("id, org_id, label, capacity, status, table_type")
-          .eq("org_id", orgId);
-        if (data) setTables(data as TableRow[]);
-      }, 15000);
-    };
-
-    // If we haven't subscribed within 3s, start polling as fallback.
-    const fallbackTimer = setTimeout(ensurePolling, 3000);
-
     return () => {
       active = false;
-      clearTimeout(fallbackTimer);
+      subscribedRef.current = false;
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
       if (pollRef.current) {
         clearInterval(pollRef.current);
         pollRef.current = null;

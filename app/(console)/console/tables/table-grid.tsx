@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useTableRealtime, type TableStatus, type TableRow } from "@/lib/realtime";
 import { createClient } from "@/lib/supabase/client";
 import { useConsoleTheme } from "../theme-wrapper";
@@ -72,7 +72,9 @@ export function TableGrid({ orgId }: { orgId: string }) {
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const supabase = createClient();
+  // Memoized so fetchUpcoming keeps a stable identity — otherwise the 60s
+  // interval below resets on every render.
+  const supabase = useMemo(() => createClient(), []);
 
   // Fetch upcoming confirmed bookings so tables auto-show as reserved
   // starting 2 hours before their booking time (computed, not stored).
