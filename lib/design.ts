@@ -238,6 +238,9 @@ export interface DeviceFontOverrides {
   fonts?: Record<string, number>;
   /** Per-element layout overrides: key → rect (same %/cvH units as base). */
   rects?: Record<string, Rect>;
+  /** Per-element color overrides: key → CSS color (e.g. `content:<id>` → text color).
+   *  Desktop always uses the authored base color — overrides are fallbacks. */
+  colors?: Record<string, string>;
 }
 
 export interface ResponsiveOverrides {
@@ -406,7 +409,65 @@ export function withRectOverride(
 }
 
 /**
- * Drop `hero:*` / `content:*` font + rect overrides whose element id no longer
+ * Resolve an authored text color for a device: when device isn't desktop and
+ * `responsive[device].colors[key]` is a non-empty string, use it; else base.
+ * No overrides → returns base (no behavior change).
+ */
+export function resolveColor(
+  base: string,
+  key: string | undefined,
+  device: DeviceKind,
+  responsive?: ResponsiveOverrides | null,
+): string {
+  if (device !== "desktop" && key) {
+    const v = responsive?.[device]?.colors?.[key];
+    if (typeof v === "string" && v.length > 0) return v;
+  }
+  return base;
+}
+
+/**
+ * Read a single color override for console inputs: the override string, or
+ * null when inheriting (desktop, or no override stored). Desktop always
+ * yields null.
+ */
+export function getColorOverride(
+  responsive: ResponsiveOverrides | undefined | null,
+  device: DeviceKind,
+  key: string,
+): string | null {
+  if (device === "desktop") return null;
+  const v = responsive?.[device]?.colors?.[key];
+  return typeof v === "string" && v.length > 0 ? v : null;
+}
+
+/**
+ * Return a new ResponsiveOverrides with `colors[key]` set or omitted when
+ * `value` is undefined (reset-to-inherit). Never mutates `prev`. Desktop is
+ * a no-op so panels can pass the current device through without narrowing.
+ */
+export function withColorOverride(
+  prev: ResponsiveOverrides | undefined,
+  device: DeviceKind,
+  key: string,
+  value: string | undefined,
+): ResponsiveOverrides {
+  if (device === "desktop") return prev ? { ...prev } : {};
+  const prevColors = prev?.[device]?.colors ?? {};
+  let nextColors: Record<string, string>;
+  if (value === undefined || (typeof value === "string" && value.length === 0)) {
+    if (!(key in prevColors)) return prev ? { ...prev } : {};
+    nextColors = { ...prevColors };
+    delete nextColors[key];
+  } else {
+    if (typeof value !== "string") return prev ? { ...prev } : {};
+    nextColors = { ...prevColors, [key]: value };
+  }
+  return { ...prev, [device]: { ...prev?.[device], colors: nextColors } };
+}
+
+/**
+ * Drop `hero:*` / `content:*` font + rect + color overrides whose element id no longer
  * exists. Static keys (`menu.title`, `header.brand`, …) always survive.
  * Call after deleting elements or applying templates so stale per-device
  * values can't resurrect moved/deleted boxes.
@@ -430,12 +491,12 @@ export function pruneElementOverrides(
     const node = prev[dev];
     if (!node) continue;
     const nextNode = { ...node };
-    for (const field of ["fonts", "rects"] as const) {
+    for (const field of ["fonts", "rects", "colors"] as const) {
       const map = node[field];
       if (!map) continue;
-      const nextMap: Record<string, number | Rect> = {};
+      const nextMap: Record<string, number | Rect | string> = {};
       for (const [k, v] of Object.entries(map)) {
-        if (keep(k)) nextMap[k] = v as number & Rect;
+        if (keep(k)) nextMap[k] = v as number & Rect & string;
         else changed = true;
       }
       (nextNode as Record<string, unknown>)[field] = nextMap;
@@ -821,9 +882,9 @@ function sanitizePageShapes(v: any): { id: string; style: ShapeStyle }[] | undef
   return clean.length > 0 ? clean : undefined;
 }
 /** Sanitize raw per-device overrides: plain object, tablet/mobile each
- *  {fonts: string->finite-number, rects: string->Rect}, capped at 200 keys
- *  per map. Returns undefined when nothing valid survives (field stays
- *  absent). */
+ *  {fonts: string->finite-number, rects: string->Rect, colors: string->color},
+ *  capped at 200 keys per map. Returns undefined when nothing valid survives
+ *  (field stays absent). */
 function sanitizeResponsive(r: any): ResponsiveOverrides | undefined {
   if (!r || typeof r !== "object" || Array.isArray(r)) return undefined;
   const out: ResponsiveOverrides = {};
@@ -856,7 +917,18 @@ function sanitizeResponsive(r: any): ResponsiveOverrides | undefined {
       }
       if (Object.keys(clean).length > 0) next.rects = clean;
     }
-    if (next.fonts || next.rects) out[dev] = next;
+    const colors = (node as Record<string, unknown>).colors;
+    if (colors && typeof colors === "object" && !Array.isArray(colors)) {
+      const clean: Record<string, string> = {};
+      for (const [k, v] of Object.entries(colors as Record<string, unknown>)) {
+        if (typeof k !== "string" || k.length === 0) continue;
+        if (typeof v !== "string" || v.length === 0 || v.length > 50) continue;
+        if (Object.keys(clean).length >= 200) break;
+        clean[k] = v;
+      }
+      if (Object.keys(clean).length > 0) next.colors = clean;
+    }
+    if (next.fonts || next.rects || next.colors) out[dev] = next;
   }
   return Object.keys(out).length > 0 ? out : undefined;
 }

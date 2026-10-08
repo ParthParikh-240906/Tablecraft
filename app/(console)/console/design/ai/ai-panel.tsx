@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useDesign } from "../use-design";
 import { useDesignDevice } from "../design-device";
 import { DesignNav } from "../design-nav";
+import { EditableCard, EditableGrid } from "../editable-card";
 import { ColorField } from "../design-fields";
-import { LOCAL_FONTS, getFontOverride, newContentElement, newHeroElement, withFontOverride, type DesignSettingsV2, type DeviceKind } from "@/lib/design";
+import { LOCAL_FONTS, getColorOverride, getFontOverride, newContentElement, newHeroElement, withColorOverride, withFontOverride, type DesignSettingsV2, type DeviceKind } from "@/lib/design";
 
 type ImageRatio = "1:1" | "16:9" | "9:16";
 const RATIOS: { value: ImageRatio; label: string }[] = [
@@ -323,9 +324,9 @@ export function AiPanel({
   return (
     <div>
       <DesignNav />
-      <div className="grid lg:grid-cols-2 gap-8 items-start">
+      <div className="space-y-5">
         {/* ── Controls ─────────────────────────────────────────── */}
-        <div className="space-y-8">
+        <div className="space-y-5">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-semibold text-[var(--ink)]">AI Tools</h2>
             <span className="text-xs text-[var(--ink-faint)]">
@@ -339,12 +340,9 @@ export function AiPanel({
             </div>
           )}
 
-
+          <EditableGrid>
           {/* AI Image Generator */}
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
-              AI Image Generator
-            </h3>
+          <EditableCard hover title="AI Image Generator">
             <p className="text-xs text-[var(--ink-soft)]">
               Describe the image you want. Optionally attach a reference image
               to guide the result. Generated images can be dropped straight
@@ -427,13 +425,10 @@ export function AiPanel({
             )}
 
             {error && <p className="text-xs text-red-500">{error}</p>}
-          </section>
+          </EditableCard>
 
           {result && (
-            <section className="ticket p-5 space-y-3">
-              <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
-                Result
-              </h3>
+            <EditableCard hover title="Result">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={result} alt="Generated" className="w-full rounded border border-[var(--rule)]" />
               <div className="flex flex-wrap gap-2">
@@ -461,14 +456,11 @@ export function AiPanel({
               <p className="text-[10px] text-[var(--ink-faint)]">
                 Clear only hides this preview — the image is kept in your gallery below.
               </p>
-            </section>
+            </EditableCard>
           )}
 
           {/* Image Gallery */}
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
-              Image Gallery
-            </h3>
+          <EditableCard hover title="Image Gallery">
             <p className="text-xs text-[var(--ink-soft)]">
               Every generation is kept here (newest first, up to {MAX_GALLERY_ITEMS}).
               Apply any image straight into your design.
@@ -502,13 +494,10 @@ export function AiPanel({
                 ))}
               </ul>
             )}
-          </section>
+          </EditableCard>
 
           {/* AI Chatbot Configurables */}
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
-              AI Chatbot
-            </h3>
+          <EditableCard hover title="AI Chatbot">
             <p className="text-xs text-[var(--ink-soft)]">
               Configure the appearance of the AI booking chatbot that appears
               on your restaurant site.
@@ -577,9 +566,31 @@ export function AiPanel({
 
             <ColorField
               label="Text Color"
-              value={chatbot.text_color}
-              onChange={(v) => updateChatbot({ text_color: v })}
+              value={device !== "desktop" ? (getColorOverride(settings.responsive, device, "chatbot.text") ?? chatbot.text_color) : chatbot.text_color}
+              onChange={(v) => {
+                if (device !== "desktop") {
+                  updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "chatbot.text", v) }));
+                } else {
+                  updateChatbot({ text_color: v });
+                }
+              }}
             />
+            {device !== "desktop" && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-[10px] text-[var(--ink-faint)]">
+                  {deviceLabel}: {getColorOverride(settings.responsive, device, "chatbot.text") != null ? "custom" : `inherits desktop (${chatbot.text_color})`}
+                </p>
+                {getColorOverride(settings.responsive, device, "chatbot.text") != null && (
+                  <button
+                    type="button"
+                    onClick={() => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "chatbot.text", undefined) }))}
+                    className="text-[10px] underline text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                  >
+                    Reset (inherits)
+                  </button>
+                )}
+              </div>
+            )}
 
             <div>
               <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
@@ -674,13 +685,10 @@ export function AiPanel({
               value={chatbot.border_color ?? "transparent"}
               onChange={(v) => updateChatbot({ border_color: v })}
             />
-          </section>
+          </EditableCard>
 
           {/* Custom Google Fonts */}
-          <section className="ticket p-5 space-y-4">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
-              Custom Google Fonts
-            </h3>
+          <EditableCard hover title="Custom Google Fonts">
             <div className="flex items-end gap-2">
               <div className="flex-1">
                 <label className="block text-xs text-[var(--ink-soft)] mb-1">
@@ -770,13 +778,9 @@ export function AiPanel({
             <p className="text-[10px] text-[var(--ink-faint)] leading-relaxed">
               Added fonts become immediately available across all font pickers in the studio. They will be loaded automatically on the preview and public pages.
             </p>
-          </section>
-        </div>
+          </EditableCard>
 
-        {/* ── Info ─────────────────────────────────────────────── */}
-        <div className="space-y-4">
-          <div className="ticket p-5 space-y-3">
-            <h3 className="font-display text-lg font-semibold text-[var(--ink)]">Quick apply</h3>
+          <EditableCard hover title="Quick apply">
             <p className="text-xs text-[var(--ink-soft)]">
               Generated images save instantly into your restaurant design for{" "}
               <span className="text-[var(--ink)]">{orgName}</span>:
@@ -787,7 +791,8 @@ export function AiPanel({
               <li>• <span className="text-[var(--ink)]">Add as Hero Image</span> — new image element on the Hero page.</li>
               <li>• <span className="text-[var(--ink)]">Gallery</span> — every generation is kept (newest first, up to {MAX_GALLERY_ITEMS}); Delete only removes it from the gallery.</li>
             </ul>
-          </div>
+          </EditableCard>
+          </EditableGrid>
         </div>
       </div>
     </div>

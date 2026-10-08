@@ -1,7 +1,7 @@
 "use client";
 
 import type { MenuPageDesign, ResponsiveOverrides } from "@/lib/design";
-import { getShadowStyle, resolveFontSize } from "@/lib/design";
+import { getShadowStyle, resolveColor, resolveFontSize } from "@/lib/design";
 import { useViewportDevice } from "@/lib/use-device";
 
 interface MenuItem {
@@ -50,13 +50,13 @@ export function MenuItems({
   responsive?: ResponsiveOverrides | null;
 }) {
   const device = useViewportDevice();
-  // Resolve a menu.* per-device override, then the usual inline styles.
+  // Resolve a menu.* per-device size + color override, then the usual inline styles.
   const rinline = (
     d: { fontFamily: string; fontSize: number; color: string; textAlign: string; shadow?: { color: string; direction: number; length: number; opacity?: number } },
     key: string,
     extra?: React.CSSProperties,
   ): React.CSSProperties =>
-    inline({ ...d, fontSize: resolveFontSize(d.fontSize, key, device, responsive) }, extra);
+    inline({ ...d, fontSize: resolveFontSize(d.fontSize, key, device, responsive), color: resolveColor(d.color, key, device, responsive) }, extra);
   // Accent-gradient word treatment (shares OrgPageView's .gradient-text).
   const gcls = (d: { gradient?: boolean }): string | undefined =>
     d.gradient ? "gradient-text" : undefined;
@@ -155,6 +155,7 @@ export function MenuHeadings({
           {
             ...menuDesign.title_design,
             fontSize: resolveFontSize(menuDesign.title_design.fontSize, "menu.title", device, responsive),
+            color: resolveColor(menuDesign.title_design.color, "menu.title", device, responsive),
           },
           { fontWeight: 700, marginBottom: "0.5rem" },
         )}
@@ -167,6 +168,7 @@ export function MenuHeadings({
           {
             ...menuDesign.subtitle_design,
             fontSize: resolveFontSize(menuDesign.subtitle_design.fontSize, "menu.subtitle", device, responsive),
+            color: resolveColor(menuDesign.subtitle_design.color, "menu.subtitle", device, responsive),
           },
           { marginBottom: "2rem" },
         )}

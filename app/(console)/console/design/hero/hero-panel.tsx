@@ -8,12 +8,15 @@ import { PreviewShell } from "../preview-shell";
 import { DesignNav } from "../design-nav";
 import { CanvasHeightControl } from "../canvas-height-control";
 import { ColorField, DesignField, OpacityField } from "../design-fields";
+import { EditableCard, EditableGrid, EditableSplit } from "../editable-card";
 import { useDesignDevice } from "../design-device";
 import { AnimationBuilder } from "@/components/AnimationBuilder";
 import { type OrgView } from "@/components/OrgPageView";
 import {
   newHeroElement,
+  getColorOverride,
   getFontOverride,
+  withColorOverride,
   withFontOverride,
   getRectOverride,
   withRectOverride,
@@ -494,13 +497,10 @@ export function HeroPanel({
               <button type="button" onClick={() => retrySave()} className="underline shrink-0">Retry</button>
             </div>
           )}
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
+          <EditableGrid>
 
           {/* Hero background */}
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
-              Hero Background
-            </h3>
+          <EditableCard hover title="Hero Background">
             <div className="flex flex-wrap gap-2">
               {(["color", "image", "images", "video"] as LayerType[]).map((t) => (
                 <button
@@ -662,13 +662,10 @@ export function HeroPanel({
               />
               Dark scrim (text legibility)
             </label>
-          </section>
+          </EditableCard>
 
           {/* Templates */}
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
-              Hero Templates
-            </h3>
+          <EditableCard hover title="Hero Templates">
             <div className="grid grid-cols-3 gap-2">
               {([
                 { style: "full-image" as const, label: "Full Image", desc: "Big image + centered title" },
@@ -714,13 +711,10 @@ export function HeroPanel({
                 );
               })}
             </div>
-          </section>
+          </EditableCard>
 
           {/* Hero elements */}
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
-              Hero Elements
-            </h3>
+          <EditableCard hover title="Hero Elements">
             <div className="flex flex-wrap gap-2">
               {SHAPE_KINDS.map((k) => (
                 <button
@@ -790,19 +784,17 @@ export function HeroPanel({
                 </div>
               ))}
             </div>
-          </section>
+          </EditableCard>
 
           {/* Selected element — always rendered (placeholder when nothing is
               selected) with a min-height so mounting the editor never changes
               page height, which would toggle the window scrollbar and rescale
               the width-measured preview zoom. */}
-          <section data-edit-card className="ticket p-5 space-y-3 min-h-[380px]">
+          <div data-edit-card className="md:col-span-2">
+          <EditableCard hover title={sel ? `Edit ${KIND_LABELS[sel.kind]}` : "Edit block"} className="min-h-[380px]">
             {sel ? (
               <>
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
-                  Edit {KIND_LABELS[sel.kind]}
-                </h3>
+              <div className="flex items-center justify-end gap-2">
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
@@ -905,35 +897,49 @@ export function HeroPanel({
                     fontKey={`hero:${sel.id}`}
                     overrideValue={getFontOverride(settings.responsive, device, `hero:${sel.id}`)}
                     onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, `hero:${sel.id}`, v) }))}
+                    colorKey={`hero:${sel.id}`}
+                    colorOverrideValue={getColorOverride(settings.responsive, device, `hero:${sel.id}`)}
+                    onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, `hero:${sel.id}`, v) }))}
                   />
                   <AnimationBuilder design={sel.design} onChange={(d) => updateEl(sel.id, { design: d })} />
                 </>
               )}
               {sel.kind !== "shape" && sel.kind !== "image" && sel.kind !== "button" && (
-                <>
-                  {sel && (sel.kind === "text" || sel.kind === "title" || sel.kind === "tagline") && (
-                    <div className="space-y-2">
-                      <label className="block text-xs text-[var(--ink-soft)] mb-1">
-                        {sel.kind === "title" ? "Title text" : sel.kind === "tagline" ? "Tagline text" : "Text content"}
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={sel.content ?? ""}
-                        onChange={(e) => updateEl(sel.id, { content: e.target.value })}
-                        className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-3 py-2 text-sm resize-y"
+                <EditableSplit
+                  left={
+                    <>
+                      {sel && (sel.kind === "text" || sel.kind === "title" || sel.kind === "tagline") && (
+                        <div className="space-y-2">
+                          <label className="block text-xs text-[var(--ink-soft)] mb-1">
+                            {sel.kind === "title" ? "Title text" : sel.kind === "tagline" ? "Tagline text" : "Text content"}
+                          </label>
+                          <textarea
+                            rows={5}
+                            value={sel.content ?? ""}
+                            onChange={(e) => updateEl(sel.id, { content: e.target.value })}
+                            className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-3 py-2 text-sm resize-y"
+                          />
+                        </div>
+                      )}
+                    </>
+                  }
+                  right={
+                    <>
+                      <DesignField customFonts={settings.custom_fonts}
+                        label=""
+                        design={sel.design}
+                        onChange={(d) => updateEl(sel.id, { design: d })}
+                        fontKey={`hero:${sel.id}`}
+                        overrideValue={getFontOverride(settings.responsive, device, `hero:${sel.id}`)}
+                        onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, `hero:${sel.id}`, v) }))}
+                        colorKey={`hero:${sel.id}`}
+                        colorOverrideValue={getColorOverride(settings.responsive, device, `hero:${sel.id}`)}
+                        onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, `hero:${sel.id}`, v) }))}
                       />
-                    </div>
-                  )}
-                  <DesignField customFonts={settings.custom_fonts}
-                    label=""
-                    design={sel.design}
-                    onChange={(d) => updateEl(sel.id, { design: d })}
-                    fontKey={`hero:${sel.id}`}
-                    overrideValue={getFontOverride(settings.responsive, device, `hero:${sel.id}`)}
-                    onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, `hero:${sel.id}`, v) }))}
-                  />
-                  <AnimationBuilder design={sel.design} onChange={(d) => updateEl(sel.id, { design: d })} />
-                </>
+                      <AnimationBuilder design={sel.design} onChange={(d) => updateEl(sel.id, { design: d })} />
+                    </>
+                  }
+                />
               )}
               {/* Per-device layout status lives INSIDE the edit card (not a
                   separate grid item) so toggling devices never changes page
@@ -975,9 +981,6 @@ export function HeroPanel({
               </>
             ) : (
               <div className="space-y-2">
-                <h3 className="font-display text-sm font-semibold text-[var(--ink)]">
-                  Edit block
-                </h3>
                 <p className="text-xs text-[var(--ink-faint)]">
                   Select a hero element on the canvas or in the list to edit its content and style.
                 </p>
@@ -986,8 +989,9 @@ export function HeroPanel({
                 </p>
               </div>
             )}
-          </section>
+          </EditableCard>
           </div>
+          </EditableGrid>
         </div>
 
         {/* ── Preview (full width, below) ──────────────────────── */}

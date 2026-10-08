@@ -7,6 +7,7 @@ import { useDesign } from "./use-design";
 import { ResizableBox } from "./resizable-box";
 import { PreviewShell } from "./preview-shell";
 import { DesignNav } from "./design-nav";
+import { EditableCard, EditableGrid } from "./editable-card";
 import { CanvasHeightControl } from "./canvas-height-control";
 import { ColorField, DesignField, OpacityField } from "./design-fields";
 import { useDesignDevice } from "./design-device";
@@ -14,7 +15,9 @@ import { AnimationBuilder } from "@/components/AnimationBuilder";
 import { type OrgView } from "@/components/OrgPageView";
 import {
   LOCAL_FONTS,
+  getColorOverride,
   getFontOverride,
+  withColorOverride,
   withFontOverride,
   getLogoSizeOverride,
   withLogoSizeOverride,
@@ -105,6 +108,8 @@ export function CanvasPanel({
   const deviceLabel = device === "tablet" ? "Tablet" : "Mobile";
   const navOverride = getFontOverride(settings.responsive, device, "header.nav");
   const ctaOverride = getFontOverride(settings.responsive, device, "header.cta");
+  const navColorOverride = getColorOverride(settings.responsive, device, "header.nav");
+  const ctaColorOverride = getColorOverride(settings.responsive, device, "header.cta");
   const logoOverride = getLogoSizeOverride(settings.responsive, device);
   const logoBase = settings.header.logo_size ?? 32;
   const shownLogoSize = device !== "desktop" ? (logoOverride ?? logoBase) : logoBase;
@@ -131,20 +136,18 @@ export function CanvasPanel({
           )}
 
 
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5 items-start mt-6">
+          <EditableGrid>
           {/* Page colors */}
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
-              Page Colors
-            </h3>
+          <EditableCard hover title="Page Colors">
             <ColorField label="Page Background" value={settings.background_color} onChange={(v) => updateSettings({ background_color: v })} />
             <ColorField label="Page Text" value={settings.text_color} onChange={(v) => updateSettings({ text_color: v })} />
             <ColorField label="Accent (buttons, links)" value={settings.accent_color} onChange={(v) => updateSettings({ accent_color: v })} />
-          </section>
+            <ColorField label="Header Background" value={settings.header.background_color} onChange={(v) => updateSettings({ header: { ...settings.header, background_color: v } })} />
+            <OpacityField label="Header Background Opacity (on scroll)" value={settings.header.opacity} onChange={(v) => updateSettings({ header: { ...settings.header, opacity: v } })} />
+          </EditableCard>
 
-          {/* Header */}
-          <section className="ticket p-5 space-y-3 md:col-span-2 xl:col-span-2">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Header</h3>
+          {/* Logo */}
+          <EditableCard hover title="Logo">
             <div>
               <label className="block text-xs font-medium text-[var(--ink-soft)] mb-1">
                 Logo
@@ -276,9 +279,11 @@ export function CanvasPanel({
                 </div>
               )}
             </div>
-            <ColorField label="Header Background" value={settings.header.background_color} onChange={(v) => updateSettings({ header: { ...settings.header, background_color: v } })} />
-            <OpacityField label="Header Background Opacity (on scroll)" value={settings.header.opacity} onChange={(v) => updateSettings({ header: { ...settings.header, opacity: v } })} />
             <ColorField label="Logo color" value={settings.header.logo_color} onChange={(v) => updateSettings({ header: { ...settings.header, logo_color: v } })} />
+          </EditableCard>
+
+          {/* Restaurant name */}
+          <EditableCard hover title="Restaurant Name">
             <div>
               <p className="text-xs text-[var(--ink-soft)] mb-1">Restaurant name</p>
               <DesignField customFonts={settings.custom_fonts}
@@ -288,11 +293,16 @@ export function CanvasPanel({
                 fontKey="header.brand"
                 overrideValue={getFontOverride(settings.responsive, device, "header.brand")}
                 onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "header.brand", v) }))}
+                colorKey="header.brand"
+                colorOverrideValue={getColorOverride(settings.responsive, device, "header.brand")}
+                onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "header.brand", v) }))}
               />
               <AnimationBuilder design={settings.header.design} onChange={(d) => updateSettings({ header: { ...settings.header, design: d } })} />
             </div>
-            <div>
-              <p className="text-xs text-[var(--ink-soft)] mb-1">Menu Text</p>
+          </EditableCard>
+
+          {/* Menu link */}
+          <EditableCard hover title="Menu">
               <div className="grid grid-cols-3 gap-2 items-end">
                 <select
                   value={settings.header.nav_design.fontFamily}
@@ -314,13 +324,16 @@ export function CanvasPanel({
                   className="col-span-1 w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-sm"
                 />
                 <div className="col-span-1">
-                  <ColorField label="" value={settings.header.nav_design.color} onChange={(v) => updateSettings({ header: { ...settings.header, nav_design: { ...settings.header.nav_design, color: v } } })} />
+                  <ColorField label="" value={device !== "desktop" ? (navColorOverride ?? settings.header.nav_design.color) : settings.header.nav_design.color} onChange={(v) => {
+                    if (device !== "desktop") updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "header.nav", v) }));
+                    else updateSettings({ header: { ...settings.header, nav_design: { ...settings.header.nav_design, color: v } } });
+                  }} />
                 </div>
               </div>
               {device !== "desktop" && (
                 <div className="flex items-center gap-2 flex-wrap mt-1">
                   <p className="text-[10px] text-[var(--ink-faint)]">
-                    {deviceLabel}: {navOverride != null ? "custom" : `inherits desktop (${settings.header.nav_design.fontSize}px)`}
+                    {deviceLabel}: {navOverride != null ? "custom size" : `inherits desktop (${settings.header.nav_design.fontSize}px)`} · {navColorOverride != null ? "custom color" : `inherits desktop (${settings.header.nav_design.color})`}
                   </p>
                   {navOverride != null && (
                     <button
@@ -328,12 +341,24 @@ export function CanvasPanel({
                       onClick={() => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "header.nav", undefined) }))}
                       className="text-[10px] underline text-[var(--ink-soft)] hover:text-[var(--ink)]"
                     >
-                      Reset (inherits)
+                      Reset size
+                    </button>
+                  )}
+                  {navColorOverride != null && (
+                    <button
+                      type="button"
+                      onClick={() => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "header.nav", undefined) }))}
+                      className="text-[10px] underline text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                    >
+                      Reset color
                     </button>
                   )}
                 </div>
               )}
-            </div>
+          </EditableCard>
+
+          {/* Book a table button */}
+          <EditableCard hover title="Book a Table">
             <div>
               <p className="text-xs text-[var(--ink-soft)] mb-1">Book a table button</p>
               <div className="grid grid-cols-3 gap-2 items-end">
@@ -357,7 +382,10 @@ export function CanvasPanel({
                   className="col-span-1 w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-sm"
                 />
                 <div className="col-span-1">
-                  <ColorField label="Text" value={settings.header.cta_design.textColor} onChange={(v) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, textColor: v } } })} />
+                  <ColorField label="Text" value={device !== "desktop" ? (ctaColorOverride ?? settings.header.cta_design.textColor) : settings.header.cta_design.textColor} onChange={(v) => {
+                    if (device !== "desktop") updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "header.cta", v) }));
+                    else updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, textColor: v } } });
+                  }} />
                 </div>
                 <div className="col-span-1">
                   <ColorField label="BG" value={settings.header.cta_design.bgColor} onChange={(v) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, bgColor: v } } })} />
@@ -384,7 +412,7 @@ export function CanvasPanel({
               {device !== "desktop" && (
                 <div className="flex items-center gap-2 flex-wrap mt-1">
                   <p className="text-[10px] text-[var(--ink-faint)]">
-                    {deviceLabel}: {ctaOverride != null ? "custom" : `inherits desktop (${settings.header.cta_design.fontSize}px)`}
+                    {deviceLabel}: {ctaOverride != null ? "custom size" : `inherits desktop (${settings.header.cta_design.fontSize}px)`} · {ctaColorOverride != null ? "custom color" : `inherits desktop (${settings.header.cta_design.textColor})`}
                   </p>
                   {ctaOverride != null && (
                     <button
@@ -392,16 +420,26 @@ export function CanvasPanel({
                       onClick={() => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "header.cta", undefined) }))}
                       className="text-[10px] underline text-[var(--ink-soft)] hover:text-[var(--ink)]"
                     >
-                      Reset (inherits)
+                      Reset size
+                    </button>
+                  )}
+                  {ctaColorOverride != null && (
+                    <button
+                      type="button"
+                      onClick={() => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "header.cta", undefined) }))}
+                      className="text-[10px] underline text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                    >
+                      Reset color
                     </button>
                   )}
                 </div>
               )}
             </div>
+          </EditableCard>
 
-            {/* Header element order */}
-            <div className="pt-2 border-t border-[var(--rule)]">
-              <p className="text-xs font-medium text-[var(--ink-soft)] mb-2">Header layout order</p>
+          {/* Header layout order */}
+          <EditableCard hover title="Header Layout Order">
+            <div>
               <ul className="space-y-1">
                 {(settings.header.header_elements ?? [
                   { id: "h-logo", kind: "logo" as const },
@@ -440,13 +478,10 @@ export function CanvasPanel({
                 ))}
               </ul>
             </div>
-          </section>
+          </EditableCard>
 
           {selectedIsHero && (
-            <section className="ticket p-5 space-y-3">
-              <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
-                Hero section
-              </h3>
+            <EditableCard hover title="Hero section">
               <label className="block text-xs text-[var(--ink-soft)] mb-1">
                 Hero band height (%)
               </label>
@@ -462,9 +497,9 @@ export function CanvasPanel({
                 Drag the dashed band in the preview to resize. Reach the content
                 section or edit the hero band from the Hero page.
               </p>
-            </section>
+            </EditableCard>
           )}
-          </div>
+          </EditableGrid>
         </div>
 
         {/* ── Preview (full width, below) ──────────────────────── */}

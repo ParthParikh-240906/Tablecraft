@@ -3,9 +3,10 @@
 import { useDesign } from "../use-design";
 import { useDesignDevice } from "../design-device";
 import { DesignNav } from "../design-nav";
+import { EditableCard, EditableGrid } from "../editable-card";
 import { ColorField, DesignField } from "../design-fields";
 import { SiteHeader } from "@/components/SiteHeader";
-import { defaultReservePageDesign, getFontOverride, resolveFontSize, withFontOverride, type DesignSettingsV2, type ReservePageDesign } from "@/lib/design";
+import { defaultReservePageDesign, getColorOverride, getFontOverride, resolveColor, resolveFontSize, withColorOverride, withFontOverride, type DesignSettingsV2, type ReservePageDesign } from "@/lib/design";
 
 export function BookATablePanel({
   orgId,
@@ -64,7 +65,7 @@ export function BookATablePanel({
   const text = (d: { fontFamily: string; fontSize: number; color: string }, fontKey: string, extra?: React.CSSProperties): React.CSSProperties => ({
     fontFamily: d.fontFamily,
     fontSize: `${resolveFontSize(d.fontSize, fontKey, device, settings.responsive)}px`,
-    color: d.color,
+    color: resolveColor(d.color, fontKey, device, settings.responsive),
     ...extra,
   });
   // Accent-gradient word treatment (shares OrgPageView's .gradient-text).
@@ -98,82 +99,36 @@ export function BookATablePanel({
             </div>
           )}
 
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Back Button ("Back to {orgName}")</h3>
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]"><span className="group-open:hidden">Show More</span><span className="hidden group-open:inline">Show Less</span></summary>
-              <div className="pt-3 space-y-3">
+          <EditableGrid>
+          <EditableCard hover title={`Back Button ("Back to ${orgName}")`}>
                 <ColorField label="Color" value={reserve.back_button_color ?? "#ffffff"} onChange={(v) => update({ back_button_color: v })} bgColor={colors.bg} />
-              </div>
-            </details>
-          </section>
+          </EditableCard>
 
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Page Title ("Book a Table")</h3>
-            {/* Standalone color + size controls removed as duplicates of DesignField below.
-                AnimationBuilder removed: the public reserve page ignores title alignment/shadow/animation. */}
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]"><span className="group-open:hidden">Show More</span><span className="hidden group-open:inline">Show Less</span></summary>
-              <div className="pt-3 space-y-3">
-                <DesignField customFonts={settings.custom_fonts} label="" design={reserve.title_design} onChange={(d) => update({ title_design: d })} fontKey="reserve.title" overrideValue={getFontOverride(settings.responsive, device, "reserve.title")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "reserve.title", v) }))} />
-              </div>
-            </details>
-          </section>
+          <EditableCard hover title='Page Title ("Book a Table")'>
+                <DesignField customFonts={settings.custom_fonts} label="" design={reserve.title_design} onChange={(d) => update({ title_design: d })} fontKey="reserve.title" overrideValue={getFontOverride(settings.responsive, device, "reserve.title")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "reserve.title", v) }))} colorKey="reserve.title" colorOverrideValue={getColorOverride(settings.responsive, device, "reserve.title")} onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "reserve.title", v) }))} />
+          </EditableCard>
 
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Subtitle</h3>
-            {/* Standalone color + size controls removed as duplicates of DesignField below.
-                AnimationBuilder removed: the public reserve page ignores subtitle alignment/shadow/animation. */}
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]"><span className="group-open:hidden">Show More</span><span className="hidden group-open:inline">Show Less</span></summary>
-              <div className="pt-3 space-y-3">
-                <DesignField customFonts={settings.custom_fonts} label="" design={reserve.subtitle_design} onChange={(d) => update({ subtitle_design: d })} fontKey="reserve.subtitle" overrideValue={getFontOverride(settings.responsive, device, "reserve.subtitle")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "reserve.subtitle", v) }))} />
-              </div>
-            </details>
-          </section>
+          <EditableCard hover title="Subtitle">
+                <DesignField customFonts={settings.custom_fonts} label="" design={reserve.subtitle_design} onChange={(d) => update({ subtitle_design: d })} fontKey="reserve.subtitle" overrideValue={getFontOverride(settings.responsive, device, "reserve.subtitle")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "reserve.subtitle", v) }))} colorKey="reserve.subtitle" colorOverrideValue={getColorOverride(settings.responsive, device, "reserve.subtitle")} onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "reserve.subtitle", v) }))} />
+          </EditableCard>
 
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Form Labels</h3>
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]"><span className="group-open:hidden">Show More</span><span className="hidden group-open:inline">Show Less</span></summary>
-              <div className="pt-3 space-y-3">
-                <DesignField customFonts={settings.custom_fonts} label="" design={reserve.label_design} onChange={(d) => update({ label_design: d })} fontKey="reserve.label" overrideValue={getFontOverride(settings.responsive, device, "reserve.label")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "reserve.label", v) }))} />
-              </div>
-            </details>
-          </section>
+          <EditableCard hover title="Form Labels">
+                <DesignField customFonts={settings.custom_fonts} label="" design={reserve.label_design} onChange={(d) => update({ label_design: d })} fontKey="reserve.label" overrideValue={getFontOverride(settings.responsive, device, "reserve.label")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "reserve.label", v) }))} colorKey="reserve.label" colorOverrideValue={getColorOverride(settings.responsive, device, "reserve.label")} onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "reserve.label", v) }))} />
+          </EditableCard>
 
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Submit Button Text</h3>
-            {/* Button size is per-device like every other size; family/color
-                stay shared. The live submit button honors these values. */}
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]"><span className="group-open:hidden">Show More</span><span className="hidden group-open:inline">Show Less</span></summary>
-              <div className="pt-3 space-y-3">
-                <DesignField customFonts={settings.custom_fonts} label="" design={reserve.button_design} onChange={(d) => update({ button_design: d })} fontKey="reserve.button" overrideValue={getFontOverride(settings.responsive, device, "reserve.button")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "reserve.button", v) }))} />
-              </div>
-            </details>
-          </section>
+          <EditableCard hover title="Submit Button Text">
+                <DesignField customFonts={settings.custom_fonts} label="" design={reserve.button_design} onChange={(d) => update({ button_design: d })} fontKey="reserve.button" overrideValue={getFontOverride(settings.responsive, device, "reserve.button")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "reserve.button", v) }))} colorKey="reserve.button" colorOverrideValue={getColorOverride(settings.responsive, device, "reserve.button")} onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "reserve.button", v) }))} />
+          </EditableCard>
 
           {/* Input colors */}
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Input Field Colors</h3>
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]"><span className="group-open:hidden">Show More</span><span className="hidden group-open:inline">Show Less</span></summary>
-              <div className="pt-3 space-y-3">
+          <EditableCard hover title="Input Field Colors">
                 <ColorField label="Input background" value={reserve.input_bg_color} onChange={(v) => update({ input_bg_color: v })} />
                 <ColorField label="Input text" value={reserve.input_text_color} onChange={(v) => update({ input_text_color: v })} bgColor={reserve.input_bg_color} />
                 <ColorField label="Input border" value={reserve.input_border_color} onChange={(v) => update({ input_border_color: v })} />
-              </div>
-            </details>
-          </section>
+          </EditableCard>
 
           {/* Form box border */}
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Booking Form Box Border</h3>
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]"><span className="group-open:hidden">Show More</span><span className="hidden group-open:inline">Show Less</span></summary>
-              <div className="pt-3 space-y-3">
+          <EditableCard hover title="Booking Form Box Border">
                 <ColorField label="Border color" value={reserve.border_color} onChange={(v) => update({ border_color: v })} />
                 <div>
                   <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Border width: {reserve.border_width}px</label>
@@ -181,10 +136,8 @@ export function BookATablePanel({
                     onChange={(e) => update({ border_width: parseInt(e.target.value, 10) })}
                     className="w-full accent-[var(--accent)]" />
                 </div>
-              </div>
-            </details>
-          </section>
-          </div>
+          </EditableCard>
+          </EditableGrid>
 
         </div>
 
@@ -264,7 +217,7 @@ export function BookATablePanel({
                     style={{
                       backgroundColor: colors.accent,
                       fontFamily: reserve.button_design.fontFamily,
-                      color: reserve.button_design.color,
+                      color: resolveColor(reserve.button_design.color, "reserve.button", device, settings.responsive),
                       fontSize: `${resolveFontSize(reserve.button_design.fontSize, "reserve.button", device, settings.responsive)}px`,
                     }}
                   >

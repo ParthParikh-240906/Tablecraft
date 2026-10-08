@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   deviceForWidth,
+  resolveColor,
   resolveFontSize,
   resolveRect,
   type ContentElement,
@@ -178,6 +179,7 @@ function HeroText({
   // Per-device override for this hero element (`hero:<id>`), then the usual
   // container cap via fS.
   const resolvedSize = resolveFontSize(s.fontSize, `hero:${el.id}`, device, responsive);
+  const resolvedColor = resolveColor(s.color, `hero:${el.id}`, device, responsive);
   // On the live site there is no auto-grow save path, so the box must never
   // hard-clip: it sizes to its content (anchored at its top %) instead of a
   // fixed % height. In preview the fixed height is kept so FitText can measure
@@ -195,7 +197,7 @@ function HeroText({
       style={{
         fontFamily: s.fontFamily,
         fontSize: fS(resolvedSize),
-        color: s.color,
+        color: resolvedColor,
         textAlign: s.textAlign,
       }}
     >
@@ -229,9 +231,10 @@ function ButtonVisual({
   const label = el.buttonType === "menu" ? "Menu" : "Book a table";
   const href = el.buttonType === "menu" ? `/${slug}/menu` : `/${slug}/reserve`;
   const resolvedSize = resolveFontSize(el.design.fontSize, fontKey, device ?? "desktop", responsive);
+  const resolvedColor = resolveColor(el.design.color, fontKey, device ?? "desktop", responsive);
   const style: React.CSSProperties = {
     backgroundColor: el.bgColor ?? "#f97316",
-    color: el.design.color,
+    color: resolvedColor,
     fontFamily: el.design.fontFamily,
     fontSize: fS(resolvedSize),
     textAlign: el.design.textAlign as React.CSSProperties["textAlign"],
@@ -356,13 +359,14 @@ function ContentVisual({
   }
   if (!text) return null;
 
+  const resolvedColor = resolveColor(s.color, `content:${el.id}`, device, responsive);
   return (
     <AnimatedText
       text={text}
       design={s}
       preview={mode === "preview"}
       className={`w-full h-full overflow-hidden leading-relaxed whitespace-pre-line ${el.kind === "title" ? "font-bold" : ""}${s.gradient ? " gradient-text" : ""}`}
-      style={{ fontFamily: s.fontFamily, fontSize: fS(resolveFontSize(s.fontSize, `content:${el.id}`, device, responsive)), color: s.color, textAlign: s.textAlign }}
+      style={{ fontFamily: s.fontFamily, fontSize: fS(resolveFontSize(s.fontSize, `content:${el.id}`, device, responsive)), color: resolvedColor, textAlign: s.textAlign }}
     />
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTableRealtime } from "@/lib/realtime";
-import { resolveFontSize, type ResponsiveOverrides, type TextDesign } from "@/lib/design";
+import { resolveColor, resolveFontSize, type ResponsiveOverrides, type TextDesign } from "@/lib/design";
 import { useViewportDevice } from "@/lib/use-device";
 
 interface ComboTableInfo {
@@ -39,7 +39,7 @@ export function ReserveHeadings({
         style={{
           fontFamily: titleDesign.fontFamily,
           fontSize: `${resolveFontSize(titleDesign.fontSize, "reserve.title", device, responsive)}px`,
-          color: titleDesign.color,
+          color: resolveColor(titleDesign.color, "reserve.title", device, responsive),
           fontWeight: 700,
           marginBottom: "0.5rem",
         }}
@@ -51,7 +51,7 @@ export function ReserveHeadings({
         style={{
           fontFamily: subtitleDesign.fontFamily,
           fontSize: `${resolveFontSize(subtitleDesign.fontSize, "reserve.subtitle", device, responsive)}px`,
-          color: subtitleDesign.color,
+          color: resolveColor(subtitleDesign.color, "reserve.subtitle", device, responsive),
           marginBottom: "2rem",
         }}
       >
@@ -92,7 +92,9 @@ export function BookingForm({
   const { connectError } = useTableRealtime(orgId);
   const viewportDevice = useViewportDevice();
   const labelStyle: React.CSSProperties = {
-    color: labelColor,
+    color: labelDesign
+      ? resolveColor(labelColor, "reserve.label", viewportDevice, responsive)
+      : labelColor,
     fontFamily: labelDesign?.fontFamily,
     fontSize: labelDesign
       ? `${resolveFontSize(labelDesign.fontSize, "reserve.label", viewportDevice, responsive)}px`
@@ -101,7 +103,9 @@ export function BookingForm({
   const submitStyle: React.CSSProperties = {
     backgroundColor: accent,
     fontFamily: buttonDesign?.fontFamily,
-    color: buttonDesign?.color ?? "#ffffff",
+    color: buttonDesign
+      ? resolveColor(buttonDesign.color, "reserve.button", viewportDevice, responsive)
+      : "#ffffff",
     fontSize: buttonDesign
       ? `${resolveFontSize(buttonDesign.fontSize, "reserve.button", viewportDevice, responsive)}px`
       : undefined,

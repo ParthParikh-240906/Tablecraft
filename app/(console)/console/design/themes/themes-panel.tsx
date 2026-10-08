@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useDesign } from "../use-design";
 import { DesignNav } from "../design-nav";
+import { EditableCard, EditableGrid } from "../editable-card";
 import { PreviewShell } from "../preview-shell";
 import { DesignDeviceProvider } from "../design-device";
 import { SITE_THEMES, applySiteTheme } from "@/lib/site-themes";
@@ -82,16 +83,13 @@ export function ThemesPanel({
         )}
 
         {/* ── Theme cards ────────────────────────────────────── */}
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <EditableGrid>
           {SITE_THEMES.map((t) => {
             const isPreviewing = previewId === t.id;
             const isActive = activeId === t.id;
             return (
-              <div key={t.id} className="ticket p-5 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-display text-sm font-semibold text-[var(--ink)]">
-                    {t.name}
-                  </h3>
+              <EditableCard key={t.id} title={t.name}>
+                <div className="flex items-center gap-1">
                   <span className="flex items-center gap-1">
                     {isActive && (
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--accent)] text-white">
@@ -177,10 +175,10 @@ export function ThemesPanel({
                     Apply theme
                   </button>
                 </div>
-              </div>
+              </EditableCard>
             );
           })}
-        </div>
+        </EditableGrid>
 
         {/* ── Preview ────────────────────────────────────────── */}
         <div className="space-y-4">

@@ -29,6 +29,9 @@ import {
   resolveFontSize,
   getFontOverride,
   withFontOverride,
+  resolveColor,
+  getColorOverride,
+  withColorOverride,
   resolveRect,
   getRectOverride,
   withRectOverride,
@@ -286,6 +289,36 @@ describe("per-device font overrides", () => {
     expect(withFontOverride(set, "desktop", "b", 30)).toEqual(set);
     // Non-finite values are never persisted
     expect(withFontOverride(set, "tablet", "b", NaN).tablet?.fonts?.["b"]).toBeUndefined();
+  });
+});
+
+describe("per-device color overrides", () => {
+  it("resolveColor returns base on desktop or without override", () => {
+    expect(resolveColor("#fff", "content:abc", "desktop", { tablet: { colors: { "content:abc": "#000" } } })).toBe("#fff");
+    expect(resolveColor("#fff", "content:abc", "tablet", undefined)).toBe("#fff");
+    expect(resolveColor("#fff", undefined, "tablet", undefined)).toBe("#fff");
+  });
+
+  it("resolveColor uses the device override when set", () => {
+    const r = { tablet: { colors: { "content:abc": "#111" } }, mobile: { colors: { "content:abc": "#222" } } };
+    expect(resolveColor("#fff", "content:abc", "tablet", r)).toBe("#111");
+    expect(resolveColor("#fff", "content:abc", "mobile", r)).toBe("#222");
+  });
+
+  it("getColorOverride is null on desktop or when inheriting", () => {
+    expect(getColorOverride({ tablet: { colors: { k: "#000" } } }, "desktop", "k")).toBeNull();
+    expect(getColorOverride(undefined, "tablet", "k")).toBeNull();
+    expect(getColorOverride({ tablet: { colors: { k: "#000" } } }, "tablet", "k")).toBe("#000");
+  });
+
+  it("withColorOverride sets, resets, never mutates, desktop no-op", () => {
+    const prev = { tablet: { colors: { a: "#000" } } } as const;
+    const set = withColorOverride(prev as never, "tablet", "b", "#fff");
+    expect(set.tablet?.colors).toEqual({ a: "#000", b: "#fff" });
+    expect(prev.tablet.colors).toEqual({ a: "#000" });
+    const reset = withColorOverride(set, "tablet", "b", undefined);
+    expect(reset.tablet?.colors).toEqual({ a: "#000" });
+    expect(withColorOverride(set, "desktop", "b", "#fff")).toEqual(set);
   });
 });
 

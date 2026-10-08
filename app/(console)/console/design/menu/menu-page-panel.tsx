@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { useDesign } from "../use-design";
 import { useDesignDevice } from "../design-device";
 import { DesignNav } from "../design-nav";
+import { EditableCard, EditableGrid } from "../editable-card";
 import { ColorField, DesignField } from "../design-fields";
 import { AnimationBuilder } from "@/components/AnimationBuilder";
 import { SiteHeader } from "@/components/SiteHeader";
 import { createClient } from "@/lib/supabase/client";
-import { defaultMenuPageDesign, getFontOverride, resolveFontSize, withFontOverride, type DesignSettingsV2, type MenuPageDesign, getShadowStyle } from "@/lib/design";
+import { defaultMenuPageDesign, getColorOverride, getFontOverride, resolveColor, resolveFontSize, withColorOverride, withFontOverride, type DesignSettingsV2, type MenuPageDesign, getShadowStyle } from "@/lib/design";
 
 interface PreviewMenuItem {
   id: string;
@@ -105,7 +106,7 @@ export function MenuPagePanel({
   const text = (d: { fontFamily: string; fontSize: number; color: string; textAlign: string; shadow?: { color: string; direction: number; length: number; opacity?: number } }, fontKey: string, extra?: React.CSSProperties): React.CSSProperties => ({
     fontFamily: d.fontFamily,
     fontSize: `${resolveFontSize(d.fontSize, fontKey, device, settings.responsive)}px`,
-    color: d.color,
+    color: resolveColor(d.color, fontKey, device, settings.responsive),
     textAlign: d.textAlign as React.CSSProperties["textAlign"],
     textShadow: getShadowStyle(d.shadow),
     ...extra,
@@ -135,95 +136,43 @@ export function MenuPagePanel({
           )}
 
 
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Back Button ("Back to {orgName}")</h3>
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]"><span className="group-open:hidden">Show More</span><span className="hidden group-open:inline">Show Less</span></summary>
-              <div className="pt-3 space-y-3">
+          <EditableGrid>
+          <EditableCard hover title={`Back Button ("Back to ${orgName}")`}>
                 <ColorField label="Color" value={menu.back_button_color ?? "#ffffff"} onChange={(v) => update({ back_button_color: v })} bgColor={colors.bg} />
-              </div>
-            </details>
-          </section>
+          </EditableCard>
 
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Page Title ("Menu")</h3>
-            {/* Standalone color + size controls removed as duplicates of DesignField below. */}
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]"><span className="group-open:hidden">Show More</span><span className="hidden group-open:inline">Show Less</span></summary>
-              <div className="pt-3 space-y-3">
-                <DesignField customFonts={settings.custom_fonts} label="" design={menu.title_design} onChange={(d) => update({ title_design: d })} fontKey="menu.title" overrideValue={getFontOverride(settings.responsive, device, "menu.title")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "menu.title", v) }))} />
+          <EditableCard hover title='Page Title ("Menu")'>
+                <DesignField customFonts={settings.custom_fonts} label="" design={menu.title_design} onChange={(d) => update({ title_design: d })} fontKey="menu.title" overrideValue={getFontOverride(settings.responsive, device, "menu.title")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "menu.title", v) }))} colorKey="menu.title" colorOverrideValue={getColorOverride(settings.responsive, device, "menu.title")} onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "menu.title", v) }))} />
                 <AnimationBuilder design={menu.title_design} onChange={(d) => update({ title_design: d })} />
-              </div>
-            </details>
-          </section>
+          </EditableCard>
 
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Subtitle</h3>
-            {/* Standalone color + size controls removed as duplicates of DesignField below. */}
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]"><span className="group-open:hidden">Show More</span><span className="hidden group-open:inline">Show Less</span></summary>
-              <div className="pt-3 space-y-3">
-                <DesignField customFonts={settings.custom_fonts} label="" design={menu.subtitle_design} onChange={(d) => update({ subtitle_design: d })} fontKey="menu.subtitle" overrideValue={getFontOverride(settings.responsive, device, "menu.subtitle")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "menu.subtitle", v) }))} />
+          <EditableCard hover title="Subtitle">
+                <DesignField customFonts={settings.custom_fonts} label="" design={menu.subtitle_design} onChange={(d) => update({ subtitle_design: d })} fontKey="menu.subtitle" overrideValue={getFontOverride(settings.responsive, device, "menu.subtitle")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "menu.subtitle", v) }))} colorKey="menu.subtitle" colorOverrideValue={getColorOverride(settings.responsive, device, "menu.subtitle")} onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "menu.subtitle", v) }))} />
                 <AnimationBuilder design={menu.subtitle_design} onChange={(d) => update({ subtitle_design: d })} />
-              </div>
-            </details>
-          </section>
+          </EditableCard>
 
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Category Heading</h3>
-            {/* Standalone color + size controls removed as duplicates of DesignField below. */}
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]"><span className="group-open:hidden">Show More</span><span className="hidden group-open:inline">Show Less</span></summary>
-              <div className="pt-3 space-y-3">
-                <DesignField customFonts={settings.custom_fonts} label="" design={menu.category_design} onChange={(d) => update({ category_design: d })} fontKey="menu.category" overrideValue={getFontOverride(settings.responsive, device, "menu.category")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "menu.category", v) }))} />
+          <EditableCard hover title="Category Heading">
+                <DesignField customFonts={settings.custom_fonts} label="" design={menu.category_design} onChange={(d) => update({ category_design: d })} fontKey="menu.category" overrideValue={getFontOverride(settings.responsive, device, "menu.category")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "menu.category", v) }))} colorKey="menu.category" colorOverrideValue={getColorOverride(settings.responsive, device, "menu.category")} onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "menu.category", v) }))} />
                 <AnimationBuilder design={menu.category_design} onChange={(d) => update({ category_design: d })} />
-              </div>
-            </details>
-          </section>
+          </EditableCard>
 
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Item Name</h3>
-            {/* Standalone color + size controls removed as duplicates of DesignField below. */}
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]"><span className="group-open:hidden">Show More</span><span className="hidden group-open:inline">Show Less</span></summary>
-              <div className="pt-3 space-y-3">
-                <DesignField customFonts={settings.custom_fonts} label="" design={menu.item_name_design} onChange={(d) => update({ item_name_design: d })} fontKey="menu.item_name" overrideValue={getFontOverride(settings.responsive, device, "menu.item_name")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "menu.item_name", v) }))} />
+          <EditableCard hover title="Item Name">
+                <DesignField customFonts={settings.custom_fonts} label="" design={menu.item_name_design} onChange={(d) => update({ item_name_design: d })} fontKey="menu.item_name" overrideValue={getFontOverride(settings.responsive, device, "menu.item_name")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "menu.item_name", v) }))} colorKey="menu.item_name" colorOverrideValue={getColorOverride(settings.responsive, device, "menu.item_name")} onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "menu.item_name", v) }))} />
                 <AnimationBuilder design={menu.item_name_design} onChange={(d) => update({ item_name_design: d })} />
-              </div>
-            </details>
-          </section>
+          </EditableCard>
 
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Item Price</h3>
-            {/* Standalone color + size controls removed as duplicates of DesignField below. */}
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]"><span className="group-open:hidden">Show More</span><span className="hidden group-open:inline">Show Less</span></summary>
-              <div className="pt-3 space-y-3">
-                <DesignField customFonts={settings.custom_fonts} label="" design={menu.item_price_design} onChange={(d) => update({ item_price_design: d })} fontKey="menu.item_price" overrideValue={getFontOverride(settings.responsive, device, "menu.item_price")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "menu.item_price", v) }))} />
+          <EditableCard hover title="Item Price">
+                <DesignField customFonts={settings.custom_fonts} label="" design={menu.item_price_design} onChange={(d) => update({ item_price_design: d })} fontKey="menu.item_price" overrideValue={getFontOverride(settings.responsive, device, "menu.item_price")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "menu.item_price", v) }))} colorKey="menu.item_price" colorOverrideValue={getColorOverride(settings.responsive, device, "menu.item_price")} onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "menu.item_price", v) }))} />
                 <AnimationBuilder design={menu.item_price_design} onChange={(d) => update({ item_price_design: d })} />
-              </div>
-            </details>
-          </section>
+          </EditableCard>
 
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Item Description</h3>
-            {/* Standalone color + size controls removed as duplicates of DesignField below. */}
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]"><span className="group-open:hidden">Show More</span><span className="hidden group-open:inline">Show Less</span></summary>
-              <div className="pt-3 space-y-3">
-                <DesignField customFonts={settings.custom_fonts} label="" design={menu.item_description_design} onChange={(d) => update({ item_description_design: d })} fontKey="menu.item_description" overrideValue={getFontOverride(settings.responsive, device, "menu.item_description")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "menu.item_description", v) }))} />
+          <EditableCard hover title="Item Description">
+                <DesignField customFonts={settings.custom_fonts} label="" design={menu.item_description_design} onChange={(d) => update({ item_description_design: d })} fontKey="menu.item_description" overrideValue={getFontOverride(settings.responsive, device, "menu.item_description")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "menu.item_description", v) }))} colorKey="menu.item_description" colorOverrideValue={getColorOverride(settings.responsive, device, "menu.item_description")} onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "menu.item_description", v) }))} />
                 <AnimationBuilder design={menu.item_description_design} onChange={(d) => update({ item_description_design: d })} />
-              </div>
-            </details>
-          </section>
+          </EditableCard>
 
           {/* Item box border */}
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">Menu Item Box Border</h3>
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]"><span className="group-open:hidden">Show More</span><span className="hidden group-open:inline">Show Less</span></summary>
-              <div className="pt-3 space-y-3">
+          <EditableCard hover title="Menu Item Box Border">
                 <ColorField label="Border color" value={menu.border_color} onChange={(v) => update({ border_color: v })} />
                 <div>
                   <label className="block text-[10px] text-[var(--ink-soft)] mb-1">Border width: {menu.border_width}px</label>
@@ -240,11 +189,9 @@ export function MenuPagePanel({
                   />
                   Hover lift
                 </label>
-              </div>
-            </details>
-          </section>
+          </EditableCard>
 
-          </div>
+          </EditableGrid>
         </div>
 
         {/* ── Live preview (full width below) ──────────────────── */}

@@ -8,12 +8,15 @@ import { PreviewShell } from "../preview-shell";
 import { DesignNav } from "../design-nav";
 import { CanvasHeightControl } from "../canvas-height-control";
 import { ColorField, DesignField } from "../design-fields";
+import { EditableCard, EditableGrid, EditableSplit } from "../editable-card";
 import { useDesignDevice } from "../design-device";
 import { AnimationBuilder } from "@/components/AnimationBuilder";
 import { type OrgView } from "@/components/OrgPageView";
 import {
   newContentElement,
+  getColorOverride,
   getFontOverride,
+  withColorOverride,
   withFontOverride,
   getRectOverride,
   withRectOverride,
@@ -497,12 +500,9 @@ export function ContentPanel({
             controls inside each rectangle.
           </p>
 
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
-          {/* Templates */}
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
-              Content Templates
-            </h3>
+          <EditableGrid>
+          {/* Templates — StepCard hover lift + orange brightening */}
+          <EditableCard title="Content Templates" hover>
             <div className="grid grid-cols-3 gap-2">
               {([
                 { style: "about" as const, label: "About Us", desc: "Title + text + image right" },
@@ -542,12 +542,9 @@ export function ContentPanel({
                 );
               })}
             </div>
-          </section>
+          </EditableCard>
 
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
-              Blocks
-            </h3>
+          <EditableCard title="Blocks" hover>
             <div className="space-y-2">
               {elements.map((e, i) => (
                 <div
@@ -622,19 +619,17 @@ export function ContentPanel({
                 </button>
               </div>
             )}
-          </section>
+          </EditableCard>
 
           {/* Selected element controls — always rendered (placeholder when
               nothing is selected) with a min-height so mounting the editor
               never changes page height, which would toggle the window
               scrollbar and rescale the width-measured preview zoom. */}
-          <section data-edit-card className="ticket p-5 space-y-3 min-h-[380px]">
+          <div data-edit-card className="md:col-span-2">
+          <EditableCard title={sel ? `Edit ${KIND_LABELS[sel.kind]}` : "Edit block"} hover className="min-h-[380px]">
             {sel ? (
               <>
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
-                  Edit {KIND_LABELS[sel.kind]}
-                </h3>
+              <div className="flex items-center justify-end gap-2">
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
@@ -651,31 +646,51 @@ export function ContentPanel({
               </div>
 
               {(sel.kind === "title" || sel.kind === "text") && (
-                <>
-                  {sel.ref && "org" in sel.ref && (
-                    <p className="text-[10px] text-[var(--ink-faint)]">
-                      Bound to <b>{sel.ref.org}</b> — showing live text from your restaurant profile.
-                      Editing below unlinks this block (it becomes fixed text).
-                    </p>
-                  )}
-                  {(!sel.ref || "org" in sel.ref) && (
-                    <div>
-                      <label className="block text-xs text-[var(--ink-soft)] mb-1">
-                        {sel.kind === "title" ? "Title text" : "Text content"}
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={sel.ref ? resolveText(sel) : sel.content ?? ""}
-                        onChange={(e) =>
-                          sel.ref
-                            ? updateEl(sel.id, { content: e.target.value, ref: undefined })
-                            : updateEl(sel.id, { content: e.target.value })
-                        }
-                        className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-3 py-2 text-sm resize-y"
+                <EditableSplit
+                  left={
+                    <>
+                      {sel.ref && "org" in sel.ref && (
+                        <p className="text-[10px] text-[var(--ink-faint)]">
+                          Bound to <b>{sel.ref.org}</b> — showing live text from your restaurant profile.
+                          Editing below unlinks this block (it becomes fixed text).
+                        </p>
+                      )}
+                      {(!sel.ref || "org" in sel.ref) && (
+                        <div>
+                          <label className="block text-xs text-[var(--ink-soft)] mb-1">
+                            {sel.kind === "title" ? "Title text" : "Text content"}
+                          </label>
+                          <textarea
+                            rows={5}
+                            value={sel.ref ? resolveText(sel) : sel.content ?? ""}
+                            onChange={(e) =>
+                              sel.ref
+                                ? updateEl(sel.id, { content: e.target.value, ref: undefined })
+                                : updateEl(sel.id, { content: e.target.value })
+                            }
+                            className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-3 py-2 text-sm resize-y"
+                          />
+                        </div>
+                      )}
+                    </>
+                  }
+                  right={
+                    <>
+                      <DesignField customFonts={settings.custom_fonts}
+                        label=""
+                        design={sel.design}
+                        onChange={(d) => updateEl(sel.id, { design: d })}
+                        fontKey={`content:${sel.id}`}
+                        overrideValue={getFontOverride(settings.responsive, device, `content:${sel.id}`)}
+                        onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, `content:${sel.id}`, v) }))}
+                        colorKey={`content:${sel.id}`}
+                        colorOverrideValue={getColorOverride(settings.responsive, device, `content:${sel.id}`)}
+                        onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, `content:${sel.id}`, v) }))}
                       />
-                    </div>
-                  )}
-                </>
+                      <AnimationBuilder design={sel.design} onChange={(d) => updateEl(sel.id, { design: d })} />
+                    </>
+                  }
+                />
               )}
 
               {(sel.kind === "image" || sel.kind === "images") && (
@@ -748,6 +763,9 @@ export function ContentPanel({
                     fontKey={`content:${sel.id}`}
                     overrideValue={getFontOverride(settings.responsive, device, `content:${sel.id}`)}
                     onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, `content:${sel.id}`, v) }))}
+                    colorKey={`content:${sel.id}`}
+                    colorOverrideValue={getColorOverride(settings.responsive, device, `content:${sel.id}`)}
+                    onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, `content:${sel.id}`, v) }))}
                   />
                 </>
               )}
@@ -779,26 +797,12 @@ export function ContentPanel({
                 </>
               )}
 
-              {/* Image blocks render as placeholders in preview and plain
-                  media on the live site — no text reads design.fontSize, so
-                  no typography controls (avoids placebo per-device sizes). */}
-              {(sel.kind === "title" || sel.kind === "text") && (
-                <DesignField customFonts={settings.custom_fonts}
-                  label=""
-                  design={sel.design}
-                  onChange={(d) => updateEl(sel.id, { design: d })}
-                  fontKey={`content:${sel.id}`}
-                  overrideValue={getFontOverride(settings.responsive, device, `content:${sel.id}`)}
-                  onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, `content:${sel.id}`, v) }))}
-                />
-              )}
-              {(sel.kind === "title" || sel.kind === "text") && (
-                <AnimationBuilder design={sel.design} onChange={(d) => updateEl(sel.id, { design: d })} />
-              )}
-              {/* Per-device layout status lives INSIDE the edit card (not a
+              {/* Per-device status lives INSIDE the edit card (not a
                   separate grid item) so toggling devices never changes page
-                  height. Moves/resizes on tablet/mobile are stored as
-                  overrides for that device only — desktop stays shared. */}
+                  height — same methodology as the hero and header sections.
+                  Desktop edits the shared base; tablet/mobile store overrides
+                  (size, box and color) and inherit desktop until customized.
+                  Dragging/resizing in the preview writes the box override. */}
               {device !== "desktop" && (
                 <div className="space-y-2 border-t border-[var(--rule)] pt-3">
                   <h3 className="font-display text-sm font-semibold text-[var(--ink)]">
@@ -835,9 +839,6 @@ export function ContentPanel({
               </>
             ) : (
               <div className="space-y-2">
-                <h3 className="font-display text-sm font-semibold text-[var(--ink)]">
-                  Edit block
-                </h3>
                 <p className="text-xs text-[var(--ink-faint)]">
                   Select a block on the canvas or in the list to edit its content and style.
                 </p>
@@ -846,8 +847,9 @@ export function ContentPanel({
                 </p>
               </div>
             )}
-          </section>
+          </EditableCard>
           </div>
+          </EditableGrid>
         </div>
 
         {/* ── Preview (below, full width) ──────────────────────── */}
