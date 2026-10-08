@@ -63,8 +63,10 @@ function statusBtnStyle(status: TableStatus, current: TableStatus, theme: "dark"
 
 export function TableGrid({ orgId }: { orgId: string }) {
   const { theme } = useConsoleTheme();
-  const { tables, setTablesState } = useTableRealtime(orgId);
+  const { tables, setTablesState, connected } = useTableRealtime(orgId);
   const [updating, setUpdating] = useState<string | null>(null);
+  // Last save round-trip in ms — debug aid for Vercel vs local latency.
+  const [lastOpMs, setLastOpMs] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [newCapacity, setNewCapacity] = useState("4");
@@ -193,10 +195,12 @@ export function TableGrid({ orgId }: { orgId: string }) {
       prev.map((t) => (t.id === tableId ? { ...t, status } : t)),
     );
 
+    const t0 = typeof performance !== "undefined" ? performance.now() : 0;
     const { error } = await supabase
       .from("tables")
       .update({ status })
       .eq("id", tableId);
+    if (t0) setLastOpMs(Math.round(performance.now() - t0));
 
     if (error) {
       // Revert to previous status on failure so the badge reflects reality.
@@ -249,6 +253,10 @@ export function TableGrid({ orgId }: { orgId: string }) {
           <h1 className="font-display text-xl">Tables</h1>
           <p className="text-xs text-[var(--ink-soft)] mt-0.5">
             Monitor floor state in real time and switch table statuses instantly.
+          </p>
+          <p className="text-[11px] text-[var(--ink-faint)] mt-0.5">
+            {connected ? "● Live" : "● Connecting…"}
+            {lastOpMs !== null && ` · last save ${lastOpMs}ms`}
           </p>
         </div>
         <div className="flex items-center gap-3">
