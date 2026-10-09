@@ -3,10 +3,11 @@
 import { useDesign } from "../use-design";
 import { useDesignDevice } from "../design-device";
 import { DesignNav } from "../design-nav";
-import { EditableCard, EditableGrid } from "../editable-card";
+import { InteractionBuilder } from "@/components/InteractionBuilder";
+import { EditableCard, EditableColumns } from "../editable-card";
 import { ColorField, DesignField } from "../design-fields";
 import { SiteHeader } from "@/components/SiteHeader";
-import { defaultReservePageDesign, getColorOverride, getFontOverride, resolveColor, resolveFontSize, withColorOverride, withFontOverride, type DesignSettingsV2, type ReservePageDesign } from "@/lib/design";
+import { defaultReservePageDesign, getColorOverride, getFontOverride, interactiveClasses, interactiveStyle, resolveColor, resolveFontSize, withColorOverride, withFontOverride, type DesignSettingsV2, type ReservePageDesign } from "@/lib/design";
 
 export function BookATablePanel({
   orgId,
@@ -62,15 +63,19 @@ export function BookATablePanel({
   // Renders at 1:1 (no previewScale) to match the public page's raw px sizes.
   // Sizes resolve per-device overrides so the preview stays truthful on
   // tablet/mobile.
-  const text = (d: { fontFamily: string; fontSize: number; color: string }, fontKey: string, extra?: React.CSSProperties): React.CSSProperties => ({
+  const text = (d: { fontFamily: string; fontSize: number; color: string; interactive?: import("@/lib/design").InteractiveDesign }, fontKey: string, extra?: React.CSSProperties): React.CSSProperties => ({
     fontFamily: d.fontFamily,
     fontSize: `${resolveFontSize(d.fontSize, fontKey, device, settings.responsive)}px`,
     color: resolveColor(d.color, fontKey, device, settings.responsive),
     ...extra,
+    ...interactiveStyle(d.interactive, false),
   });
   // Accent-gradient word treatment (shares OrgPageView's .gradient-text).
   const gcls = (d: { gradient?: boolean }): string | undefined =>
     d.gradient ? "gradient-text" : undefined;
+  // Guest hover interactivity mirror (optional, off unless enabled on the controls above).
+  const icls = (d: { interactive?: import("@/lib/design").InteractiveDesign }): string =>
+    interactiveClasses(d.interactive, false);
 
   // Field labels mirror the public booking form (booking-form.tsx).
   const labelStyle: React.CSSProperties = text(reserve.label_design, "reserve.label", { display: "block", marginBottom: "0.375rem", fontWeight: 600 });
@@ -99,25 +104,30 @@ export function BookATablePanel({
             </div>
           )}
 
-          <EditableGrid>
+          <EditableColumns left={<>
           <EditableCard hover title={`Back Button ("Back to ${orgName}")`}>
                 <ColorField label="Color" value={reserve.back_button_color ?? "#ffffff"} onChange={(v) => update({ back_button_color: v })} bgColor={colors.bg} />
           </EditableCard>
 
           <EditableCard hover title='Page Title ("Book a Table")'>
                 <DesignField customFonts={settings.custom_fonts} label="" design={reserve.title_design} onChange={(d) => update({ title_design: d })} fontKey="reserve.title" overrideValue={getFontOverride(settings.responsive, device, "reserve.title")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "reserve.title", v) }))} colorKey="reserve.title" colorOverrideValue={getColorOverride(settings.responsive, device, "reserve.title")} onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "reserve.title", v) }))} />
+                <InteractionBuilder value={reserve.title_design.interactive} defaultOn={false} onChange={(next) => update({ title_design: { ...reserve.title_design, interactive: next } })} />
           </EditableCard>
 
           <EditableCard hover title="Subtitle">
                 <DesignField customFonts={settings.custom_fonts} label="" design={reserve.subtitle_design} onChange={(d) => update({ subtitle_design: d })} fontKey="reserve.subtitle" overrideValue={getFontOverride(settings.responsive, device, "reserve.subtitle")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "reserve.subtitle", v) }))} colorKey="reserve.subtitle" colorOverrideValue={getColorOverride(settings.responsive, device, "reserve.subtitle")} onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "reserve.subtitle", v) }))} />
+                <InteractionBuilder value={reserve.subtitle_design.interactive} defaultOn={false} onChange={(next) => update({ subtitle_design: { ...reserve.subtitle_design, interactive: next } })} />
           </EditableCard>
 
           <EditableCard hover title="Form Labels">
                 <DesignField customFonts={settings.custom_fonts} label="" design={reserve.label_design} onChange={(d) => update({ label_design: d })} fontKey="reserve.label" overrideValue={getFontOverride(settings.responsive, device, "reserve.label")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "reserve.label", v) }))} colorKey="reserve.label" colorOverrideValue={getColorOverride(settings.responsive, device, "reserve.label")} onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "reserve.label", v) }))} />
           </EditableCard>
+          </>}
+          right={<>
 
           <EditableCard hover title="Submit Button Text">
                 <DesignField customFonts={settings.custom_fonts} label="" design={reserve.button_design} onChange={(d) => update({ button_design: d })} fontKey="reserve.button" overrideValue={getFontOverride(settings.responsive, device, "reserve.button")} onOverrideFontSize={(v) => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "reserve.button", v) }))} colorKey="reserve.button" colorOverrideValue={getColorOverride(settings.responsive, device, "reserve.button")} onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "reserve.button", v) }))} />
+                <InteractionBuilder value={reserve.button_design.interactive} defaultOn={true} onChange={(next) => update({ button_design: { ...reserve.button_design, interactive: next } })} />
           </EditableCard>
 
           {/* Input colors */}
@@ -137,7 +147,8 @@ export function BookATablePanel({
                     className="w-full accent-[var(--accent)]" />
                 </div>
           </EditableCard>
-          </EditableGrid>
+          </>}
+          />
 
         </div>
 
@@ -164,8 +175,8 @@ export function BookATablePanel({
                     <span>Back to {orgName}</span>
                   </span>
                 </div>
-                <h1 className={gcls(reserve.title_design)} style={text(reserve.title_design, "reserve.title", { fontWeight: 700 })}>Book a Table</h1>
-                <p className={gcls(reserve.subtitle_design)} style={text(reserve.subtitle_design, "reserve.subtitle", { marginBottom: "2rem" })}>
+                <h1 className={[gcls(reserve.title_design), icls(reserve.title_design)].filter(Boolean).join(" ") || undefined} style={text(reserve.title_design, "reserve.title", { fontWeight: 700 })}>Book a Table</h1>
+                <p className={[gcls(reserve.subtitle_design), icls(reserve.subtitle_design)].filter(Boolean).join(" ") || undefined} style={text(reserve.subtitle_design, "reserve.subtitle", { marginBottom: "2rem" })}>
                   Reserve your spot at {orgName}. Choose your party size, tell us when, and
                   we will automatically prepare the optimal table for you ({durationText}).
                 </p>
@@ -211,7 +222,7 @@ export function BookATablePanel({
                   <button
                     type="button"
                     tabIndex={-1}
-                    className={`w-full py-3 rounded-full font-medium text-white${reserve.button_design.gradient ? " gradient-text" : ""}`}
+                    className={`w-full py-3 rounded-full font-medium text-white${reserve.button_design.gradient ? " gradient-text" : ""} ${interactiveClasses(reserve.button_design.interactive, true)}`}
                     // Matches the public page: submit button uses the button
                     // design (family/color/size, per-device size override).
                     style={{
@@ -219,6 +230,7 @@ export function BookATablePanel({
                       fontFamily: reserve.button_design.fontFamily,
                       color: resolveColor(reserve.button_design.color, "reserve.button", device, settings.responsive),
                       fontSize: `${resolveFontSize(reserve.button_design.fontSize, "reserve.button", device, settings.responsive)}px`,
+                      ...interactiveStyle(reserve.button_design.interactive, true),
                     }}
                   >
                     Confirm booking

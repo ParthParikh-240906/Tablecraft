@@ -3,12 +3,19 @@
 import type { ReactNode } from "react";
 
 /**
- * Uniform 2-per-row grid for every design subsection's editables.
- * All panels share this so Header/Hero/Content/Menu/Book/AI/Themes read
- * as the same neat layout instead of ad-hoc grids.
+ * Explicit two-column stacks for every design subsection's editables. Each
+ * column stacks independently from the same top edge, so blocks never leave
+ * row gaps — and each page pins its key block to a chosen side (Content
+ * Templates, Menu Item Name, and AI Image Gallery all live on the right).
+ * Mobile stays a single column (left stack, then right stack).
  */
-export function EditableGrid({ children }: { children: ReactNode }) {
-  return <div className="grid md:grid-cols-2 gap-5 items-start">{children}</div>;
+export function EditableColumns({ left, right }: { left: ReactNode; right: ReactNode }) {
+  return (
+    <div className="grid md:grid-cols-2 gap-5 items-start">
+      <div className="space-y-5 min-w-0">{left}</div>
+      <div className="space-y-5 min-w-0">{right}</div>
+    </div>
+  );
 }
 
 /**

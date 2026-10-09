@@ -8,9 +8,10 @@ import { PreviewShell } from "../preview-shell";
 import { DesignNav } from "../design-nav";
 import { CanvasHeightControl } from "../canvas-height-control";
 import { ColorField, DesignField } from "../design-fields";
-import { EditableCard, EditableGrid, EditableSplit } from "../editable-card";
+import { EditableCard, EditableColumns, EditableSplit } from "../editable-card";
 import { useDesignDevice } from "../design-device";
 import { AnimationBuilder } from "@/components/AnimationBuilder";
+import { InteractionBuilder } from "@/components/InteractionBuilder";
 import { type OrgView } from "@/components/OrgPageView";
 import {
   newContentElement,
@@ -500,50 +501,7 @@ export function ContentPanel({
             controls inside each rectangle.
           </p>
 
-          <EditableGrid>
-          {/* Templates — StepCard hover lift + orange brightening */}
-          <EditableCard title="Content Templates" hover>
-            <div className="grid grid-cols-3 gap-2">
-              {([
-                { style: "about" as const, label: "About Us", desc: "Title + text + image right" },
-                { style: "location" as const, label: "Location & Contact", desc: "Centered title + 2 text boxes" },
-              ]).map((t) => {
-                return (
-                  <button
-                    key={t.style}
-                    type="button"
-                    onClick={() => {
-                      // Content templates APPEND blocks — confirm when the canvas
-                      // isn't empty so repeated clicks don't silently duplicate
-                      // content. No "Active" indicator: appended output can't be
-                      // reliably matched back to edited elements.
-                      if (elements.length > 0) {
-                        const ok = window.confirm(
-                          `Add the "${t.label}" blocks? They will be appended to your existing content blocks.`,
-                        );
-                        if (!ok) return;
-                      }
-                      const newEls = buildContentTemplate(t.style, orgContent);
-                      const newIds = newEls.map((e) => e.id);
-                      updateSettings({
-                        content: {
-                          ...settings.content,
-                          elements: [...elements, ...newEls],
-                        },
-                      });
-                      setSelected((prev) => prev.length === 0 ? newIds : [...prev, ...newIds]);
-                    }}
-                    disabled={saving}
-                    className="p-3 text-left rounded border transition-all border-[var(--rule)] hover:border-[var(--ink-soft)]"
-                  >
-                    <div className="text-xs font-semibold text-[var(--ink)]">{t.label}</div>
-                    <div className="text-[10px] text-[var(--ink-soft)] mt-0.5">{t.desc}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </EditableCard>
-
+          <EditableColumns left={<>
           <EditableCard title="Blocks" hover>
             <div className="space-y-2">
               {elements.map((e, i) => (
@@ -620,12 +578,58 @@ export function ContentPanel({
               </div>
             )}
           </EditableCard>
+          </>}
+          right={<>
+          {/* Templates — StepCard hover lift + orange brightening */}
+          <EditableCard title="Content Templates" hover>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { style: "about" as const, label: "About Us", desc: "Title + text + image right" },
+                { style: "location" as const, label: "Location & Contact", desc: "Centered title + 2 text boxes" },
+              ]).map((t) => {
+                return (
+                  <button
+                    key={t.style}
+                    type="button"
+                    onClick={() => {
+                      // Content templates APPEND blocks — confirm when the canvas
+                      // isn't empty so repeated clicks don't silently duplicate
+                      // content. No "Active" indicator: appended output can't be
+                      // reliably matched back to edited elements.
+                      if (elements.length > 0) {
+                        const ok = window.confirm(
+                          `Add the "${t.label}" blocks? They will be appended to your existing content blocks.`,
+                        );
+                        if (!ok) return;
+                      }
+                      const newEls = buildContentTemplate(t.style, orgContent);
+                      const newIds = newEls.map((e) => e.id);
+                      updateSettings({
+                        content: {
+                          ...settings.content,
+                          elements: [...elements, ...newEls],
+                        },
+                      });
+                      setSelected((prev) => prev.length === 0 ? newIds : [...prev, ...newIds]);
+                    }}
+                    disabled={saving}
+                    className="p-3 text-left rounded border transition-all border-[var(--rule)] hover:border-[var(--ink-soft)]"
+                  >
+                    <div className="text-xs font-semibold text-[var(--ink)]">{t.label}</div>
+                    <div className="text-[10px] text-[var(--ink-soft)] mt-0.5">{t.desc}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </EditableCard>
+          </>}
+          />
 
           {/* Selected element controls — always rendered (placeholder when
               nothing is selected) with a min-height so mounting the editor
               never changes page height, which would toggle the window
               scrollbar and rescale the width-measured preview zoom. */}
-          <div data-edit-card className="md:col-span-2">
+          <div data-edit-card className="mt-5">
           <EditableCard title={sel ? `Edit ${KIND_LABELS[sel.kind]}` : "Edit block"} hover className="min-h-[380px]">
             {sel ? (
               <>
@@ -797,6 +801,14 @@ export function ContentPanel({
                 </>
               )}
 
+              {/* Guest hover interactivity: on by default for buttons (opt
+                  out), off by default for text/shapes/images (opt in).
+                  Device-shared; per-device sizes/colors still apply. */}
+              <InteractionBuilder
+                value={sel.design.interactive}
+                defaultOn={sel.kind === "button"}
+                onChange={(next) => updateEl(sel.id, { design: { ...sel.design, interactive: next } })}
+              />
               {/* Per-device status lives INSIDE the edit card (not a
                   separate grid item) so toggling devices never changes page
                   height — same methodology as the hero and header sections.
@@ -849,7 +861,6 @@ export function ContentPanel({
             )}
           </EditableCard>
           </div>
-          </EditableGrid>
         </div>
 
         {/* ── Preview (below, full width) ──────────────────────── */}

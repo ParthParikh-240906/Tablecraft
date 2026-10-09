@@ -1,7 +1,7 @@
 "use client";
 
 import type { MenuPageDesign, ResponsiveOverrides } from "@/lib/design";
-import { getShadowStyle, resolveColor, resolveFontSize } from "@/lib/design";
+import { getShadowStyle, interactiveClasses, interactiveStyle, resolveColor, resolveFontSize } from "@/lib/design";
 import { useViewportDevice } from "@/lib/use-device";
 
 interface MenuItem {
@@ -51,15 +51,20 @@ export function MenuItems({
 }) {
   const device = useViewportDevice();
   // Resolve a menu.* per-device size + color override, then the usual inline styles.
+  // Hover vars ride along so owner-tuned lift/shadow apply on the live site.
   const rinline = (
-    d: { fontFamily: string; fontSize: number; color: string; textAlign: string; shadow?: { color: string; direction: number; length: number; opacity?: number } },
+    d: { fontFamily: string; fontSize: number; color: string; textAlign: string; shadow?: { color: string; direction: number; length: number; opacity?: number }; interactive?: import("@/lib/design").InteractiveDesign },
     key: string,
     extra?: React.CSSProperties,
   ): React.CSSProperties =>
-    inline({ ...d, fontSize: resolveFontSize(d.fontSize, key, device, responsive), color: resolveColor(d.color, key, device, responsive) }, extra);
+    inline({ ...d, fontSize: resolveFontSize(d.fontSize, key, device, responsive), color: resolveColor(d.color, key, device, responsive) }, { ...extra, ...interactiveStyle(d.interactive, false) });
   // Accent-gradient word treatment (shares OrgPageView's .gradient-text).
   const gcls = (d: { gradient?: boolean }): string | undefined =>
     d.gradient ? "gradient-text" : undefined;
+  // Guest hover interactivity for menu texts: optional, off unless the owner
+  // enables it on the Menu Page panel. Boxes keep the hover_lift behavior.
+  const icls = (d: { interactive?: import("@/lib/design").InteractiveDesign }): string =>
+    interactiveClasses(d.interactive, false);
   const safeGrouped = Array.isArray(grouped) ? grouped : [];
   function formatPrice(price: unknown): string {
     const n = Number(price);
@@ -95,7 +100,7 @@ export function MenuItems({
             }}
           >
             <h2
-              className={gcls(menuDesign.category_design)}
+              className={[gcls(menuDesign.category_design), icls(menuDesign.category_design)].filter(Boolean).join(" ") || undefined}
               style={{
                 ...rinline(menuDesign.category_design, "menu.category", {
                   fontWeight: 600,
@@ -111,14 +116,14 @@ export function MenuItems({
               {items.map((item) => (
                 <li key={item.id} className="py-4 flex items-start justify-between gap-4">
                   <div>
-                    <h3 className={gcls(menuDesign.item_name_design)} style={{ ...rinline(menuDesign.item_name_design, "menu.item_name", { fontWeight: 500 }) }}>{item.name}</h3>
+                    <h3 className={[gcls(menuDesign.item_name_design), icls(menuDesign.item_name_design)].filter(Boolean).join(" ") || undefined} style={{ ...rinline(menuDesign.item_name_design, "menu.item_name", { fontWeight: 500 }) }}>{item.name}</h3>
                     {item.description && (
-                      <p className={gcls(menuDesign.item_description_design)} style={{ ...rinline(menuDesign.item_description_design, "menu.item_description", { marginTop: "0.25rem" }) }}>
+                      <p className={[gcls(menuDesign.item_description_design), icls(menuDesign.item_description_design)].filter(Boolean).join(" ") || undefined} style={{ ...rinline(menuDesign.item_description_design, "menu.item_description", { marginTop: "0.25rem" }) }}>
                         {item.description}
                       </p>
                     )}
                   </div>
-                  <span className={gcls(menuDesign.item_price_design)} style={{ ...rinline(menuDesign.item_price_design, "menu.item_price", { fontWeight: 600, whiteSpace: "nowrap" }) }}>
+                  <span className={[gcls(menuDesign.item_price_design), icls(menuDesign.item_price_design)].filter(Boolean).join(" ") || undefined} style={{ ...rinline(menuDesign.item_price_design, "menu.item_price", { fontWeight: 600, whiteSpace: "nowrap" }) }}>
                     {formatPrice(item.price)}
                   </span>
                 </li>
@@ -150,27 +155,27 @@ export function MenuHeadings({
   return (
     <>
       <h1
-        className={menuDesign.title_design.gradient ? "gradient-text" : undefined}
+        className={[menuDesign.title_design.gradient ? "gradient-text" : undefined, interactiveClasses(menuDesign.title_design.interactive, false)].filter(Boolean).join(" ") || undefined}
         style={inline(
           {
             ...menuDesign.title_design,
             fontSize: resolveFontSize(menuDesign.title_design.fontSize, "menu.title", device, responsive),
             color: resolveColor(menuDesign.title_design.color, "menu.title", device, responsive),
           },
-          { fontWeight: 700, marginBottom: "0.5rem" },
+          { fontWeight: 700, marginBottom: "0.5rem", ...interactiveStyle(menuDesign.title_design.interactive, false) },
         )}
       >
         Menu
       </h1>
       <p
-        className={menuDesign.subtitle_design.gradient ? "gradient-text" : undefined}
+        className={[menuDesign.subtitle_design.gradient ? "gradient-text" : undefined, interactiveClasses(menuDesign.subtitle_design.interactive, false)].filter(Boolean).join(" ") || undefined}
         style={inline(
           {
             ...menuDesign.subtitle_design,
             fontSize: resolveFontSize(menuDesign.subtitle_design.fontSize, "menu.subtitle", device, responsive),
             color: resolveColor(menuDesign.subtitle_design.color, "menu.subtitle", device, responsive),
           },
-          { marginBottom: "2rem" },
+          { marginBottom: "2rem", ...interactiveStyle(menuDesign.subtitle_design.interactive, false) },
         )}
       >
         Everything we&apos;re serving right now at {orgName}.

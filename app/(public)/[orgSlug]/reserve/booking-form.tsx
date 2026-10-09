@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTableRealtime } from "@/lib/realtime";
-import { resolveColor, resolveFontSize, type ResponsiveOverrides, type TextDesign } from "@/lib/design";
+import { interactiveClasses, interactiveStyle, resolveColor, resolveFontSize, type ResponsiveOverrides, type TextDesign } from "@/lib/design";
 import { useViewportDevice } from "@/lib/use-device";
 
 interface ComboTableInfo {
@@ -35,24 +35,26 @@ export function ReserveHeadings({
   return (
     <>
       <h1
-        className={titleDesign.gradient ? "gradient-text" : undefined}
+        className={[titleDesign.gradient ? "gradient-text" : undefined, interactiveClasses(titleDesign.interactive, false)].filter(Boolean).join(" ") || undefined}
         style={{
           fontFamily: titleDesign.fontFamily,
           fontSize: `${resolveFontSize(titleDesign.fontSize, "reserve.title", device, responsive)}px`,
           color: resolveColor(titleDesign.color, "reserve.title", device, responsive),
           fontWeight: 700,
           marginBottom: "0.5rem",
+          ...interactiveStyle(titleDesign.interactive, false),
         }}
       >
         Book a Table
       </h1>
       <p
-        className={subtitleDesign.gradient ? "gradient-text" : undefined}
+        className={[subtitleDesign.gradient ? "gradient-text" : undefined, interactiveClasses(subtitleDesign.interactive, false)].filter(Boolean).join(" ") || undefined}
         style={{
           fontFamily: subtitleDesign.fontFamily,
           fontSize: `${resolveFontSize(subtitleDesign.fontSize, "reserve.subtitle", device, responsive)}px`,
           color: resolveColor(subtitleDesign.color, "reserve.subtitle", device, responsive),
           marginBottom: "2rem",
+          ...interactiveStyle(subtitleDesign.interactive, false),
         }}
       >
         Reserve your spot at {orgName}. Choose your party size, tell us when, and
@@ -85,7 +87,7 @@ export function BookingForm({
   /** reserve.label design (family + desktop size); size resolves per-device. */
   labelDesign?: { fontFamily: string; fontSize: number; gradient?: boolean } | null;
   /** reserve.button design (family + color + desktop size); size per-device. */
-  buttonDesign?: { fontFamily: string; fontSize: number; color: string; gradient?: boolean } | null;
+  buttonDesign?: { fontFamily: string; fontSize: number; color: string; gradient?: boolean; interactive?: import("@/lib/design").InteractiveDesign } | null;
   responsive?: ResponsiveOverrides | null;
   durationText?: string;
 }) {
@@ -109,6 +111,7 @@ export function BookingForm({
     fontSize: buttonDesign
       ? `${resolveFontSize(buttonDesign.fontSize, "reserve.button", viewportDevice, responsive)}px`
       : undefined,
+    ...interactiveStyle(buttonDesign?.interactive, true),
   };
 
   const [customerName, setCustomerName] = useState("");
@@ -379,7 +382,7 @@ export function BookingForm({
       <button
         type="submit"
         disabled={submitting || !!pendingCombo}
-        className={`w-full py-3 rounded-full font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow transition-transform active:scale-[0.99]${buttonDesign?.gradient ? " gradient-text" : ""}`}
+        className={`w-full py-3 rounded-full font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow transition-transform active:scale-[0.99]${buttonDesign?.gradient ? " gradient-text" : ""} ${interactiveClasses(buttonDesign?.interactive, true)}`}
         style={submitStyle}
       >
         {submitting ? "Reserving table…" : "Confirm booking"}

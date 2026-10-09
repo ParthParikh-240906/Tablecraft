@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useDesign } from "../use-design";
 import { useDesignDevice } from "../design-device";
 import { DesignNav } from "../design-nav";
-import { EditableCard, EditableGrid } from "../editable-card";
+import { EditableCard, EditableColumns } from "../editable-card";
 import { ColorField } from "../design-fields";
 import { LOCAL_FONTS, getColorOverride, getFontOverride, newContentElement, newHeroElement, withColorOverride, withFontOverride, type DesignSettingsV2, type DeviceKind } from "@/lib/design";
 
@@ -340,7 +340,7 @@ export function AiPanel({
             </div>
           )}
 
-          <EditableGrid>
+          <EditableColumns left={<>
           {/* AI Image Generator */}
           <EditableCard hover title="AI Image Generator">
             <p className="text-xs text-[var(--ink-soft)]">
@@ -458,43 +458,6 @@ export function AiPanel({
               </p>
             </EditableCard>
           )}
-
-          {/* Image Gallery */}
-          <EditableCard hover title="Image Gallery">
-            <p className="text-xs text-[var(--ink-soft)]">
-              Every generation is kept here (newest first, up to {MAX_GALLERY_ITEMS}).
-              Apply any image straight into your design.
-            </p>
-            {gallery.length === 0 ? (
-              <p className="text-xs text-[var(--ink-faint)]">No images yet — generate your first one above.</p>
-            ) : (
-              <ul className="grid grid-cols-2 gap-3">
-                {gallery.map((url) => (
-                  <li key={url} className="space-y-1.5 rounded border border-[var(--rule)] p-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt="AI generated" className="h-28 w-full object-cover rounded" />
-                    <div className="flex flex-wrap gap-1">
-                      <button type="button" onClick={() => applyUrlAsHeroBackground(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
-                        Hero BG
-                      </button>
-                      <button type="button" onClick={() => addUrlAsContentImages(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
-                        Content
-                      </button>
-                      <button type="button" onClick={() => addUrlAsHeroImage(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
-                        Hero Img
-                      </button>
-                      <button type="button" onClick={() => void downloadUrl(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
-                        Download
-                      </button>
-                      <button type="button" onClick={() => removeFromGallery(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5 text-red-500">
-                        Delete
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </EditableCard>
 
           {/* AI Chatbot Configurables */}
           <EditableCard hover title="AI Chatbot">
@@ -686,6 +649,45 @@ export function AiPanel({
               onChange={(v) => updateChatbot({ border_color: v })}
             />
           </EditableCard>
+          </>}
+          right={<>
+
+          {/* Image Gallery */}
+          <EditableCard hover title="Image Gallery">
+            <p className="text-xs text-[var(--ink-soft)]">
+              Every generation is kept here (newest first, up to {MAX_GALLERY_ITEMS}).
+              Apply any image straight into your design.
+            </p>
+            {gallery.length === 0 ? (
+              <p className="text-xs text-[var(--ink-faint)]">No images yet — generate your first one above.</p>
+            ) : (
+              <ul className="grid grid-cols-2 gap-3">
+                {gallery.map((url) => (
+                  <li key={url} className="space-y-1.5 rounded border border-[var(--rule)] p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="AI generated" className="h-28 w-full object-cover rounded" />
+                    <div className="flex flex-wrap gap-1">
+                      <button type="button" onClick={() => applyUrlAsHeroBackground(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
+                        Hero BG
+                      </button>
+                      <button type="button" onClick={() => addUrlAsContentImages(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
+                        Content
+                      </button>
+                      <button type="button" onClick={() => addUrlAsHeroImage(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
+                        Hero Img
+                      </button>
+                      <button type="button" onClick={() => void downloadUrl(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
+                        Download
+                      </button>
+                      <button type="button" onClick={() => removeFromGallery(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5 text-red-500">
+                        Delete
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </EditableCard>
 
           {/* Custom Google Fonts */}
           <EditableCard hover title="Custom Google Fonts">
@@ -792,7 +794,8 @@ export function AiPanel({
               <li>• <span className="text-[var(--ink)]">Gallery</span> — every generation is kept (newest first, up to {MAX_GALLERY_ITEMS}); Delete only removes it from the gallery.</li>
             </ul>
           </EditableCard>
-          </EditableGrid>
+          </>}
+          />
         </div>
       </div>
     </div>

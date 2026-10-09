@@ -8,9 +8,10 @@ import { PreviewShell } from "../preview-shell";
 import { DesignNav } from "../design-nav";
 import { CanvasHeightControl } from "../canvas-height-control";
 import { ColorField, DesignField, OpacityField } from "../design-fields";
-import { EditableCard, EditableGrid, EditableSplit } from "../editable-card";
+import { EditableCard, EditableColumns, EditableSplit } from "../editable-card";
 import { useDesignDevice } from "../design-device";
 import { AnimationBuilder } from "@/components/AnimationBuilder";
+import { InteractionBuilder } from "@/components/InteractionBuilder";
 import { type OrgView } from "@/components/OrgPageView";
 import {
   newHeroElement,
@@ -497,7 +498,7 @@ export function HeroPanel({
               <button type="button" onClick={() => retrySave()} className="underline shrink-0">Retry</button>
             </div>
           )}
-          <EditableGrid>
+          <EditableColumns left={<>
 
           {/* Hero background */}
           <EditableCard hover title="Hero Background">
@@ -712,6 +713,8 @@ export function HeroPanel({
               })}
             </div>
           </EditableCard>
+          </>}
+          right={<>
 
           {/* Hero elements */}
           <EditableCard hover title="Hero Elements">
@@ -785,12 +788,14 @@ export function HeroPanel({
               ))}
             </div>
           </EditableCard>
+          </>}
+          />
 
           {/* Selected element — always rendered (placeholder when nothing is
               selected) with a min-height so mounting the editor never changes
               page height, which would toggle the window scrollbar and rescale
               the width-measured preview zoom. */}
-          <div data-edit-card className="md:col-span-2">
+          <div data-edit-card className="mt-5">
           <EditableCard hover title={sel ? `Edit ${KIND_LABELS[sel.kind]}` : "Edit block"} className="min-h-[380px]">
             {sel ? (
               <>
@@ -941,6 +946,14 @@ export function HeroPanel({
                   }
                 />
               )}
+              {/* Guest hover interactivity: on by default for buttons (opt
+                  out), off by default for text/shapes/images (opt in).
+                  Device-shared; per-device sizes/colors still apply. */}
+              <InteractionBuilder
+                value={sel.design.interactive}
+                defaultOn={sel.kind === "button"}
+                onChange={(next) => updateEl(sel.id, { design: { ...sel.design, interactive: next } })}
+              />
               {/* Per-device layout status lives INSIDE the edit card (not a
                   separate grid item) so toggling devices never changes page
                   height. Moves/resizes on tablet/mobile are stored as
@@ -991,7 +1004,6 @@ export function HeroPanel({
             )}
           </EditableCard>
           </div>
-          </EditableGrid>
         </div>
 
         {/* ── Preview (full width, below) ──────────────────────── */}

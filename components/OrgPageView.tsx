@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   deviceForWidth,
+  interactiveClasses,
+  interactiveStyle,
   resolveColor,
   resolveFontSize,
   resolveRect,
@@ -253,6 +255,7 @@ function ButtonVisual({
     cursor: "pointer",
     fontWeight: 600,
     lineHeight: 1.2,
+    ...interactiveStyle(el.design.interactive, true),
   };
   // Buttons reveal on scroll via their own design.animation. When the
   // animation is none/absent no wrapper is added, so the render is byte-
@@ -262,12 +265,12 @@ function ButtonVisual({
 
   if (mode === "site" && slug) {
     return (
-      <Link href={href} className="w-full h-full block" style={style}>
+      <Link href={href} className={`w-full h-full block ${interactiveClasses(el.design.interactive, true)}`} style={style}>
         {labelNode}
       </Link>
     );
   }
-  return <div className="w-full h-full" style={style}>{labelNode}</div>;
+  return <div className={`w-full h-full ${interactiveClasses(el.design.interactive, true)}`} style={style}>{labelNode}</div>;
 }
 
 function ContentVisual({
@@ -466,8 +469,8 @@ export function OrgPageView({
             return el.kind === "shape" || el.kind === "image" ? (
               <div
                 key={el.id}
-                className="absolute"
-                style={{ left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, height: `${r.h}%`, zIndex: 6 }}
+                className={`absolute ${interactiveClasses(el.design.interactive, false)}`}
+                style={{ left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, height: `${r.h}%`, zIndex: 6, ...interactiveStyle(el.design.interactive, false) }}
               >
                 <ShapeVisual s={el} image={el.kind === "image"} />
               </div>
@@ -505,11 +508,11 @@ export function OrgPageView({
             ) : (
               <div
                 key={el.id}
-                className="absolute"
+                className={`absolute ${interactiveClasses(el.design.interactive, false)}`}
                 style={
                   mode === "site"
-                    ? { left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, minHeight: `${r.h}%`, zIndex: 6 }
-                    : { left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, height: `${r.h}%`, zIndex: 6 }
+                    ? { left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, minHeight: `${r.h}%`, zIndex: 6, ...interactiveStyle(el.design.interactive, false) }
+                    : { left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, height: `${r.h}%`, zIndex: 6, ...interactiveStyle(el.design.interactive, false) }
                 }
               >
                 <HeroText
@@ -540,16 +543,21 @@ export function OrgPageView({
         >
           {contentEls.map((el) => {
             const r = contentRectOf(el);
+            // Buttons resolve their own hover inside ButtonVisual (default
+            // on); every other kind resolves here (default off).
+            const wrapInteractive = el.kind === "button" ? "" : interactiveClasses(el.design.interactive, false);
+            const wrapStyle = el.kind === "button" ? {} : interactiveStyle(el.design.interactive, false);
             return (
               <div
                 key={el.id}
-                className="absolute"
+                className={`absolute ${wrapInteractive}`}
                 style={{
                   left: `${r.x}%`,
                   top: cvH(r.y),
                   width: `${r.w}%`,
                   height: cvH(r.h),
                   zIndex: 6,
+                  ...wrapStyle,
                 }}
               >
                 <ContentVisual

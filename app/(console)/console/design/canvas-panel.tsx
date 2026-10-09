@@ -7,11 +7,12 @@ import { useDesign } from "./use-design";
 import { ResizableBox } from "./resizable-box";
 import { PreviewShell } from "./preview-shell";
 import { DesignNav } from "./design-nav";
-import { EditableCard, EditableGrid } from "./editable-card";
+import { EditableCard, EditableColumns } from "./editable-card";
 import { CanvasHeightControl } from "./canvas-height-control";
 import { ColorField, DesignField, OpacityField } from "./design-fields";
 import { useDesignDevice } from "./design-device";
 import { AnimationBuilder } from "@/components/AnimationBuilder";
+import { InteractionBuilder } from "@/components/InteractionBuilder";
 import { type OrgView } from "@/components/OrgPageView";
 import {
   LOCAL_FONTS,
@@ -136,7 +137,7 @@ export function CanvasPanel({
           )}
 
 
-          <EditableGrid>
+          <EditableColumns left={<>
           {/* Page colors */}
           <EditableCard hover title="Page Colors">
             <ColorField label="Page Background" value={settings.background_color} onChange={(v) => updateSettings({ background_color: v })} />
@@ -298,8 +299,15 @@ export function CanvasPanel({
                 onOverrideColor={(v) => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "header.brand", v) }))}
               />
               <AnimationBuilder design={settings.header.design} onChange={(d) => updateSettings({ header: { ...settings.header, design: d } })} />
+              <InteractionBuilder
+                value={settings.header.design.interactive}
+                defaultOn={false}
+                onChange={(next) => updateSettings({ header: { ...settings.header, design: { ...settings.header.design, interactive: next } } })}
+              />
             </div>
           </EditableCard>
+          </>}
+          right={<>
 
           {/* Menu link */}
           <EditableCard hover title="Menu">
@@ -434,6 +442,11 @@ export function CanvasPanel({
                   )}
                 </div>
               )}
+              <InteractionBuilder
+                value={settings.header.cta_design.interactive}
+                defaultOn={true}
+                onChange={(next) => updateSettings({ header: { ...settings.header, cta_design: { ...settings.header.cta_design, interactive: next } } })}
+              />
             </div>
           </EditableCard>
 
@@ -499,7 +512,8 @@ export function CanvasPanel({
               </p>
             </EditableCard>
           )}
-          </EditableGrid>
+          </>}
+          />
         </div>
 
         {/* ── Preview (full width, below) ──────────────────────── */}

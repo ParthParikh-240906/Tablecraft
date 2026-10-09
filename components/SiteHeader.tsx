@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { deviceForWidth, hexToRgba, resolveColor, resolveFontSize, resolveLogoSize, type DesignSettingsV2, type DeviceKind, type HeaderElementKind } from "@/lib/design";
+import { deviceForWidth, hexToRgba, interactiveClasses, interactiveStyle, resolveColor, resolveFontSize, resolveLogoSize, type DesignSettingsV2, type DeviceKind, type HeaderElementKind } from "@/lib/design";
 import type { OrgView } from "@/components/OrgPageView";
 
 const DEFAULT_ELEMENT_ORDER: HeaderElementKind[] = ["logo", "name", "menu_link", "book_button"];
@@ -123,8 +123,9 @@ export function SiteHeader({
             fontFamily: h.design.fontFamily,
             fontSize: fs(h.design.fontSize, "header.brand"),
             color: resolveColor(h.design.color, "header.brand", device, settings.responsive),
+            ...interactiveStyle(h.design.interactive, false),
           }}
-          className="font-semibold"
+          className={`font-semibold ${interactiveClasses(h.design.interactive, false)}`}
         >
           {org.name}
         </span>
@@ -165,18 +166,22 @@ export function SiteHeader({
         padding: "0.55em 1.1em",
         whiteSpace: "nowrap" as const,
         lineHeight: 1.2,
+        ...interactiveStyle(h.cta_design.interactive, true),
       };
+      // Header Book button is interactive by default (absent = on); the
+      // console Book a Table card can remove it.
+      const ctaInteractive = interactiveClasses(h.cta_design.interactive, true);
       return mode === "site" && slug ? (
         <Link
           key="book_button"
           href={`/${slug}/reserve`}
-          className="font-medium border-2 hover:opacity-90 transition-opacity inline-flex items-center"
+          className={`font-medium border-2 hover:opacity-90 transition-opacity inline-flex items-center ${ctaInteractive}`}
           style={btnStyle}
         >
           Book a table
         </Link>
       ) : (
-        <span key="book_button" className="font-medium border-2 inline-flex items-center" style={btnStyle}>
+        <span key="book_button" className={`font-medium border-2 inline-flex items-center ${ctaInteractive}`} style={btnStyle}>
           Book a table
         </span>
       );

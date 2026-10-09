@@ -3,6 +3,8 @@
 // Layout is presentation-only (JSONB); long-form text stays in org columns /
 // paragraphs table, referenced by elements via `ref`.
 
+import type { CSSProperties } from "react";
+
 export interface TextDesign {
   fontFamily: string;
   fontSize: number;
@@ -21,6 +23,121 @@ export interface TextDesign {
   };
   /** Accent-gradient word treatment (OrgPageView `.gradient-text`). Off when absent. */
   gradient?: boolean;
+  /**
+   * Guest-facing hover interactivity (lift / shadow / brighten — the
+   * marketing "How it works" feel). Device-shared like animation/shadow.
+   * Absent = default, resolved per context via resolveInteractive().
+   */
+  interactive?: InteractiveDesign;
+}
+
+/**
+ * Hover interactivity flags. Each flag is opt-in/out explicitly; when absent
+ * the renderer falls back to the context default (buttons on, everything
+ * else off) so old orgs render byte-identical to before. Values are
+ * user-tunable per flag: lift distance in px, shadow color + length in px.
+ */
+export interface InteractiveDesign {
+  hoverLift?: boolean;
+  hoverShadow?: boolean;
+  hoverBrighten?: boolean;
+  /** Lift distance in px. Default 4. */
+  liftPx?: number;
+  /** Shadow color. Default black. */
+  shadowColor?: string;
+  /** Shadow length (blur) in px. Default 16. */
+  shadowLength?: number;
+}
+
+export interface ResolvedInteractive {
+  hoverLift: boolean;
+  hoverShadow: boolean;
+  hoverBrighten: boolean;
+  liftPx: number;
+  shadowColor: string;
+  shadowLength: number;
+}
+
+/** Context defaults: buttons lift/shadow/brighten unless opted out; text, shapes and images stay static unless opted in. */
+export const INTERACTIVE_DEFAULT_ON = true;
+export const INTERACTIVE_DEFAULT_OFF = false;
+
+/** Defensive read — malformed JSONB (non-object) resolves as absent. */
+function asInteractive(v: unknown): InteractiveDesign | undefined {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
+  return v as InteractiveDesign;
+}
+
+/**
+ * Resolve effective hover flags + values: explicit flags win, otherwise the
+ * context default applies (shared across desktop/tablet/mobile — per-device
+ * size, box and color overrides keep resolving independently underneath).
+ * Malformed values fall back to defaults (lift 4px, black, length 16px).
+ */
+export function resolveInteractive(
+  interactive: InteractiveDesign | undefined | null,
+  defaultOn: boolean,
+): ResolvedInteractive {
+  const clean = asInteractive(interactive);
+  const liftRaw = clean?.liftPx;
+  const lenRaw = clean?.shadowLength;
+  const colorRaw = clean?.shadowColor;
+  return {
+    hoverLift: clean?.hoverLift ?? defaultOn,
+    hoverShadow: clean?.hoverShadow ?? defaultOn,
+    hoverBrighten: clean?.hoverBrighten ?? defaultOn,
+    liftPx:
+      typeof liftRaw === "number" && Number.isFinite(liftRaw)
+        ? Math.min(48, Math.max(0, Math.round(liftRaw)))
+        : 4,
+    shadowColor:
+      typeof colorRaw === "string" && colorRaw.length > 0 && colorRaw.length <= 50
+        ? colorRaw
+        : "#000000",
+    shadowLength:
+      typeof lenRaw === "number" && Number.isFinite(lenRaw)
+        ? Math.min(64, Math.max(0, Math.round(lenRaw)))
+        : 16,
+  };
+}
+
+/**
+ * SSR-safe class names for the resolved hover effect. Returns "" when
+ * nothing is on. Lifts are transform-only (never layout); values ride on
+ * CSS vars (see interactiveStyle) so owners can tune lift/shadow per block.
+ * Disabled under reduced-motion like the rest of the site's animation paths.
+ */
+export function interactiveClasses(
+  interactive: InteractiveDesign | undefined | null,
+  defaultOn: boolean,
+): string {
+  const eff = resolveInteractive(interactive, defaultOn);
+  const cls: string[] = [];
+  if (eff.hoverLift && eff.liftPx > 0) cls.push("ia-lift");
+  if (eff.hoverShadow && eff.shadowLength > 0) cls.push("ia-shadow");
+  if (eff.hoverBrighten) cls.push("ia-brighten");
+  if (cls.length === 0) return "";
+  return ["ia-transition", ...cls].join(" ");
+}
+
+/**
+ * Per-element CSS vars consumed by the ia-* classes: lift distance and the
+ * full hover box-shadow (`0 y blur color`, color at 45% when hex). Merge
+ * into the element's existing style object next to interactiveClasses().
+ * Only includes vars for enabled flags.
+ */
+export function interactiveStyle(
+  interactive: InteractiveDesign | undefined | null,
+  defaultOn: boolean,
+): CSSProperties {
+  const eff = resolveInteractive(interactive, defaultOn);
+  const out: Record<string, string> = {};
+  if (eff.hoverLift && eff.liftPx > 0) out["--ia-lift"] = `${eff.liftPx}px`;
+  if (eff.hoverShadow && eff.shadowLength > 0) {
+    const y = Math.max(1, Math.round(eff.shadowLength / 4));
+    out["--ia-shadow"] = `0 ${y}px ${eff.shadowLength}px ${hexToRgba(eff.shadowColor, 0.45)}`;
+  }
+  return out as unknown as CSSProperties;
 }
 
 export function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -58,6 +175,8 @@ export interface HeaderCtaDesign {
   borderRadius: number; // px
   borderWidth: number; // px
   opacity: number; // 0-100, default 100
+  /** Hover interactivity for the header Book button. Absent = on (buttons default on). */
+  interactive?: InteractiveDesign;
 }
 export type LayerType = "color" | "image" | "images" | "video";
 export type HeroElementKind = "logo" | "title" | "tagline" | "text" | "shape" | "image" | "button";

@@ -32,6 +32,9 @@ import {
   resolveColor,
   getColorOverride,
   withColorOverride,
+  resolveInteractive,
+  interactiveClasses,
+  interactiveStyle,
   resolveRect,
   getRectOverride,
   withRectOverride,
@@ -319,6 +322,46 @@ describe("per-device color overrides", () => {
     const reset = withColorOverride(set, "tablet", "b", undefined);
     expect(reset.tablet?.colors).toEqual({ a: "#000" });
     expect(withColorOverride(set, "desktop", "b", "#fff")).toEqual(set);
+  });
+});
+
+describe("guest hover interactivity", () => {
+  it("resolveInteractive falls back to the context default when absent or malformed", () => {
+    expect(resolveInteractive(undefined, true)).toEqual({ hoverLift: true, hoverShadow: true, hoverBrighten: true, liftPx: 4, shadowColor: "#000000", shadowLength: 16 });
+    expect(resolveInteractive(undefined, false)).toEqual({ hoverLift: false, hoverShadow: false, hoverBrighten: false, liftPx: 4, shadowColor: "#000000", shadowLength: 16 });
+    expect(resolveInteractive(null, true).hoverLift).toBe(true);
+    expect(resolveInteractive("lift" as never, false).hoverLift).toBe(false);
+  });
+
+  it("resolveInteractive lets explicit flags win over the default", () => {
+    expect(resolveInteractive({ hoverLift: false }, true)).toMatchObject({ hoverLift: false, hoverShadow: true, hoverBrighten: true });
+    expect(resolveInteractive({ hoverBrighten: true }, false)).toMatchObject({ hoverLift: false, hoverShadow: false, hoverBrighten: true });
+  });
+
+  it("resolveInteractive clamps and falls back tunable values", () => {
+    expect(resolveInteractive({ liftPx: 200 }, false).liftPx).toBe(48);
+    expect(resolveInteractive({ liftPx: NaN }, false).liftPx).toBe(4);
+    expect(resolveInteractive({ shadowLength: -5 }, false).shadowLength).toBe(0);
+    expect(resolveInteractive({ shadowColor: "" }, false).shadowColor).toBe("#000000");
+    expect(resolveInteractive({ liftPx: 10, shadowColor: "#ff0000", shadowLength: 24 }, false)).toMatchObject({ liftPx: 10, shadowColor: "#ff0000", shadowLength: 24 });
+  });
+
+  it("interactiveClasses is empty when nothing is on, ia-* otherwise", () => {
+    expect(interactiveClasses(undefined, false)).toBe("");
+    expect(interactiveClasses({ hoverLift: false, hoverShadow: false, hoverBrighten: false }, true)).toBe("");
+    expect(interactiveClasses({ hoverLift: true, liftPx: 0 }, true)).not.toContain("ia-lift");
+    const on = interactiveClasses(undefined, true);
+    expect(on).toContain("ia-transition");
+    expect(on).toContain("ia-lift");
+    expect(on).toContain("ia-shadow");
+    expect(on).toContain("ia-brighten");
+  });
+
+  it("interactiveStyle emits vars only for enabled flags", () => {
+    expect(interactiveStyle(undefined, false)).toEqual({});
+    const on = interactiveStyle({ liftPx: 8, shadowColor: "#000000", shadowLength: 20 }, true);
+    expect(on["--ia-lift" as keyof typeof on]).toBe("8px");
+    expect(String(on["--ia-shadow" as keyof typeof on])).toContain("20px");
   });
 });
 
