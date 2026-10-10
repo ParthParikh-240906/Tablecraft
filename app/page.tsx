@@ -305,47 +305,6 @@ function Hero() {
           </div>
         </div>
       </div>
-
-      {/* Everything else rests in the bottom half of the page */}
-      <div className="relative z-10 max-w-6xl mx-auto px-6 w-full pb-12">
-        <div className="text-center max-w-3xl mx-auto">
-          {/* Trust row */}
-          <div className="flex items-center justify-center gap-4 mb-8">
-            <div className="flex -space-x-2" aria-hidden="true">
-              {["M", "S", "J", "+"].map((c, i) => (
-                <span
-                  key={i}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white border-2 border-[var(--paper)]"
-                  style={{ background: i === 3 ? "var(--paper-overlay)" : "var(--accent)", zIndex: 4 - i }}
-                >
-                  {c}
-                </span>
-              ))}
-            </div>
-            <div className="text-left">
-              <p className="text-sm text-[var(--ink)] font-medium" aria-label="Rated 4.9 out of 5">
-                <span className="text-[var(--accent)] tracking-tight">★★★★★</span> 4.9/5
-              </p>
-              <p className="text-xs text-[var(--ink-faint)]">Loved by restaurant owners</p>
-            </div>
-          </div>
-
-          {/* Stats */}
-          <dl className="grid grid-cols-3 max-w-md mx-auto gap-6 border-t border-white/10 pt-6">
-            {[
-              { v: "10 min", l: "Median setup" },
-              { v: "80%", l: "Bookings via AI" },
-              { v: "Same day", l: "Setup → live" },
-            ].map((s) => (
-              <div key={s.l}>
-                <dt className="sr-only">{s.l}</dt>
-                <dd className="font-display text-xl md:text-2xl text-[var(--ink)]">{s.v}</dd>
-                <dd className="text-xs text-[var(--ink-faint)] mt-1">{s.l}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      </div>
     </section>
   );
 }
