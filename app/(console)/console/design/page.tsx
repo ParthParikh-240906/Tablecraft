@@ -1,10 +1,4 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { getActiveOrgId } from "@/lib/org";
-import { getDesignData } from "@/lib/org";
-import { CanvasPanel } from "./canvas-panel";
-import { DesignDeviceProvider } from "./design-device";
 export const dynamic = "force-dynamic";
 
 export default async function ConsoleDesignPage({
@@ -13,75 +7,6 @@ export default async function ConsoleDesignPage({
   searchParams: Promise<Record<string, string>>;
 }) {
   const params = await searchParams;
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/console/login");
-  const orgId = await getActiveOrgId(user.id, params.org) ?? "";
-
-  if (!orgId) return null;
-
-  // Staff-only guard
-  const admin = createAdminClient();
-  const { data: staffRows } = await admin
-    .from("staff_users")
-    .select("role")
-    .eq("auth_user_id", user.id)
-    .eq("org_id", orgId)
-    .single();
-
-  if (staffRows?.role !== 'owner') {
-    const orgParam = orgId ? `?org=${orgId}` : "";
-    redirect(`/console${orgParam}`);
-  }
-
-  const data = await getDesignData(orgId);
-  if (!data) return null;
-
-  return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="font-display text-2xl font-bold mb-1 text-[var(--ink)]">
-            Brand &amp; Design
-          </h1>
-          <p className="text-sm text-[var(--ink-soft)]">
-            Header, page colors, and the layer canvas. Hero content, content
-            sections, and AI images live on their own pages.
-          </p>
-        </div>
-        {data.org.slug && (
-          <a
-            href={`/${data.org.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn-outline text-xs px-3 py-1.5"
-          >
-            Preview Site →
-          </a>
-        )}
-      </div>
-      <DesignDeviceProvider><CanvasPanel key={orgId}
-        orgId={orgId}
-        orgName={data.orgName}
-        initialSettings={data.settings}
-        org={{
-          name: data.org.name,
-          tagline: data.org.tagline ?? null,
-          logo_url: data.org.logo_url,
-          about_title: data.org.about_title ?? null,
-          about_text: data.org.about_text ?? null,
-          contact_heading: data.org.contact_heading ?? null,
-          location: data.org.location ?? null,
-          contact_phone: data.org.contact_phone ?? null,
-          contact_email: data.org.contact_email ?? null,
-          contact_address: data.org.contact_address ?? null,
-          restaurant_photos: (data.org.restaurant_photos as string[] | null) ?? [],
-        }}
-        paragraphs={data.paragraphs}
-      /></DesignDeviceProvider>
-    </div>
-  );
+  const org = params.org ? `?org=${encodeURIComponent(params.org)}` : "";
+  redirect(`/console/design/website${org}`);
 }

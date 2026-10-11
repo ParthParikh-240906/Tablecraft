@@ -4,13 +4,18 @@
  * Stripe price ensure logic (mocked), marketing plan consistency.
  */
 import { describe, it, expect, vi } from "vitest";
-import { PLAN_MONTHLY_AED, PLAN_LABELS, getPlanConfig, ensurePriceIds, getMonthlyPriceId } from "@/lib/pricing";
+import { PLAN_MONTHLY_AED, PLAN_ANNUAL_AED, PLAN_LABELS, getPlanConfig, ensurePriceIds, getMonthlyPriceId, getAnnualPriceId } from "@/lib/pricing";
 import { MARKETING_PLANS } from "@/lib/marketing-plans";
 
 describe("pricing constants", () => {
   it("has AED monthly prices for pro/max", () => {
-    expect(PLAN_MONTHLY_AED.pro).toBe(500);
-    expect(PLAN_MONTHLY_AED.max).toBe(850);
+    expect(PLAN_MONTHLY_AED.pro).toBe(350);
+    expect(PLAN_MONTHLY_AED.max).toBe(650);
+  });
+
+  it("has AED annual prices for pro/max", () => {
+    expect(PLAN_ANNUAL_AED.pro).toBe(3600);
+    expect(PLAN_ANNUAL_AED.max).toBe(7000);
   });
 
   it("has labels for all plans", () => {
@@ -20,8 +25,8 @@ describe("pricing constants", () => {
   });
 
   it("getPlanConfig returns label + amount", () => {
-    expect(getPlanConfig("pro")).toEqual({ label: "Pro", monthlyAed: 500 });
-    expect(getPlanConfig("max")).toEqual({ label: "Max", monthlyAed: 850 });
+    expect(getPlanConfig("pro")).toEqual({ label: "Pro", monthlyAed: 350, annualAed: 3600 });
+    expect(getPlanConfig("max")).toEqual({ label: "Max", monthlyAed: 650, annualAed: 7000 });
   });
 });
 
@@ -49,12 +54,23 @@ describe("ensurePriceIds (Stripe mocked)", () => {
     const ids = await ensurePriceIds(stripe);
     expect(ids.proMonthly).toMatch(/^price_/);
     expect(ids.maxMonthly).toMatch(/^price_/);
+    expect(ids.proAnnual).toMatch(/^price_/);
+    expect(ids.maxAnnual).toMatch(/^price_/);
   });
 
   it("getMonthlyPriceId returns cached ids without new Stripe calls", async () => {
     const stripe = mockStripe();
     const pro = await getMonthlyPriceId(stripe, "pro");
     const max = await getMonthlyPriceId(stripe, "max");
+    expect(typeof pro).toBe("string");
+    expect(typeof max).toBe("string");
+    expect(pro).not.toBe(max);
+  });
+
+  it("getAnnualPriceId returns annual ids", async () => {
+    const stripe = mockStripe();
+    const pro = await getAnnualPriceId(stripe, "pro");
+    const max = await getAnnualPriceId(stripe, "max");
     expect(typeof pro).toBe("string");
     expect(typeof max).toBe("string");
     expect(pro).not.toBe(max);

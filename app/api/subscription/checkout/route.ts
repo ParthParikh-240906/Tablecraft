@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
-import { getMonthlyPriceId, type PlanKey } from "@/lib/pricing";
+import { getPriceId, type PlanKey, type BillingInterval } from "@/lib/pricing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOwnerForSlug } from "@/lib/api-auth";
 
@@ -19,12 +19,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
   try {
-    const { plan, email, orgSlug, orgId } = body as {
+    const { plan, email, orgSlug, orgId, billing } = body as {
       plan: PlanKey;
       email?: string;
       orgSlug?: string;
       orgId?: string;
+      billing?: BillingInterval;
     };
+    const interval: BillingInterval = billing === "annual" ? "annual" : "monthly";
 
     if (plan !== "pro" && plan !== "max") {
       return NextResponse.json(
@@ -45,7 +47,7 @@ export async function POST(request: Request) {
       if ("response" in auth) return auth.response;
     }
 
-    const monthlyPriceId = await getMonthlyPriceId(stripe, plan);
+    const monthlyPriceId = await getPriceId(stripe, plan, interval);
     const supabase = createAdminClient();
 
     // Resolve base URL

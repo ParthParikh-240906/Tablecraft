@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useDesign } from "../use-design";
-import { useDesignDevice } from "../design-device";
 import { DesignNav } from "../design-nav";
-import { EditableCard, EditableColumns } from "../editable-card";
-import { ColorField } from "../design-fields";
-import { LOCAL_FONTS, getColorOverride, getFontOverride, newContentElement, newHeroElement, withColorOverride, withFontOverride, type DesignSettingsV2, type DeviceKind } from "@/lib/design";
+import { LOCAL_FONTS, newContentElement, newHeroElement, type DesignSettingsV2 } from "@/lib/design";
 
 type ImageRatio = "1:1" | "16:9" | "9:16";
 const RATIOS: { value: ImageRatio; label: string }[] = [
@@ -29,8 +26,6 @@ export function AiPanel({
   orgName: string;
 }) {
   const { settings, updateSettings, saving, saved, saveError, retrySave } = useDesign(initialSettings, orgId);
-  const { device, setDevice } = useDesignDevice();
-  const deviceLabel = device === "tablet" ? "Tablet" : device === "mobile" ? "Mobile" : "Desktop";
   const [prompt, setPrompt] = useState("");
   const [reference, setReference] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
@@ -40,7 +35,6 @@ export function AiPanel({
   const [newFontWeight, setNewFontWeight] = useState("400");
   const [fontStatus, setFontStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [addingFont, setAddingFont] = useState(false);
-  const [logoError, setLogoError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   // Image sizes / gallery / quota
@@ -306,27 +300,12 @@ export function AiPanel({
     persistGallery(gallery.filter((u) => u !== url));
   };
 
-  // Chatbot settings
-  const chatbot = settings.chatbot ?? {
-    color: "#f97316",
-    logo_url: null as string | null,
-    text_color: "#ffffff",
-    text_size: 14,
-    font_family: "Inter",
-    border_color: "transparent",
-    border_width: 0,
-  };
-
-  const updateChatbot = (patch: Partial<typeof chatbot>) => {
-    updateSettings({ chatbot: { ...chatbot, ...patch } } as Partial<DesignSettingsV2>);
-  };
-
   return (
     <div>
       <DesignNav />
-      <div className="space-y-5">
+      <div className="grid lg:grid-cols-2 gap-8 items-start">
         {/* ── Controls ─────────────────────────────────────────── */}
-        <div className="space-y-5">
+        <div className="space-y-8">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-semibold text-[var(--ink)]">AI Tools</h2>
             <span className="text-xs text-[var(--ink-faint)]">
@@ -340,9 +319,12 @@ export function AiPanel({
             </div>
           )}
 
-          <EditableColumns left={<>
+
           {/* AI Image Generator */}
-          <EditableCard hover title="AI Image Generator">
+          <section className="ticket p-5 space-y-3">
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
+              AI Image Generator
+            </h3>
             <p className="text-xs text-[var(--ink-soft)]">
               Describe the image you want. Optionally attach a reference image
               to guide the result. Generated images can be dropped straight
@@ -425,10 +407,13 @@ export function AiPanel({
             )}
 
             {error && <p className="text-xs text-red-500">{error}</p>}
-          </EditableCard>
+          </section>
 
           {result && (
-            <EditableCard hover title="Result">
+            <section className="ticket p-5 space-y-3">
+              <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
+                Result
+              </h3>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={result} alt="Generated" className="w-full rounded border border-[var(--rule)]" />
               <div className="flex flex-wrap gap-2">
@@ -456,204 +441,18 @@ export function AiPanel({
               <p className="text-[10px] text-[var(--ink-faint)]">
                 Clear only hides this preview — the image is kept in your gallery below.
               </p>
-            </EditableCard>
+            </section>
           )}
 
-          {/* AI Chatbot Configurables */}
-          <EditableCard hover title="AI Chatbot">
-            <p className="text-xs text-[var(--ink-soft)]">
-              Configure the appearance of the AI booking chatbot that appears
-              on your restaurant site.
-            </p>
+        </div>
 
-            <ColorField
-              label="Chatbot Color"
-              value={chatbot.color}
-              onChange={(v) => updateChatbot({ color: v })}
-            />
-
-            <div>
-              <label className="block text-xs text-[var(--ink-soft)] mb-1">
-                Chatbot Logo
-              </label>
-              <div className="flex items-center gap-2">
-                {chatbot.logo_url ? (
-                  <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-black">
-                    <img src={chatbot.logo_url} alt="Chatbot logo" className="h-full w-full object-cover" />
-                  </div>
-                ) : (
-                  <div className="h-20 w-20 rounded-full border-2 border-black" />
-                )}
-                <label className="btn btn-outline text-xs cursor-pointer inline-block">
-                  {chatbot.logo_url ? "Replace" : "Upload"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const f = e.target.files?.[0];
-                      if (!f) return;
-                      setLogoError(null);
-                      if (f.size > 5 * 1024 * 1024) { setLogoError("Logo exceeds 5MB — compress and try again."); e.target.value = ""; return; }
-                      try {
-                        const form = new FormData();
-                        form.append("file", f);
-                        form.append("org_id", orgId);
-                        const res = await fetch("/api/design/photos/upload", { method: "POST", body: form });
-                        if (res.ok) {
-                          const data = await res.json();
-                          updateChatbot({ logo_url: data.url });
-                        } else {
-                          const data = await res.json().catch(() => null);
-                          setLogoError(data?.error ?? `Logo upload failed (${res.status}). Try again.`);
-                        }
-                      } catch {
-                        setLogoError("Network error — logo not uploaded. Try again.");
-                      }
-                    }}
-                  />
-                </label>
-                {chatbot.logo_url && (
-                  <button type="button" onClick={() => updateChatbot({ logo_url: null })} className="text-xs text-red-500 underline">
-                    Remove
-                  </button>
-                )}
-              </div>
-              {logoError && (
-                <p className="text-xs text-red-400 border border-red-800 bg-red-950/40 p-2 rounded-sm">{logoError}</p>
-              )}
-              {downloadError && (
-                <p className="text-xs text-red-400 border border-red-800 bg-red-950/40 p-2 rounded-sm">{downloadError}</p>
-              )}
-            </div>
-
-            <ColorField
-              label="Text Color"
-              value={device !== "desktop" ? (getColorOverride(settings.responsive, device, "chatbot.text") ?? chatbot.text_color) : chatbot.text_color}
-              onChange={(v) => {
-                if (device !== "desktop") {
-                  updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "chatbot.text", v) }));
-                } else {
-                  updateChatbot({ text_color: v });
-                }
-              }}
-            />
-            {device !== "desktop" && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-[10px] text-[var(--ink-faint)]">
-                  {deviceLabel}: {getColorOverride(settings.responsive, device, "chatbot.text") != null ? "custom" : `inherits desktop (${chatbot.text_color})`}
-                </p>
-                {getColorOverride(settings.responsive, device, "chatbot.text") != null && (
-                  <button
-                    type="button"
-                    onClick={() => updateSettings((prev) => ({ responsive: withColorOverride(prev.responsive, device, "chatbot.text", undefined) }))}
-                    className="text-[10px] underline text-[var(--ink-soft)] hover:text-[var(--ink)]"
-                  >
-                    Reset (inherits)
-                  </button>
-                )}
-              </div>
-            )}
-
-            <div>
-              <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
-                <label className="block text-xs text-[var(--ink-soft)]">
-                  Text Size: {device !== "desktop" ? (getFontOverride(settings.responsive, device, "chatbot.text") ?? chatbot.text_size) : chatbot.text_size}px
-                </label>
-                {/* This panel has no storefront preview, so it owns a compact
-                    device switch for the per-device chatbot text size. */}
-                <div role="group" aria-label="Chatbot text size device" className="flex items-center gap-1">
-                  {(["desktop", "tablet", "mobile"] as const).map((d: DeviceKind) => (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => setDevice(d)}
-                      aria-pressed={device === d}
-                      className={`px-2 py-0.5 text-[10px] rounded-full border transition-colors ${
-                        device === d
-                          ? "bg-[var(--accent)] border-[var(--accent)] text-white"
-                          : "border-[var(--rule)] text-[var(--ink-soft)]"
-                      }`}
-                    >
-                      {d === "desktop" ? "Desktop" : d === "tablet" ? "Tablet" : "Mobile"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <input
-                type="range"
-                min={10}
-                max={24}
-                value={device !== "desktop" ? (getFontOverride(settings.responsive, device, "chatbot.text") ?? chatbot.text_size) : chatbot.text_size}
-                onChange={(e) => {
-                  const next = parseInt(e.target.value, 10);
-                  if (!Number.isFinite(next)) return;
-                  if (device !== "desktop") {
-                    updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "chatbot.text", next) }));
-                  } else {
-                    updateChatbot({ text_size: next });
-                  }
-                }}
-                className="w-full accent-[var(--accent)]"
-              />
-              {device !== "desktop" && (
-                <div className="flex items-center gap-2 flex-wrap mt-1">
-                  <p className="text-[10px] text-[var(--ink-faint)]">
-                    {deviceLabel}: {getFontOverride(settings.responsive, device, "chatbot.text") != null ? "custom" : `inherits desktop (${chatbot.text_size}px)`}
-                  </p>
-                  {getFontOverride(settings.responsive, device, "chatbot.text") != null && (
-                    <button
-                      type="button"
-                      onClick={() => updateSettings((prev) => ({ responsive: withFontOverride(prev.responsive, device, "chatbot.text", undefined) }))}
-                      className="text-[10px] underline text-[var(--ink-soft)] hover:text-[var(--ink)]"
-                    >
-                      Reset (inherits)
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs text-[var(--ink-soft)] mb-1">
-                Font
-              </label>
-              <select
-                value={chatbot.font_family}
-                onChange={(e) => updateChatbot({ font_family: e.target.value })}
-                className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-2 py-1.5 text-xs"
-              >
-                {[...LOCAL_FONTS, ...(settings.custom_fonts || [])].map((f) => (
-                  <option key={`${f.name}::${f.value}`} value={f.value}>{f.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs text-[var(--ink-soft)] mb-1">
-                Border Width: {chatbot.border_width ?? 0}px
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={8}
-                value={chatbot.border_width ?? 0}
-                onChange={(e) => updateChatbot({ border_width: parseInt(e.target.value, 10) })}
-                className="w-full accent-[var(--accent)]"
-              />
-            </div>
-
-            <ColorField
-              label="Border Color"
-              value={chatbot.border_color ?? "transparent"}
-              onChange={(v) => updateChatbot({ border_color: v })}
-            />
-          </EditableCard>
-          </>}
-          right={<>
-
+        {/* Right column: gallery + fonts */}
+        <div className="space-y-8">
           {/* Image Gallery */}
-          <EditableCard hover title="Image Gallery">
+          <section className="ticket p-5 space-y-3">
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
+              Image Gallery
+            </h3>
             <p className="text-xs text-[var(--ink-soft)]">
               Every generation is kept here (newest first, up to {MAX_GALLERY_ITEMS}).
               Apply any image straight into your design.
@@ -687,10 +486,13 @@ export function AiPanel({
                 ))}
               </ul>
             )}
-          </EditableCard>
+          </section>
 
           {/* Custom Google Fonts */}
-          <EditableCard hover title="Custom Google Fonts">
+          <section className="ticket p-5 space-y-4">
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
+              Custom Google Fonts
+            </h3>
             <div className="flex items-end gap-2">
               <div className="flex-1">
                 <label className="block text-xs text-[var(--ink-soft)] mb-1">
@@ -780,23 +582,9 @@ export function AiPanel({
             <p className="text-[10px] text-[var(--ink-faint)] leading-relaxed">
               Added fonts become immediately available across all font pickers in the studio. They will be loaded automatically on the preview and public pages.
             </p>
-          </EditableCard>
-
-          <EditableCard hover title="Quick apply">
-            <p className="text-xs text-[var(--ink-soft)]">
-              Generated images save instantly into your restaurant design for{" "}
-              <span className="text-[var(--ink)]">{orgName}</span>:
-            </p>
-            <ul className="text-xs text-[var(--ink-soft)] space-y-2">
-              <li>• <span className="text-[var(--ink)]">Use as Hero Background</span> — swaps the hero image background.</li>
-              <li>• <span className="text-[var(--ink)]">Add to Content Images</span> — new carousel block on the Content page.</li>
-              <li>• <span className="text-[var(--ink)]">Add as Hero Image</span> — new image element on the Hero page.</li>
-              <li>• <span className="text-[var(--ink)]">Gallery</span> — every generation is kept (newest first, up to {MAX_GALLERY_ITEMS}); Delete only removes it from the gallery.</li>
-            </ul>
-          </EditableCard>
-          </>}
-          />
+          </section>
         </div>
+
       </div>
     </div>
   );

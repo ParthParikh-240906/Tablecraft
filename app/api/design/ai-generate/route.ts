@@ -120,6 +120,18 @@ export async function POST(req: Request) {
     const apiKey = process.env.AGNES_API_KEY;
     const imageUrl = process.env.AGNES_IMAGE_API_URL?.trim() || DEFAULT_AGNES_IMAGE_URL;
 
+    // Prefer IMAGE_API (OpenAI-compatible) when configured; fall back to Agnes.
+    if (process.env.IMAGE_API) {
+      try {
+        const { callImageGen } = await import("@/lib/ai-models");
+        const size = wantRatio === "1:1" ? "1024x1024" : wantRatio === "9:16" ? "1024x1792" : "1792x1024";
+        const url = await callImageGen((prompt as string).trim().slice(0, 1000), { size });
+        return NextResponse.json({ url, quota, model: "image via IMAGE_API" });
+      } catch (e) {
+        console.warn("[AI GENERATE] IMAGE_API failed, falling back to Agnes:", e instanceof Error ? e.message.slice(0, 200) : e);
+      }
+    }
+
     if (!apiKey) {
       return NextResponse.json(
         { error: "Missing AGNES_API_KEY" },

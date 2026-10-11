@@ -10,8 +10,14 @@ import Stripe from "stripe";
  */
 
 export const PLAN_MONTHLY_AED: Record<"pro" | "max", number> = {
-  pro: 500,
-  max: 850,
+  pro: 350,
+  max: 650,
+};
+
+/** Annual (yearly) prices in AED. */
+export const PLAN_ANNUAL_AED: Record<"pro" | "max", number> = {
+  pro: 3600,
+  max: 7000,
 };
 
 /** Human-readable plan labels. */
@@ -32,14 +38,19 @@ export function getPlanConfig(plan: PaidPlanKey) {
   return {
     label: PLAN_LABELS[plan],
     monthlyAed: PLAN_MONTHLY_AED[plan],
+    annualAed: PLAN_ANNUAL_AED[plan],
   };
 }
+
+export type BillingInterval = "monthly" | "annual";
 
 // ─── Cached Stripe Price IDs ────────────────────────────────────────────────
 
 type PriceIds = {
   proMonthly: string;
   maxMonthly: string;
+  proAnnual: string;
+  maxAnnual: string;
 };
 
 let _priceIds: PriceIds | null = null;
@@ -56,7 +67,7 @@ async function findPriceById(
 }
 
 /**
- * Ensures all Stripe Prices exist (2 recurring monthly).
+ * Ensures all Stripe Prices exist (2 monthly + 2 annual).
  * Auto-creates on first run using your Stripe account.
  * Safe to call multiple times — finds or creates, never collides with cached idempotency keys.
  */
@@ -66,7 +77,7 @@ export async function ensurePriceIds(stripe: Stripe): Promise<PriceIds> {
   // List all existing products to avoid duplicates
   const existingProducts = await stripe.products.list({ limit: 100 });
 
-  const created: PriceIds = { proMonthly: "", maxMonthly: "" };
+  const created: PriceIds = { proMonthly: "", maxMonthly: "", proAnnual: "", maxAnnual: "" };
 
   for (const plan of ["pro", "max"] as PaidPlanKey[]) {
     const cfg = getPlanConfig(plan);
@@ -94,6 +105,30 @@ export async function ensurePriceIds(stripe: Stripe): Promise<PriceIds> {
         console.log(`[pricing] Created ${plan} monthly price: ${price.id}`);
       }
     }
+
+    // ── Annual recurring ──
+    let annualProduct = existingProducts.data.find((p) => p.name === `Tablecraft ${cfg.label} — Annual`);
+    if (!annualProduct) {
+      annualProduct = await stripe.products.create({
+        name: `Tablecraft ${cfg.label} — Annual`,
+        description: `Annual subscription for ${cfg.label} plan`,
+      });
+    }
+    const existingAnnualPrice = await findPriceById(stripe, annualProduct.id, cfg.annualAed * 100, true);
+    if (existingAnnualPrice) {
+      created[`${plan}Annual`] = existingAnnualPrice;
+    } else {
+      const price = await stripe.prices.create({
+        product: annualProduct.id,
+        unit_amount: cfg.annualAed * 100,
+        currency: "aed",
+        recurring: { interval: "year" },
+      });
+      created[`${plan}Annual`] = price.id;
+      if (process.env.NODE_ENV === "development") {
+        console.log(`[pricing] Created ${plan} annual price: ${price.id}`);
+      }
+    }
   }
 
   _priceIds = created;
@@ -104,4 +139,16 @@ export async function ensurePriceIds(stripe: Stripe): Promise<PriceIds> {
 export async function getMonthlyPriceId(stripe: Stripe, plan: PaidPlanKey): Promise<string> {
   const ids = await ensurePriceIds(stripe);
   return ids[`${plan}Monthly`];
+}
+
+/** Get the annual recurring price ID for a plan. */
+export async function getAnnualPriceId(stripe: Stripe, plan: PaidPlanKey): Promise<string> {
+  const ids = await ensurePriceIds(stripe);
+  return ids[`${plan}Annual`];
+}
+
+/** Get a price ID for a plan + billing interval. */
+export async function getPriceId(stripe: Stripe, plan: PaidPlanKey, interval: BillingInterval = "monthly"): Promise<string> {
+  const ids = await ensurePriceIds(stripe);
+  return interval === "annual" ? ids[`${plan}Annual`] : ids[`${plan}Monthly`];
 }

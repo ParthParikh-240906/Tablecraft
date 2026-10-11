@@ -3,7 +3,7 @@
  * post-sign-in dashboard so both always show identical content.
  */
 
-import { PLAN_MONTHLY_AED } from "./pricing";
+import { PLAN_MONTHLY_AED, PLAN_ANNUAL_AED } from "./pricing";
 
 export type MarketingPlan = {
   name: string;
@@ -39,7 +39,7 @@ export const MARKETING_PLANS: MarketingPlan[] = [
   {
     name: "Pro",
     price: `${PLAN_MONTHLY_AED.pro}`,
-    period: "",
+    period: `AED/month or ${PLAN_ANNUAL_AED.pro} AED/year`,
     description: "Real hosted website + console. Everything you need to get your restaurant online.",
     cta: "Go Pro",
     ctaLink: "/signup?plan=pro",
@@ -58,7 +58,7 @@ export const MARKETING_PLANS: MarketingPlan[] = [
   {
     name: "Max",
     price: `${PLAN_MONTHLY_AED.max}`,
-    period: "",
+    period: `AED/month or ${PLAN_ANNUAL_AED.max} AED/year`,
     description: "Higher limits plus dedicated senior frontend support for ongoing changes.",
     cta: "Go Max",
     ctaLink: "/signup?plan=max",

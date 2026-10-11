@@ -116,9 +116,36 @@ export async function POST(request: NextRequest) {
   if (!rl.allowed) return rateLimitedResponse(rl.resetMs);
 
   try {
-  const apiKey = process.env.AGNES_API_KEY;
-  if (!apiKey) {
+  const agnesKey = process.env.AGNES_API_KEY;
+  const claudeKey = process.env.CLAUDE_API;
+  if (!agnesKey && !claudeKey) {
     return NextResponse.json({ error: "AI service not configured" }, { status: 500 });
+  }
+
+  // Prefer Haiku 5.5 (low effort) via CLAUDE_API; fall back to Agnes.
+  async function llmChat(
+    messages: Array<{ role: string; content: string }>,
+    maxTokens: number,
+  ): Promise<string | null> {
+    if (claudeKey) {
+      try {
+        const { callHaikuLow } = await import("@/lib/ai-models");
+        const system = messages.find((m) => m.role === "system")?.content;
+        const rest = messages
+          .filter((m) => m.role !== "system")
+          .map((m) => `${m.role}: ${m.content}`)
+          .join("\n");
+        const text = await callHaikuLow(rest || "Reply.", {
+          ...(system ? { system } : {}),
+          maxTokens,
+        });
+        if (text?.trim()) return text.trim();
+      } catch (e) {
+        console.warn("[CHAT BOOKINGS] Haiku 5.5 failed, falling back to Agnes:", e instanceof Error ? e.message.slice(0, 200) : e);
+      }
+    }
+    if (!agnesKey) return null;
+    return null;
   }
 
   let body: { message?: string; slots?: SlotState; history?: Array<{ role: string; content: string }>; orgName?: string };
@@ -175,9 +202,14 @@ export async function POST(request: NextRequest) {
 
   let extracted: SlotState & { isComplete?: boolean };
   try {
+    const haikuText = await llmChat(messages1, 750);
+    if (haikuText) {
+      const jsonMatch = haikuText.match(/\{[\s\S]*\}/)?.[0];
+      extracted = JSON.parse(jsonMatch ?? "{}");
+    } else {
     const res1 = await fetch("https://apihub.agnes-ai.com/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${agnesKey}` },
       body: JSON.stringify({ model: "agnes-2.5-flash", response_format: { type: "json_object" }, messages: messages1, max_tokens: 750 }),
     });
 
@@ -193,6 +225,7 @@ export async function POST(request: NextRequest) {
 
     const jsonMatch = content1.match(/\{[\s\S]*\}/)?.[0];
     extracted = JSON.parse(jsonMatch ?? "{}");
+    }
     if (process.env.NODE_ENV === "development") {
       console.log("[CHAT BOOKINGS] extracted keys:", Object.keys(extracted ?? {}));
     }
@@ -262,9 +295,13 @@ export async function POST(request: NextRequest) {
 
   let conversationalReply = "Thanks! Let me confirm your details shortly.";
   try {
+    const haikuReply = await llmChat(messages2, 500);
+    if (haikuReply) {
+      conversationalReply = haikuReply;
+    } else if (agnesKey) {
     const res2 = await fetch("https://apihub.agnes-ai.com/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${agnesKey}` },
       body: JSON.stringify({ model: "agnes-2.5-flash", messages: messages2, max_tokens: 500 }),
     });
 
@@ -279,6 +316,7 @@ export async function POST(request: NextRequest) {
     } else {
       const errText = await res2.text();
       console.error("[CHAT BOOKINGS] Response call failed:", res2.status, errText);
+    }
     }
   } catch (err) {
     console.error("[CHAT BOOKINGS] Response failed:", err);

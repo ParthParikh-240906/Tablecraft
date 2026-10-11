@@ -34,7 +34,8 @@ export default async function ConsoleDesignAiPage({
             AI
           </h1>
           <p className="text-sm text-[var(--ink-soft)]">
-            Generate AI images and configure the AI chatbot for your restaurant site.
+            Generate AI images and import Google fonts for your restaurant site.
+            Chatbot appearance lives on the Website tab.
           </p>
         </div>
         {data.org.slug && (

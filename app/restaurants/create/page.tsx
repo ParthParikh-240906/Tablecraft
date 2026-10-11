@@ -22,6 +22,8 @@ export default function CreateRestaurantPage() {
   const [contactAddress, setContactAddress] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [restaurantImages, setRestaurantImages] = useState<File[]>([]);
+  const [vibe, setVibe] = useState("");
+  const [paragraph, setParagraph] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<"pro" | "max" | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +111,10 @@ export default function CreateRestaurantPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!vibe.trim()) {
+      setError("Please describe the vibe / aesthetic — it is required for the website build.");
+      return;
+    }
     setSubmitting(true);
     setUploading(true);
 
@@ -147,6 +153,25 @@ export default function CreateRestaurantPage() {
         setSubmitting(false);
         setUploading(false);
         return;
+      }
+
+      // Kick off Haiku 5.5 (low effort) initial website build. Non-blocking:
+      // combine/edit + tests run against the created org even if this fails.
+      try {
+        await fetch("/api/ai/build", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orgId: data?.org?.id,
+            name: orgName,
+            tagline,
+            orgSlug: data?.org?.slug ?? slug,
+            vibe,
+            paragraph,
+          }),
+        });
+      } catch {
+        // Build failures are surfaced in console Website tab; don't block signup.
       }
 
       if (selectedPlan) {
@@ -373,6 +398,43 @@ export default function CreateRestaurantPage() {
             />
             <p className="text-xs text-[var(--ink-faint)] mt-1">
               This will be displayed on your landing page&apos;s About section.
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="vibe" className="block text-sm font-medium mb-1.5">
+              Vibe / aesthetic <span className="text-[var(--accent)]">*</span>
+            </label>
+            <input
+              id="vibe"
+              type="text"
+              value={vibe}
+              onChange={(e) => setVibe(e.target.value)}
+              required
+              maxLength={200}
+              placeholder="Cozy Italian trattoria, warm lights, rustic wood"
+              className="input placeholder:text-[var(--ink-faint)]"
+            />
+            <p className="text-xs text-[var(--ink-faint)] mt-1">
+              Required — the build model applies this first.
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="paragraph" className="block text-sm font-medium mb-1.5">
+              Story paragraph <span className="text-[var(--ink-faint)]">(optional)</span>
+            </label>
+            <textarea
+              id="paragraph"
+              value={paragraph}
+              onChange={(e) => setParagraph(e.target.value)}
+              rows={3}
+              maxLength={2000}
+              placeholder="Our family recipe story..."
+              className="input placeholder:text-[var(--ink-faint)]"
+            />
+            <p className="text-xs text-[var(--ink-faint)] mt-1">
+              If filled, the build model must use it on the site.
             </p>
           </div>
 

@@ -6,13 +6,8 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useDesignControls } from "./use-design";
 
 const LINKS = [
-  { href: "/console/design", label: "Header" },
-  { href: "/console/design/hero", label: "Hero" },
-  { href: "/console/design/content", label: "Content" },
-  { href: "/console/design/menu", label: "Menu Page" },
-  { href: "/console/design/book_a_table", label: "Book a Table" },
+  { href: "/console/design/website", label: "Website" },
   { href: "/console/design/ai", label: "AI" },
-  { href: "/console/design/themes", label: "Themes" },
 ];
 
 function isEditableTarget(target: EventTarget | null) {
