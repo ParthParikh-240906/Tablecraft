@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useDesign } from "../use-design";
 import { DesignNav } from "../design-nav";
+import { EditableCard, EditableColumns } from "../editable-card";
 import { PreviewShell } from "../preview-shell";
 import { DesignDeviceProvider } from "../design-device";
 import { SITE_THEMES, applySiteTheme } from "@/lib/site-themes";
@@ -82,16 +83,14 @@ export function ThemesPanel({
         )}
 
         {/* ── Theme cards ────────────────────────────────────── */}
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {SITE_THEMES.map((t) => {
+        <EditableColumns
+          left={<>
+          {SITE_THEMES.filter((_, i) => i % 2 === 0).map((t) => {
             const isPreviewing = previewId === t.id;
             const isActive = activeId === t.id;
             return (
-              <div key={t.id} className="ticket p-5 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-display text-sm font-semibold text-[var(--ink)]">
-                    {t.name}
-                  </h3>
+              <EditableCard hover key={t.id} title={t.name}>
+                <div className="flex items-center gap-1">
                   <span className="flex items-center gap-1">
                     {isActive && (
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--accent)] text-white">
@@ -177,10 +176,107 @@ export function ThemesPanel({
                     Apply theme
                   </button>
                 </div>
-              </div>
+              </EditableCard>
             );
           })}
-        </div>
+          </>}
+          right={<>
+          {SITE_THEMES.filter((_, i) => i % 2 === 1).map((t) => {
+            const isPreviewing = previewId === t.id;
+            const isActive = activeId === t.id;
+            return (
+              <EditableCard hover key={t.id} title={t.name}>
+                <div className="flex items-center gap-1">
+                  <span className="flex items-center gap-1">
+                    {isActive && (
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--accent)] text-white">
+                        Active
+                      </span>
+                    )}
+                    {isPreviewing && (
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-[var(--rule)] text-[var(--ink-soft)]">
+                        Previewing
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--ink-soft)] leading-relaxed min-h-12">
+                  {t.blurb}
+                </p>
+                <div className="flex items-center gap-1.5" aria-label={`${t.name} palette`}>
+                  {t.swatches.map((s) => (
+                    <span
+                      key={s}
+                      className="w-5 h-5 rounded-full border border-[var(--rule)]"
+                      style={{ backgroundColor: s }}
+                      title={s}
+                    />
+                  ))}
+                </div>
+                {/* Mini palette preview */}
+                <div className="rounded overflow-hidden border border-[var(--rule)]">
+                  <div
+                    className="flex items-center gap-1 px-2 py-1.5"
+                    style={{ backgroundColor: t.swatches[0] }}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: t.swatches[1] }}
+                    />
+                    <span
+                      className="h-1.5 w-10 rounded-full opacity-70"
+                      style={{ backgroundColor: t.swatches[1] }}
+                    />
+                    <span className="ml-auto flex gap-1">
+                      <span
+                        className="h-1.5 w-5 rounded-full opacity-70"
+                        style={{ backgroundColor: t.swatches[1] }}
+                      />
+                      <span
+                        className="h-3 w-8 rounded-full"
+                        style={{ backgroundColor: t.swatches[2] }}
+                      />
+                    </span>
+                  </div>
+                  <div
+                    className="px-2 py-2.5 space-y-1.5"
+                    style={{ backgroundColor: t.swatches[0] }}
+                  >
+                    <div
+                      className="h-2 w-3/4 rounded-full"
+                      style={{ backgroundColor: t.swatches[1] }}
+                    />
+                    <div
+                      className="h-2 w-1/2 rounded-full opacity-70"
+                      style={{ backgroundColor: t.swatches[1] }}
+                    />
+                    <div
+                      className="h-4 w-16 rounded-full mt-1"
+                      style={{ backgroundColor: t.swatches[2] }}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewId(isPreviewing ? null : t.id)}
+                    className="btn btn-outline text-xs flex-1"
+                  >
+                    {isPreviewing ? "Close preview" : "Preview"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApply(t.id, t.name)}
+                    className="btn btn-accent text-xs flex-1"
+                  >
+                    Apply theme
+                  </button>
+                </div>
+              </EditableCard>
+            );
+          })}
+          </>}
+        />
 
         {/* ── Preview ────────────────────────────────────────── */}
         <div className="space-y-4">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { resolveFontSize, type ResponsiveOverrides } from "@/lib/design";
+import { resolveColor, resolveFontSize, type ResponsiveOverrides } from "@/lib/design";
 import { useViewportDevice } from "@/lib/use-device";
 
 // ---------------------------------------------------------------------------
@@ -65,8 +65,8 @@ export function BookingChatbot({
   responsive?: ResponsiveOverrides | null;
 }) {
   const chatColor = chatbot?.color ?? accent;
-  const chatTextColor = chatbot?.text_color ?? "#ffffff";
   const viewportDevice = useViewportDevice();
+  const chatTextColor = resolveColor(chatbot?.text_color ?? "#ffffff", "chatbot.text", viewportDevice, responsive);
   // Console "chatbot.text" size override for tablet/mobile; desktop/base otherwise.
   const chatTextSize = resolveFontSize(chatbot?.text_size ?? 14, "chatbot.text", viewportDevice, responsive);
   const chatFontFamily = chatbot?.font_family ?? "Inter";

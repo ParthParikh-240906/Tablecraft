@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 interface BookingTable {
@@ -42,7 +42,9 @@ export function BookingActionsList({
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
-  const supabase = createClient();
+  // Memoized so the bookings channel subscribes once per org instead of
+  // churning on every render.
+  const supabase = useMemo(() => createClient(), []);
 
   // Refresh bookings from server (for realtime updates)
   const refreshBookings = useCallback(async () => {

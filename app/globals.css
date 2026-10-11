@@ -161,6 +161,33 @@ body {
   background-clip: text;
 }
 
+/* Guest hover interactivity (owner-tunable per block — see interactiveClasses/
+   interactiveStyle in lib/design.ts). Lifts are transform-only, never layout.
+   For buttons the brighten filter lifts the whole button, all colors at once. */
+.ia-transition {
+  transition: all 0.3s ease;
+}
+.ia-lift:hover {
+  transform: translateY(calc(var(--ia-lift, 4px) * -1));
+}
+.ia-shadow:hover {
+  box-shadow: var(--ia-shadow, 0 4px 16px rgba(0, 0, 0, 0.45));
+}
+.ia-brighten:hover {
+  filter: brightness(1.1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ia-transition {
+    transition: none;
+  }
+  .ia-lift:hover {
+    transform: none;
+  }
+  .ia-brighten:hover {
+    filter: none;
+  }
+}
+
 /* Hairline divider. */
 .rule {
   border: 0;

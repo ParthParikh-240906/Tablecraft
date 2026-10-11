@@ -135,6 +135,9 @@ export function DesignField({
   fontKey,
   overrideValue,
   onOverrideFontSize,
+  colorKey,
+  colorOverrideValue,
+  onOverrideColor,
 }: {
   label: string;
   design: TextDesign;
@@ -154,6 +157,16 @@ export function DesignField({
   overrideValue?: number | null;
   /** Called with the new size, or `undefined` to reset to inherit. */
   onOverrideFontSize?: (v: number | undefined) => void;
+  /**
+   * Per-device color editing — same methodology as font size. Pass the exact
+   * color key (e.g. `content:${id}`) plus the resolved override to enable it.
+   * Omit and color always edits the shared base (other panels unchanged).
+   */
+  colorKey?: string;
+  /** Resolved color override for the current non-desktop device, or null/undefined when inheriting. */
+  colorOverrideValue?: string | null;
+  /** Called with the new color, or `undefined` to reset to inherit. */
+  onOverrideColor?: (v: string | undefined) => void;
 }) {
   const fonts = [...LOCAL_FONTS, ...customFonts];
   const { device } = useDesignDevice();
@@ -163,6 +176,12 @@ export function DesignField({
   const perDevice = fontKey !== undefined && device !== "desktop" && onOverrideFontSize !== undefined;
   const isCustom = perDevice && overrideValue != null;
   const shownSize = perDevice ? (overrideValue ?? design.fontSize) : design.fontSize;
+  // Color follows the same methodology when the panel opts in: off-desktop
+  // the picker shows `override ?? base` and writes the override; desktop
+  // edits the shared base. Otherwise color edits the base always.
+  const perDeviceColor = colorKey !== undefined && device !== "desktop" && onOverrideColor !== undefined;
+  const isColorCustom = perDeviceColor && colorOverrideValue != null;
+  const shownColor = perDeviceColor ? (colorOverrideValue ?? design.color) : design.color;
   const deviceLabel = device === "tablet" ? "Tablet" : "Mobile";
   return (
     <div className="space-y-2">
@@ -203,11 +222,14 @@ export function DesignField({
           <div className="flex items-center gap-1">
             <input
               type="color"
-              value={design.color}
-              onChange={(e) => onChange({ ...design, color: e.target.value })}
+              value={shownColor}
+              onChange={(e) => {
+                if (perDeviceColor && onOverrideColor) onOverrideColor(e.target.value);
+                else onChange({ ...design, color: e.target.value });
+              }}
               className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
             />
-            <span className="text-[10px] text-[var(--ink-soft)]">{design.color}</span>
+            <span className="text-[10px] text-[var(--ink-soft)]">{shownColor}</span>
           </div>
         </div>
         <div className="col-span-1">
@@ -254,9 +276,27 @@ export function DesignField({
           )}
         </div>
       )}
-      {perDevice && (
+      {perDeviceColor && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-[10px] text-[var(--ink-faint)]">
+            {deviceLabel} color: {isColorCustom ? "custom" : `inherits desktop (${design.color})`}
+          </p>
+          {isColorCustom && onOverrideColor && (
+            <button
+              type="button"
+              onClick={() => onOverrideColor(undefined)}
+              className="text-[10px] underline text-[var(--ink-soft)] hover:text-[var(--ink)]"
+            >
+              Reset (inherits)
+            </button>
+          )}
+        </div>
+      )}
+      {(perDevice || perDeviceColor) && (
         <p className="text-[10px] text-[var(--ink-faint)]">
-          Font family &amp; color are shared across devices — only size varies per device.
+          {perDeviceColor
+            ? "Font family is shared across devices — size and color vary per device."
+            : "Font family & color are shared across devices — only size varies per device."}
         </p>
       )}
     </div>

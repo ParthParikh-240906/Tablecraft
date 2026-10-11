@@ -9,7 +9,7 @@ export function ConsoleSidebarOverlay() {
         const sidebar = document.getElementById("console-sidebar");
         const overlay = document.getElementById("console-sidebar-overlay");
         sidebar?.classList.add("hidden");
-        sidebar?.classList.remove("fixed", "inset-0", "z-50", "lg:block");
+        sidebar?.classList.remove("fixed", "inset-0", "z-50");
         overlay?.classList.add("hidden");
       }}
     />

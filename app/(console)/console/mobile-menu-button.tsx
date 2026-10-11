@@ -13,7 +13,6 @@ export function MobileMenuButton() {
         sidebar?.classList.toggle("fixed");
         sidebar?.classList.toggle("inset-0");
         sidebar?.classList.toggle("z-50");
-        sidebar?.classList.toggle("lg:block");
         overlay?.classList.toggle("hidden");
       }}
     >

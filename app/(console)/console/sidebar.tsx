@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useConsoleTheme } from "./theme-wrapper";
 
@@ -31,6 +32,26 @@ export function ConsoleSidebar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { theme, setTheme } = useConsoleTheme();
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Persist desktop collapse preference; hydrate post-mount to avoid SSR mismatch.
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem("tablecraft_sidebar_collapsed") === "1") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional post-mount hydration
+        setCollapsed(true);
+      }
+    } catch {}
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((v) => {
+      try {
+        window.localStorage.setItem("tablecraft_sidebar_collapsed", v ? "0" : "1");
+      } catch {}
+      return !v;
+    });
+  };
 
   const orgIdFromUrl = searchParams.get("org");
   const activeOrgIdFromProps = orgIdFromUrl || activeOrgId;
@@ -126,7 +147,27 @@ export function ConsoleSidebar({
   ];
 
   return (
-    <aside id="console-sidebar" className="hidden lg:block w-64 shrink-0 space-y-6">
+    <div
+      id="console-sidebar"
+      className={`hidden lg:block shrink-0 relative transition-all duration-300 w-64 ${
+        collapsed ? "lg:w-12" : "lg:w-64"
+      }`}
+    >
+      {/* Drop-right collapse toggle — always visible on desktop, even when closed */}
+      <button
+        type="button"
+        onClick={toggleCollapsed}
+        aria-expanded={!collapsed}
+        aria-controls="console-sidebar-body"
+        title={collapsed ? "Open sidebar" : "Close sidebar"}
+        className="hidden lg:flex absolute top-6 -right-3 w-6 h-12 items-center justify-center rounded-r-md border border-[var(--rule)] bg-[var(--paper-raised)] text-sm font-bold text-[var(--ink-soft)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors shadow-sm z-10"
+      >
+        {collapsed ? ">" : "<"}
+      </button>
+      <span className="sr-only">{collapsed ? "Sidebar closed" : "Sidebar open"}</span>
+
+      {/* Full sidebar body: visible on mobile drawer always; on desktop hidden when collapsed */}
+      <aside id="console-sidebar-body" className={`space-y-6 ${collapsed ? "lg:hidden" : ""}`}>
       {/* ── Demo Banner in Sidebar ─────────────────────────────────── */}
       {isDemo && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-sm p-3">
@@ -290,6 +331,16 @@ export function ConsoleSidebar({
           </div>
         </div>
       </div>
-    </aside>
+      </aside>
+
+      {/* Collapsed rail hint (desktop only) */}
+      {collapsed && (
+        <div className="hidden lg:flex flex-col items-center pt-6">
+          <span className="text-[10px] text-[var(--ink-faint)] [writing-mode:vertical-lr]">
+            Sidebar
+          </span>
+        </div>
+      )}
+    </div>
   );
 }

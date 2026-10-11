@@ -3,6 +3,8 @@
 // Layout is presentation-only (JSONB); long-form text stays in org columns /
 // paragraphs table, referenced by elements via `ref`.
 
+import type { CSSProperties } from "react";
+
 export interface TextDesign {
   fontFamily: string;
   fontSize: number;
@@ -21,6 +23,121 @@ export interface TextDesign {
   };
   /** Accent-gradient word treatment (OrgPageView `.gradient-text`). Off when absent. */
   gradient?: boolean;
+  /**
+   * Guest-facing hover interactivity (lift / shadow / brighten — the
+   * marketing "How it works" feel). Device-shared like animation/shadow.
+   * Absent = default, resolved per context via resolveInteractive().
+   */
+  interactive?: InteractiveDesign;
+}
+
+/**
+ * Hover interactivity flags. Each flag is opt-in/out explicitly; when absent
+ * the renderer falls back to the context default (buttons on, everything
+ * else off) so old orgs render byte-identical to before. Values are
+ * user-tunable per flag: lift distance in px, shadow color + length in px.
+ */
+export interface InteractiveDesign {
+  hoverLift?: boolean;
+  hoverShadow?: boolean;
+  hoverBrighten?: boolean;
+  /** Lift distance in px. Default 4. */
+  liftPx?: number;
+  /** Shadow color. Default black. */
+  shadowColor?: string;
+  /** Shadow length (blur) in px. Default 16. */
+  shadowLength?: number;
+}
+
+export interface ResolvedInteractive {
+  hoverLift: boolean;
+  hoverShadow: boolean;
+  hoverBrighten: boolean;
+  liftPx: number;
+  shadowColor: string;
+  shadowLength: number;
+}
+
+/** Context defaults: buttons lift/shadow/brighten unless opted out; text, shapes and images stay static unless opted in. */
+export const INTERACTIVE_DEFAULT_ON = true;
+export const INTERACTIVE_DEFAULT_OFF = false;
+
+/** Defensive read — malformed JSONB (non-object) resolves as absent. */
+function asInteractive(v: unknown): InteractiveDesign | undefined {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
+  return v as InteractiveDesign;
+}
+
+/**
+ * Resolve effective hover flags + values: explicit flags win, otherwise the
+ * context default applies (shared across desktop/tablet/mobile — per-device
+ * size, box and color overrides keep resolving independently underneath).
+ * Malformed values fall back to defaults (lift 4px, black, length 16px).
+ */
+export function resolveInteractive(
+  interactive: InteractiveDesign | undefined | null,
+  defaultOn: boolean,
+): ResolvedInteractive {
+  const clean = asInteractive(interactive);
+  const liftRaw = clean?.liftPx;
+  const lenRaw = clean?.shadowLength;
+  const colorRaw = clean?.shadowColor;
+  return {
+    hoverLift: clean?.hoverLift ?? defaultOn,
+    hoverShadow: clean?.hoverShadow ?? defaultOn,
+    hoverBrighten: clean?.hoverBrighten ?? defaultOn,
+    liftPx:
+      typeof liftRaw === "number" && Number.isFinite(liftRaw)
+        ? Math.min(48, Math.max(0, Math.round(liftRaw)))
+        : 4,
+    shadowColor:
+      typeof colorRaw === "string" && colorRaw.length > 0 && colorRaw.length <= 50
+        ? colorRaw
+        : "#000000",
+    shadowLength:
+      typeof lenRaw === "number" && Number.isFinite(lenRaw)
+        ? Math.min(64, Math.max(0, Math.round(lenRaw)))
+        : 16,
+  };
+}
+
+/**
+ * SSR-safe class names for the resolved hover effect. Returns "" when
+ * nothing is on. Lifts are transform-only (never layout); values ride on
+ * CSS vars (see interactiveStyle) so owners can tune lift/shadow per block.
+ * Disabled under reduced-motion like the rest of the site's animation paths.
+ */
+export function interactiveClasses(
+  interactive: InteractiveDesign | undefined | null,
+  defaultOn: boolean,
+): string {
+  const eff = resolveInteractive(interactive, defaultOn);
+  const cls: string[] = [];
+  if (eff.hoverLift && eff.liftPx > 0) cls.push("ia-lift");
+  if (eff.hoverShadow && eff.shadowLength > 0) cls.push("ia-shadow");
+  if (eff.hoverBrighten) cls.push("ia-brighten");
+  if (cls.length === 0) return "";
+  return ["ia-transition", ...cls].join(" ");
+}
+
+/**
+ * Per-element CSS vars consumed by the ia-* classes: lift distance and the
+ * full hover box-shadow (`0 y blur color`, color at 45% when hex). Merge
+ * into the element's existing style object next to interactiveClasses().
+ * Only includes vars for enabled flags.
+ */
+export function interactiveStyle(
+  interactive: InteractiveDesign | undefined | null,
+  defaultOn: boolean,
+): CSSProperties {
+  const eff = resolveInteractive(interactive, defaultOn);
+  const out: Record<string, string> = {};
+  if (eff.hoverLift && eff.liftPx > 0) out["--ia-lift"] = `${eff.liftPx}px`;
+  if (eff.hoverShadow && eff.shadowLength > 0) {
+    const y = Math.max(1, Math.round(eff.shadowLength / 4));
+    out["--ia-shadow"] = `0 ${y}px ${eff.shadowLength}px ${hexToRgba(eff.shadowColor, 0.45)}`;
+  }
+  return out as unknown as CSSProperties;
 }
 
 export function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -58,6 +175,8 @@ export interface HeaderCtaDesign {
   borderRadius: number; // px
   borderWidth: number; // px
   opacity: number; // 0-100, default 100
+  /** Hover interactivity for the header Book button. Absent = on (buttons default on). */
+  interactive?: InteractiveDesign;
 }
 export type LayerType = "color" | "image" | "images" | "video";
 export type HeroElementKind = "logo" | "title" | "tagline" | "text" | "shape" | "image" | "button";
@@ -238,6 +357,9 @@ export interface DeviceFontOverrides {
   fonts?: Record<string, number>;
   /** Per-element layout overrides: key → rect (same %/cvH units as base). */
   rects?: Record<string, Rect>;
+  /** Per-element color overrides: key → CSS color (e.g. `content:<id>` → text color).
+   *  Desktop always uses the authored base color — overrides are fallbacks. */
+  colors?: Record<string, string>;
 }
 
 export interface ResponsiveOverrides {
@@ -406,7 +528,65 @@ export function withRectOverride(
 }
 
 /**
- * Drop `hero:*` / `content:*` font + rect overrides whose element id no longer
+ * Resolve an authored text color for a device: when device isn't desktop and
+ * `responsive[device].colors[key]` is a non-empty string, use it; else base.
+ * No overrides → returns base (no behavior change).
+ */
+export function resolveColor(
+  base: string,
+  key: string | undefined,
+  device: DeviceKind,
+  responsive?: ResponsiveOverrides | null,
+): string {
+  if (device !== "desktop" && key) {
+    const v = responsive?.[device]?.colors?.[key];
+    if (typeof v === "string" && v.length > 0) return v;
+  }
+  return base;
+}
+
+/**
+ * Read a single color override for console inputs: the override string, or
+ * null when inheriting (desktop, or no override stored). Desktop always
+ * yields null.
+ */
+export function getColorOverride(
+  responsive: ResponsiveOverrides | undefined | null,
+  device: DeviceKind,
+  key: string,
+): string | null {
+  if (device === "desktop") return null;
+  const v = responsive?.[device]?.colors?.[key];
+  return typeof v === "string" && v.length > 0 ? v : null;
+}
+
+/**
+ * Return a new ResponsiveOverrides with `colors[key]` set or omitted when
+ * `value` is undefined (reset-to-inherit). Never mutates `prev`. Desktop is
+ * a no-op so panels can pass the current device through without narrowing.
+ */
+export function withColorOverride(
+  prev: ResponsiveOverrides | undefined,
+  device: DeviceKind,
+  key: string,
+  value: string | undefined,
+): ResponsiveOverrides {
+  if (device === "desktop") return prev ? { ...prev } : {};
+  const prevColors = prev?.[device]?.colors ?? {};
+  let nextColors: Record<string, string>;
+  if (value === undefined || (typeof value === "string" && value.length === 0)) {
+    if (!(key in prevColors)) return prev ? { ...prev } : {};
+    nextColors = { ...prevColors };
+    delete nextColors[key];
+  } else {
+    if (typeof value !== "string") return prev ? { ...prev } : {};
+    nextColors = { ...prevColors, [key]: value };
+  }
+  return { ...prev, [device]: { ...prev?.[device], colors: nextColors } };
+}
+
+/**
+ * Drop `hero:*` / `content:*` font + rect + color overrides whose element id no longer
  * exists. Static keys (`menu.title`, `header.brand`, …) always survive.
  * Call after deleting elements or applying templates so stale per-device
  * values can't resurrect moved/deleted boxes.
@@ -430,12 +610,12 @@ export function pruneElementOverrides(
     const node = prev[dev];
     if (!node) continue;
     const nextNode = { ...node };
-    for (const field of ["fonts", "rects"] as const) {
+    for (const field of ["fonts", "rects", "colors"] as const) {
       const map = node[field];
       if (!map) continue;
-      const nextMap: Record<string, number | Rect> = {};
+      const nextMap: Record<string, number | Rect | string> = {};
       for (const [k, v] of Object.entries(map)) {
-        if (keep(k)) nextMap[k] = v as number & Rect;
+        if (keep(k)) nextMap[k] = v as number & Rect & string;
         else changed = true;
       }
       (nextNode as Record<string, unknown>)[field] = nextMap;
@@ -821,9 +1001,9 @@ function sanitizePageShapes(v: any): { id: string; style: ShapeStyle }[] | undef
   return clean.length > 0 ? clean : undefined;
 }
 /** Sanitize raw per-device overrides: plain object, tablet/mobile each
- *  {fonts: string->finite-number, rects: string->Rect}, capped at 200 keys
- *  per map. Returns undefined when nothing valid survives (field stays
- *  absent). */
+ *  {fonts: string->finite-number, rects: string->Rect, colors: string->color},
+ *  capped at 200 keys per map. Returns undefined when nothing valid survives
+ *  (field stays absent). */
 function sanitizeResponsive(r: any): ResponsiveOverrides | undefined {
   if (!r || typeof r !== "object" || Array.isArray(r)) return undefined;
   const out: ResponsiveOverrides = {};
@@ -856,7 +1036,18 @@ function sanitizeResponsive(r: any): ResponsiveOverrides | undefined {
       }
       if (Object.keys(clean).length > 0) next.rects = clean;
     }
-    if (next.fonts || next.rects) out[dev] = next;
+    const colors = (node as Record<string, unknown>).colors;
+    if (colors && typeof colors === "object" && !Array.isArray(colors)) {
+      const clean: Record<string, string> = {};
+      for (const [k, v] of Object.entries(colors as Record<string, unknown>)) {
+        if (typeof k !== "string" || k.length === 0) continue;
+        if (typeof v !== "string" || v.length === 0 || v.length > 50) continue;
+        if (Object.keys(clean).length >= 200) break;
+        clean[k] = v;
+      }
+      if (Object.keys(clean).length > 0) next.colors = clean;
+    }
+    if (next.fonts || next.rects || next.colors) out[dev] = next;
   }
   return Object.keys(out).length > 0 ? out : undefined;
 }

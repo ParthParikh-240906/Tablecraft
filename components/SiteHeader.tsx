@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { deviceForWidth, hexToRgba, resolveFontSize, resolveLogoSize, type DesignSettingsV2, type DeviceKind, type HeaderElementKind } from "@/lib/design";
+import { deviceForWidth, hexToRgba, interactiveClasses, interactiveStyle, resolveColor, resolveFontSize, resolveLogoSize, type DesignSettingsV2, type DeviceKind, type HeaderElementKind } from "@/lib/design";
 import type { OrgView } from "@/components/OrgPageView";
 
 const DEFAULT_ELEMENT_ORDER: HeaderElementKind[] = ["logo", "name", "menu_link", "book_button"];
@@ -122,28 +122,30 @@ export function SiteHeader({
           style={{
             fontFamily: h.design.fontFamily,
             fontSize: fs(h.design.fontSize, "header.brand"),
-            color: h.design.color,
+            color: resolveColor(h.design.color, "header.brand", device, settings.responsive),
+            ...interactiveStyle(h.design.interactive, false),
           }}
-          className="font-semibold"
+          className={`font-semibold ${interactiveClasses(h.design.interactive, false)}`}
         >
           {org.name}
         </span>
       );
     }
     if (kind === "menu_link") {
+      const navColor = resolveColor(h.nav_design.color, "header.nav", device, settings.responsive);
       return mode === "site" && slug ? (
         <Link
           key="menu_link"
           href={`/${slug}/menu`}
           className="hover:underline"
-          style={{ color: h.nav_design.color, fontFamily: h.nav_design.fontFamily, fontSize: fs(h.nav_design.fontSize, "header.nav") }}
+          style={{ color: navColor, fontFamily: h.nav_design.fontFamily, fontSize: fs(h.nav_design.fontSize, "header.nav") }}
         >
           Menu
         </Link>
       ) : (
         <span
           key="menu_link"
-          style={{ color: h.nav_design.color, fontFamily: h.nav_design.fontFamily, fontSize: fs(h.nav_design.fontSize, "header.nav") }}
+          style={{ color: navColor, fontFamily: h.nav_design.fontFamily, fontSize: fs(h.nav_design.fontSize, "header.nav") }}
         >
           Menu
         </span>
@@ -155,7 +157,7 @@ export function SiteHeader({
       // the button look unchanged when only the font size was lowered).
       const btnStyle = {
         backgroundColor: hexToRgba(h.cta_design.bgColor, (h.cta_design.opacity ?? 100) / 100),
-        color: h.cta_design.textColor,
+        color: resolveColor(h.cta_design.textColor, "header.cta", device, settings.responsive),
         borderColor: h.cta_design.borderColor,
         borderRadius: h.cta_design.borderRadius,
         borderWidth: h.cta_design.borderWidth,
@@ -164,18 +166,22 @@ export function SiteHeader({
         padding: "0.55em 1.1em",
         whiteSpace: "nowrap" as const,
         lineHeight: 1.2,
+        ...interactiveStyle(h.cta_design.interactive, true),
       };
+      // Header Book button is interactive by default (absent = on); the
+      // console Book a Table card can remove it.
+      const ctaInteractive = interactiveClasses(h.cta_design.interactive, true);
       return mode === "site" && slug ? (
         <Link
           key="book_button"
           href={`/${slug}/reserve`}
-          className="font-medium border-2 hover:opacity-90 transition-opacity inline-flex items-center"
+          className={`font-medium border-2 hover:opacity-90 transition-opacity inline-flex items-center ${ctaInteractive}`}
           style={btnStyle}
         >
           Book a table
         </Link>
       ) : (
-        <span key="book_button" className="font-medium border-2 inline-flex items-center" style={btnStyle}>
+        <span key="book_button" className={`font-medium border-2 inline-flex items-center ${ctaInteractive}`} style={btnStyle}>
           Book a table
         </span>
       );

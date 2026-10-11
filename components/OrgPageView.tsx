@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   deviceForWidth,
+  interactiveClasses,
+  interactiveStyle,
+  resolveColor,
   resolveFontSize,
   resolveRect,
   type ContentElement,
@@ -178,6 +181,7 @@ function HeroText({
   // Per-device override for this hero element (`hero:<id>`), then the usual
   // container cap via fS.
   const resolvedSize = resolveFontSize(s.fontSize, `hero:${el.id}`, device, responsive);
+  const resolvedColor = resolveColor(s.color, `hero:${el.id}`, device, responsive);
   // On the live site there is no auto-grow save path, so the box must never
   // hard-clip: it sizes to its content (anchored at its top %) instead of a
   // fixed % height. In preview the fixed height is kept so FitText can measure
@@ -195,7 +199,7 @@ function HeroText({
       style={{
         fontFamily: s.fontFamily,
         fontSize: fS(resolvedSize),
-        color: s.color,
+        color: resolvedColor,
         textAlign: s.textAlign,
       }}
     >
@@ -229,9 +233,10 @@ function ButtonVisual({
   const label = el.buttonType === "menu" ? "Menu" : "Book a table";
   const href = el.buttonType === "menu" ? `/${slug}/menu` : `/${slug}/reserve`;
   const resolvedSize = resolveFontSize(el.design.fontSize, fontKey, device ?? "desktop", responsive);
+  const resolvedColor = resolveColor(el.design.color, fontKey, device ?? "desktop", responsive);
   const style: React.CSSProperties = {
     backgroundColor: el.bgColor ?? "#f97316",
-    color: el.design.color,
+    color: resolvedColor,
     fontFamily: el.design.fontFamily,
     fontSize: fS(resolvedSize),
     textAlign: el.design.textAlign as React.CSSProperties["textAlign"],
@@ -250,6 +255,7 @@ function ButtonVisual({
     cursor: "pointer",
     fontWeight: 600,
     lineHeight: 1.2,
+    ...interactiveStyle(el.design.interactive, true),
   };
   // Buttons reveal on scroll via their own design.animation. When the
   // animation is none/absent no wrapper is added, so the render is byte-
@@ -259,12 +265,12 @@ function ButtonVisual({
 
   if (mode === "site" && slug) {
     return (
-      <Link href={href} className="w-full h-full block" style={style}>
+      <Link href={href} className={`w-full h-full block ${interactiveClasses(el.design.interactive, true)}`} style={style}>
         {labelNode}
       </Link>
     );
   }
-  return <div className="w-full h-full" style={style}>{labelNode}</div>;
+  return <div className={`w-full h-full ${interactiveClasses(el.design.interactive, true)}`} style={style}>{labelNode}</div>;
 }
 
 function ContentVisual({
@@ -356,13 +362,14 @@ function ContentVisual({
   }
   if (!text) return null;
 
+  const resolvedColor = resolveColor(s.color, `content:${el.id}`, device, responsive);
   return (
     <AnimatedText
       text={text}
       design={s}
       preview={mode === "preview"}
       className={`w-full h-full overflow-hidden leading-relaxed whitespace-pre-line ${el.kind === "title" ? "font-bold" : ""}${s.gradient ? " gradient-text" : ""}`}
-      style={{ fontFamily: s.fontFamily, fontSize: fS(resolveFontSize(s.fontSize, `content:${el.id}`, device, responsive)), color: s.color, textAlign: s.textAlign }}
+      style={{ fontFamily: s.fontFamily, fontSize: fS(resolveFontSize(s.fontSize, `content:${el.id}`, device, responsive)), color: resolvedColor, textAlign: s.textAlign }}
     />
   );
 }
@@ -462,8 +469,8 @@ export function OrgPageView({
             return el.kind === "shape" || el.kind === "image" ? (
               <div
                 key={el.id}
-                className="absolute"
-                style={{ left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, height: `${r.h}%`, zIndex: 6 }}
+                className={`absolute ${interactiveClasses(el.design.interactive, false)}`}
+                style={{ left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, height: `${r.h}%`, zIndex: 6, ...interactiveStyle(el.design.interactive, false) }}
               >
                 <ShapeVisual s={el} image={el.kind === "image"} />
               </div>
@@ -501,11 +508,11 @@ export function OrgPageView({
             ) : (
               <div
                 key={el.id}
-                className="absolute"
+                className={`absolute ${interactiveClasses(el.design.interactive, false)}`}
                 style={
                   mode === "site"
-                    ? { left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, minHeight: `${r.h}%`, zIndex: 6 }
-                    : { left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, height: `${r.h}%`, zIndex: 6 }
+                    ? { left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, minHeight: `${r.h}%`, zIndex: 6, ...interactiveStyle(el.design.interactive, false) }
+                    : { left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, height: `${r.h}%`, zIndex: 6, ...interactiveStyle(el.design.interactive, false) }
                 }
               >
                 <HeroText
@@ -536,16 +543,21 @@ export function OrgPageView({
         >
           {contentEls.map((el) => {
             const r = contentRectOf(el);
+            // Buttons resolve their own hover inside ButtonVisual (default
+            // on); every other kind resolves here (default off).
+            const wrapInteractive = el.kind === "button" ? "" : interactiveClasses(el.design.interactive, false);
+            const wrapStyle = el.kind === "button" ? {} : interactiveStyle(el.design.interactive, false);
             return (
               <div
                 key={el.id}
-                className="absolute"
+                className={`absolute ${wrapInteractive}`}
                 style={{
                   left: `${r.x}%`,
                   top: cvH(r.y),
                   width: `${r.w}%`,
                   height: cvH(r.h),
                   zIndex: 6,
+                  ...wrapStyle,
                 }}
               >
                 <ContentVisual

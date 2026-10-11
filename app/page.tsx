@@ -267,7 +267,7 @@ function Navbar() {
 // ─── Hero — centered, no eyebrow, visual slot left blank ───────────────────────
 function Hero() {
   return (
-    <section className="relative overflow-hidden pt-28 pb-16 md:pt-36 md:pb-24 border-b border-white/10">
+    <section className="relative overflow-hidden min-h-screen flex flex-col pt-28 border-b border-white/10">
       {/* Premium restaurant background image */}
       <div className="hero-bg">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -283,7 +283,8 @@ function Hero() {
         <div className="hero-bg__scrim" />
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto px-6">
+      {/* Centered headline — sits at the page center */}
+      <div className="relative z-10 max-w-6xl mx-auto px-6 w-full flex-1 flex flex-col items-center justify-center">
         {/* Copy */}
         <div className="text-center max-w-3xl mx-auto">
           <h1 className="font-display text-5xl md:text-6xl lg:text-7xl leading-[1.05] tracking-tight mb-6 text-[var(--ink)]">
@@ -294,7 +295,7 @@ function Hero() {
           <p className="text-[var(--ink-soft)] text-lg md:text-xl mb-8 max-w-2xl mx-auto leading-relaxed opacity-95">
             AI-powered website, console, and staff dashboard — built for restaurants that want to move fast.
           </p>
-          <div className="flex flex-wrap justify-center gap-4 mb-10">
+          <div className="flex flex-wrap justify-center gap-4">
             <Link href="/signup" className="btn btn-accent text-base px-10 py-4">
               Create your restaurant
             </Link>
@@ -302,54 +303,8 @@ function Hero() {
               Demo restaurants
             </a>
           </div>
-
-          {/* Trust row */}
-          <div className="flex items-center justify-center gap-4 mb-8">
-            <div className="flex -space-x-2" aria-hidden="true">
-              {["M", "S", "J", "+"].map((c, i) => (
-                <span
-                  key={i}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white border-2 border-[var(--paper)]"
-                  style={{ background: i === 3 ? "var(--paper-overlay)" : "var(--accent)", zIndex: 4 - i }}
-                >
-                  {c}
-                </span>
-              ))}
-            </div>
-            <div className="text-left">
-              <p className="text-sm text-[var(--ink)] font-medium" aria-label="Rated 4.9 out of 5">
-                <span className="text-[var(--accent)] tracking-tight">★★★★★</span> 4.9/5
-              </p>
-              <p className="text-xs text-[var(--ink-faint)]">Loved by restaurant owners</p>
-            </div>
-          </div>
-
-          {/* Stats */}
-          <dl className="grid grid-cols-3 max-w-md mx-auto gap-6 border-t border-white/10 pt-6">
-            {[
-              { v: "10 min", l: "Median setup" },
-              { v: "80%", l: "Bookings via AI" },
-              { v: "Same day", l: "Setup → live" },
-            ].map((s) => (
-              <div key={s.l}>
-                <dt className="sr-only">{s.l}</dt>
-                <dd className="font-display text-xl md:text-2xl text-[var(--ink)]">{s.v}</dd>
-                <dd className="text-xs text-[var(--ink-faint)] mt-1">{s.l}</dd>
-              </div>
-            ))}
-          </dl>
         </div>
       </div>
-
-      {/* Scroll indicator — hidden for reduced-motion users */}
-      {!prefersReducedMotion && (
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center gap-2 animate-bounce">
-          <span className="label-caps text-[var(--ink-faint)]">Scroll</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-faint)" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-            <path d="M12 5v14M5 12l7 7 7-7" />
-          </svg>
-        </div>
-      )}
     </section>
   );
 }
