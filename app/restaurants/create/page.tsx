@@ -23,16 +23,12 @@ export default function CreateRestaurantPage() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [restaurantImages, setRestaurantImages] = useState<File[]>([]);
   const [vibe, setVibe] = useState("");
-  const [paragraph, setParagraph] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<"pro" | "max" | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
-  const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiDescription, setAiDescription] = useState("");
-  const [aiError, setAiError] = useState<string | null>(null);
   const [slugTouched, setSlugTouched] = useState(false);
 
   // Read ?plan= query param on mount
@@ -56,30 +52,6 @@ export default function CreateRestaurantPage() {
       setError("Could not verify your sign-in — please refresh and try again.");
     });
   }, []);
-
-  async function handleAiGenerate() {
-    if (!aiDescription.trim() || aiGenerating) return;
-    setAiGenerating(true);
-    setAiError(null);
-    try {
-      const res = await fetch("/api/content/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: aiDescription.trim(), orgName: orgName || undefined }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || data?.error) {
-        setAiError(data?.error ?? "Failed to generate content — please try again.");
-        return;
-      }
-      if (data.tagline) setTagline(data.tagline);
-      if (data.about) setAboutText(data.about);
-    } catch {
-      setAiError("Failed to generate content — is AGNES_API_KEY configured?");
-    } finally {
-      setAiGenerating(false);
-    }
-  }
 
   function handleNameChange(value: string) {
     setOrgName(value);
@@ -167,7 +139,7 @@ export default function CreateRestaurantPage() {
             tagline,
             orgSlug: data?.org?.slug ?? slug,
             vibe,
-            paragraph,
+            paragraph: aboutText,
           }),
         });
       } catch {
@@ -382,25 +354,6 @@ export default function CreateRestaurantPage() {
             </div>
           </div>
 
-          {/* About your restaurant — required */}
-          <div>
-            <label htmlFor="aboutText" className="block text-sm font-medium mb-1.5">
-              About your restaurant
-            </label>
-            <textarea
-              id="aboutText"
-              value={aboutText}
-              onChange={(e) => setAboutText(e.target.value)}
-              rows={4}
-              required
-              placeholder="Tell us about your restaurant&apos;s story, cuisine, and atmosphere..."
-              className="input placeholder:text-[var(--ink-faint)]"
-            />
-            <p className="text-xs text-[var(--ink-faint)] mt-1">
-              This will be displayed on your landing page&apos;s About section.
-            </p>
-          </div>
-
           <div>
             <label htmlFor="vibe" className="block text-sm font-medium mb-1.5">
               Vibe / aesthetic <span className="text-[var(--accent)]">*</span>
@@ -420,30 +373,29 @@ export default function CreateRestaurantPage() {
             </p>
           </div>
 
-          <div>
-            <label htmlFor="paragraph" className="block text-sm font-medium mb-1.5">
-              Story paragraph <span className="text-[var(--ink-faint)]">(optional)</span>
-            </label>
-            <textarea
-              id="paragraph"
-              value={paragraph}
-              onChange={(e) => setParagraph(e.target.value)}
-              rows={3}
-              maxLength={2000}
-              placeholder="Our family recipe story..."
-              className="input placeholder:text-[var(--ink-faint)]"
-            />
-            <p className="text-xs text-[var(--ink-faint)] mt-1">
-              If filled, the build model must use it on the site.
-            </p>
-          </div>
-
           {/* Optional details dropdown */}
           <details className="border-t border-[var(--rule)] pt-4">
             <summary className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wide hover:text-[var(--ink)] transition-colors py-1 select-none">
               Optional Details
             </summary>
             <div className="space-y-4 pt-4">
+              <div>
+                <label htmlFor="aboutText" className="block text-sm font-medium mb-1.5">
+                  About / story <span className="text-[var(--ink-faint)]">(optional — owner paragraph)</span>
+                </label>
+                <textarea
+                  id="aboutText"
+                  value={aboutText}
+                  onChange={(e) => setAboutText(e.target.value)}
+                  rows={4}
+                  maxLength={2000}
+                  placeholder="Your story, cuisine, and atmosphere — used as the owner paragraph on the site..."
+                  className="input placeholder:text-[var(--ink-faint)]"
+                />
+                <p className="text-xs text-[var(--ink-faint)] mt-1">
+                  If filled, the build model must use it. If empty, it writes one for you.
+                </p>
+              </div>
               {/* Branches */}
               <div>
                 <label className="block text-sm font-medium mb-1.5">
@@ -552,40 +504,6 @@ export default function CreateRestaurantPage() {
                   </p>
                 </div>
               </div>
-            </div>
-          </details>
-
-          {/* AI Content Generator dropdown */}
-          <details className="border-t border-[var(--rule)] pt-4">
-            <summary className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wide hover:text-[var(--ink)] transition-colors py-1 select-none">
-              AI Website Content Generator
-            </summary>
-            <div className="space-y-3 pt-3">
-              <div>
-                <label htmlFor="aiDesc" className="block text-xs text-[var(--ink-soft)] mb-1">
-                  Describe your restaurant in a few words
-                </label>
-                <textarea
-                  id="aiDesc"
-                  value={aiDescription}
-                  onChange={(e) => setAiDescription(e.target.value)}
-                  rows={2}
-                  placeholder="e.g. Family-run Italian place in Dubai with wood-fired pizzas and hidden garden"
-                  className="input placeholder:text-[var(--ink-faint)] text-sm"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={handleAiGenerate}
-                disabled={aiGenerating || !aiDescription.trim()}
-                className="btn btn-outline-accent text-xs px-4 py-1.5"
-              >
-                {aiGenerating ? "Generating…" : "Generate content"}
-              </button>
-              {aiError && <p className="text-xs text-red-400">{aiError}</p>}
-              <p className="text-xs text-[var(--ink-faint)]">
-                Fills in your tagline and about text using AI.
-              </p>
             </div>
           </details>
 

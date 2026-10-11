@@ -66,8 +66,10 @@ export async function POST(request: Request) {
   if (!email || typeof email !== "string" || !email.includes("@")) {
     return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
   }
-  if (!aboutText || typeof aboutText !== "string" || aboutText.trim().length < 10 || aboutText.length > 2000) {
-    return NextResponse.json({ error: "Please provide a short description of your restaurant (10-2000 characters)" }, { status: 400 });
+  // aboutText is optional: it doubles as the owner paragraph for the build.
+  // Empty or short values are stored as null; the build model drafts one.
+  if (aboutText && typeof aboutText === "string" && aboutText.length > 2000) {
+    return NextResponse.json({ error: "About text must be under 2000 characters" }, { status: 400 });
   }
   if (!staffEmail || typeof staffEmail !== "string" || !staffEmail.includes("@")) {
     return NextResponse.json({ error: "A valid staff email is required" }, { status: 400 });
@@ -263,7 +265,7 @@ export async function POST(request: Request) {
   if (contactPhone && typeof contactPhone === "string") orgData.contact_phone = contactPhone.slice(0, 30);
   if (contactEmail && typeof contactEmail === "string") orgData.contact_email = contactEmail.slice(0, 255);
   if (contactAddress && typeof contactAddress === "string") orgData.contact_address = contactAddress.slice(0, 500);
-  if (aboutText) orgData.about_text = aboutText.slice(0, 2000);
+  if (aboutText && aboutText.trim().length >= 10) orgData.about_text = aboutText.slice(0, 2000);
   if (logoUrl) orgData.logo_url = logoUrl;
   if (restaurantImageUrls.length > 0) orgData.restaurant_photos = restaurantImageUrls;
 

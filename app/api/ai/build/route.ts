@@ -65,11 +65,44 @@ export async function POST(request: Request) {
   if (!/^[a-z0-9-]{2,40}$/.test(orgSlug)) {
     return NextResponse.json({ error: "orgSlug must be 2-40 chars: a-z 0-9 -" }, { status: 400 });
   }
-  const paragraph = typeof body.paragraph === "string" ? body.paragraph.slice(0, 2000) : "";
-  const logoUrl = typeof body.logoUrl === "string" ? body.logoUrl : "";
-  const imageUrls = Array.isArray(body.imageUrls)
+  let paragraph = typeof body.paragraph === "string" ? body.paragraph.slice(0, 2000) : "";
+  let logoUrl = typeof body.logoUrl === "string" ? body.logoUrl : "";
+  let imageUrls = Array.isArray(body.imageUrls)
     ? (body.imageUrls as unknown[]).filter((u): u is string => typeof u === "string").slice(0, 10)
     : [];
+
+  // Anything the user attached at signup (logo / restaurant photos) lives on
+  // the org row — pull it in when the caller did not pass URLs directly.
+  if (orgId && (!logoUrl || imageUrls.length === 0)) {
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const { data: org } = await createAdminClient()
+        .from("organizations")
+        .select("logo_url, restaurant_photos")
+        .eq("id", orgId)
+        .maybeSingle();
+      if (!logoUrl && typeof org?.logo_url === "string") logoUrl = org.logo_url;
+      if (imageUrls.length === 0 && Array.isArray(org?.restaurant_photos)) {
+        imageUrls = org.restaurant_photos.filter((u): u is string => typeof u === "string").slice(0, 10);
+      }
+    } catch {
+      // Uploads are optional — build continues with placeholders.
+    }
+  }
+
+  // Owner paragraph is optional: when missing, Haiku drafts one from name+vibe
+  // so the build prompt always has story copy to use.
+  if (!paragraph.trim()) {
+    try {
+      const drafted = await callHaikuLow(
+        `Write a 3-4 sentence warm, inviting owner paragraph for a restaurant named "${name}" (${tagline || "no tagline"}) with this vibe: ${vibe}. No intro fluff like "Welcome to...". Return only the paragraph, no quotes.`,
+        { maxTokens: 500 },
+      );
+      paragraph = drafted.trim().slice(0, 2000);
+    } catch {
+      paragraph = "";
+    }
+  }
 
   const prompt = [
     `Restaurant name: ${name}`,
