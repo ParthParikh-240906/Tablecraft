@@ -604,4 +604,49 @@ html:has([data-design-stable]) {
   scrollbar-gutter: stable;
 }
 
+/* ---------------------------------------------------------------------------
+   Console fullscreen mode: keep theme background in fullscreen and animate
+   the transient "Press Esc to exit" hint. The hint wrapper handles
+   horizontal centering so the keyframes only animate translateY/opacity.
+   --------------------------------------------------------------------------- */
+:fullscreen {
+  background: var(--paper);
+}
+:-webkit-full-screen {
+  background: var(--paper);
+}
+::backdrop {
+  background: var(--paper);
+}
+
+.console-fullscreen-toast {
+  animation:
+    console-toast-in 150ms ease-out,
+    console-toast-out 300ms ease-in 2.7s forwards;
+}
+
+@keyframes console-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes console-toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-fullscreen-toast {
+    animation: none;
+  }
+}
+
 

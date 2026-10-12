@@ -13,6 +13,7 @@ import type { SidebarOrgItem } from "./sidebar";
 import { MobileMenuButton } from "./mobile-menu-button";
 import { ConsoleSidebarOverlay } from "./console-sidebar-overlay";
 import { DemoModeProvider } from "./demo-mode-provider";
+import { FullscreenToggle } from "./fullscreen-toggle";
 
 const DEMO_EMAIL = "demo@tablecraft.app";
 
@@ -168,6 +169,9 @@ export default async function ConsoleLayout({
             />
           )}
           <div className="ticket flex-1 w-full rounded-sm border border-[var(--rule)] bg-[var(--paper-raised)] overflow-hidden">
+            <div className="hidden md:flex justify-end px-4 sm:px-6 pt-4">
+              <FullscreenToggle />
+            </div>
             <main className="px-4 sm:px-6 py-6">{children}</main>
           </div>
         </div>
