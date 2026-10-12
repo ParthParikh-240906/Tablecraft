@@ -264,6 +264,39 @@ export function defaultBookingConfig(): BookingConfigDesign {
   };
 }
 
+export type CartFulfillmentMode = "pickup" | "delivery";
+
+export interface CartConfigDesign {
+  mode: CartFulfillmentMode; // default fulfillment; customer can switch when delivery is enabled
+  delivery_enabled: boolean; // when false, pickup only
+  delivery_fee: number; // AED, applied to delivery orders
+  min_order: number; // AED minimum cart total, 0 = none
+}
+
+export function defaultCartConfig(): CartConfigDesign {
+  return {
+    mode: "pickup",
+    delivery_enabled: false,
+    delivery_fee: 0,
+    min_order: 0,
+  };
+}
+
+export function normalizeCartConfig(raw: unknown): CartConfigDesign {
+  const base = defaultCartConfig();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return base;
+  const r = raw as Record<string, unknown>;
+  const mode = r.mode === "delivery" ? "delivery" : "pickup";
+  const delivery_enabled = r.delivery_enabled === true;
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0);
+  return {
+    mode: delivery_enabled ? mode : "pickup",
+    delivery_enabled,
+    delivery_fee: num(r.delivery_fee),
+    min_order: num(r.min_order),
+  };
+}
+
 export interface HeroElement extends Rect, ShapeStyle {
   id: string;
   kind: HeroElementKind;
@@ -337,6 +370,7 @@ export interface DesignSettingsV2 {
   menu_page?: MenuPageDesign;
   reserve_page?: ReservePageDesign;
   booking_config?: BookingConfigDesign;
+  cart_config?: CartConfigDesign;
   menu_page_shapes?: { id: string; style: ShapeStyle }[];
   reserve_page_shapes?: { id: string; style: ShapeStyle }[];
   custom_fonts?: { name: string; value: string; url: string; weight?: number; css?: string }[];
@@ -1119,6 +1153,7 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
     menu_page: { ...defaultMenuPageDesign(), ...(legacy.menu_page ?? {}) },
     reserve_page: { ...defaultReservePageDesign(), ...(legacy.reserve_page ?? {}) },
     booking_config: { ...defaultBookingConfig(), ...(legacy.booking_config ?? {}) },
+    cart_config: normalizeCartConfig(legacy.cart_config),
     ai_gallery: Array.isArray(legacy.ai_gallery)
       ? legacy.ai_gallery.filter((u: unknown) => typeof u === "string").slice(0, 3)
       : [],

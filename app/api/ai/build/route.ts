@@ -14,10 +14,12 @@ Top of <script> must declare an EDITABLE DATA block:
 const ORG_SLUG = "<slug>"; const API_BOOKINGS = "/api/bookings";
 const MENU_ITEMS = [...] (8-10 items: name, price number in AED, category, description);
 const GALLERY_IMAGES = [...] (4-5 entries: src, caption).
+const CART_SETTINGS = { mode: "pickup", delivery_enabled: false, delivery_fee: 0, min_order: 0 } (mirrors the console cart config; pickup by default).
 
 Wiring rules:
 - submitBooking(payload) POSTs JSON { orgSlug: ORG_SLUG, ...payload } to /api/bookings. The booking form calls it and shows real success/error status from the fetch result. The chatbot does NOT call it directly — its sendChatMessage() stub is left for the connector model, which will wire Haiku 5.5 to drive bookings through this same function.
-- Mark MENU_ITEMS, the submitBooking() function, and the chatbot sendChatMessage() stub with a /* CONSOLE HOOK */ comment each, so the connector model (GPT 6.1 Sol) can wire the site to the console and connect the chatbot to Haiku 5.5.
+- submitCartCheckout() POSTs JSON { orgSlug: ORG_SLUG, items: [{id, quantity}], fulfillment, customerName, customerPhone } to /api/cart/checkout and redirects the browser to the returned Stripe Checkout URL. Server-side prices win; never trust client totals.
+- Mark MENU_ITEMS, CART_SETTINGS, the submitBooking() and submitCartCheckout() functions, and the chatbot sendChatMessage() stub with a /* CONSOLE HOOK */ comment each, so the connector model (GPT 6.1 Sol) can wire the site to the console and connect the chatbot to Haiku 5.5.
 
 DESIGN (this is the priority — aim for a polished, premium look):
 - Typography: load a Google Fonts pairing (preconnect + stylesheet link) — one expressive display serif for headings, one clean sans for body/UI — chosen to match the vibe.
@@ -26,7 +28,8 @@ DESIGN (this is the priority — aim for a polished, premium look):
 - Hero: the model's own creative choice, expressing the vibe — any layout, any CSS-art visual, any subtle animation. No fixed layout is required. The only defaults: simple, interactive, and animated. A vibe word alone (cyberpunk, fiery, coastal) must drive the art direction without further instruction.
 - Scroll-reveal everywhere: .reveal elements fade/slide in via IntersectionObserver with staggered transition-delays.
 - Section pattern: small uppercase kicker + large serif h2 with an accent-colored em phrase.
-- Menu: filter pills + cards rendered from MENU_ITEMS via JS, with hover and entrance treatments of the model's own choosing — never repeat the same hover effect across generations; invent one that fits the vibe.
+- Menu: filter pills + cards rendered from MENU_ITEMS via JS, with hover and entrance treatments of the model's own choosing — never repeat the same hover effect across generations; invent one that fits the vibe. Every card carries an add-to-cart button (plus/minus stepper when already in cart) wired to the shared cart store.
+- Cart: a dedicated cart view (own section with id="cart" plus a slide-in drawer), rendered from the same cart store — line items, qty steppers, remove, subtotal, fulfillment switch (pickup/delivery, default from CART_SETTINGS), delivery fee and min-order enforcement, name + phone fields, and a Pay button calling submitCartCheckout(). Cart persists in localStorage keyed by ORG_SLUG. Header shows a cart icon with a live count badge linking to the cart view.
 - One full-bleed statement band in the primary color with a centered serif line.
 - Gallery: a perfect rectangle with zero empty gaps. Use a 12-column CSS grid with grid-auto-flow: dense; assign every tile an explicit grid-column span so EACH row's spans sum to exactly 12 (e.g. 7+5, 4+4+4, 6+6, 3+3+3+3); give all tiles in the same row equal heights so edges line up. Verify the span arithmetic row by row before finishing. Gradient placeholder tiles where images are missing.
 - Visit section: hours/location cards. Booking: split layout (copy + form card) with per-field error spans, JS-populated party (1-20) and time selects, min date set to today, and a confirmation panel (check icon + booking details + "make another booking" button) replacing the form on success.

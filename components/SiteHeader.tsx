@@ -5,7 +5,35 @@ import Link from "next/link";
 import { deviceForWidth, hexToRgba, interactiveClasses, interactiveStyle, resolveColor, resolveFontSize, resolveLogoSize, type DesignSettingsV2, type DeviceKind, type HeaderElementKind } from "@/lib/design";
 import type { OrgView } from "@/components/OrgPageView";
 
+import { useCart } from "@/lib/cart";
+
 const DEFAULT_ELEMENT_ORDER: HeaderElementKind[] = ["logo", "name", "menu_link", "book_button"];
+
+function CartHeaderLink({ slug, mode, accent }: { slug?: string; mode: "preview" | "site"; accent: string }) {
+  const { count } = useCart(slug ?? "");
+  if (mode !== "site" || !slug) {
+    return (
+      <span aria-hidden="true" className="relative inline-flex items-center text-lg" style={{ color: accent }}>
+        🛒
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={`/${slug}/cart`}
+      aria-label={`Cart, ${count} items`}
+      className="relative inline-flex items-center text-lg hover:opacity-80"
+      style={{ color: accent }}
+    >
+      🛒
+      {count > 0 && (
+        <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full text-[10px] font-bold flex items-center justify-center text-white" style={{ backgroundColor: accent }}>
+          {count}
+        </span>
+      )}
+    </Link>
+  );
+}
 
 /**
  * Shared sticky header used on the restaurant landing page, menu page, and
@@ -219,6 +247,7 @@ export function SiteHeader({
           </div>
           <nav className="flex items-center gap-4 flex-wrap" aria-label="Restaurant">
             {rightKinds.map((k) => renderElement(k))}
+            <CartHeaderLink slug={slug} mode={mode} accent={colors.accent} />
           </nav>
         </div>
       </div>

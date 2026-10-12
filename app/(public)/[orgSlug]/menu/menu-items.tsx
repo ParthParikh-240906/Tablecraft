@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import type { MenuPageDesign, ResponsiveOverrides } from "@/lib/design";
 import { getShadowStyle, interactiveClasses, interactiveStyle, resolveColor, resolveFontSize } from "@/lib/design";
 import { useViewportDevice } from "@/lib/use-device";
+import { useCart } from "@/lib/cart";
 
 interface MenuItem {
   id: string;
@@ -43,13 +45,16 @@ export function MenuItems({
   menuDesign,
   shapes,
   responsive,
+  orgSlug,
 }: {
   grouped: { category: string; items: MenuItem[] }[];
   menuDesign: MenuPageDesign;
   shapes?: ShapeElement[];
   responsive?: ResponsiveOverrides | null;
+  orgSlug?: string;
 }) {
   const device = useViewportDevice();
+  const { add, lines } = useCart(orgSlug ?? "");
   // Resolve a menu.* per-device size + color override, then the usual inline styles.
   // Hover vars ride along so owner-tuned lift/shadow apply on the live site.
   const rinline = (
@@ -123,9 +128,22 @@ export function MenuItems({
                       </p>
                     )}
                   </div>
-                  <span className={[gcls(menuDesign.item_price_design), icls(menuDesign.item_price_design)].filter(Boolean).join(" ") || undefined} style={{ ...rinline(menuDesign.item_price_design, "menu.item_price", { fontWeight: 600, whiteSpace: "nowrap" }) }}>
-                    {formatPrice(item.price)}
-                  </span>
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <span className={[gcls(menuDesign.item_price_design), icls(menuDesign.item_price_design)].filter(Boolean).join(" ") || undefined} style={{ ...rinline(menuDesign.item_price_design, "menu.item_price", { fontWeight: 600, whiteSpace: "nowrap" }) }}>
+                      {formatPrice(item.price)}
+                    </span>
+                    {orgSlug && (
+                      <button
+                        type="button"
+                        onClick={() => add(item.id, 1)}
+                        aria-label={`Add ${item.name} to cart`}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full border transition-opacity hover:opacity-80"
+                        style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
+                      >
+                        {lines[item.id] ? `Add +${lines[item.id]} in cart` : "Add to cart"}
+                      </button>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>

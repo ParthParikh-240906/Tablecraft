@@ -23,6 +23,10 @@ export default function CreateRestaurantPage() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [restaurantImages, setRestaurantImages] = useState<File[]>([]);
   const [vibe, setVibe] = useState("");
+  const [createdOrg, setCreatedOrg] = useState<{ id: string; slug: string } | null>(null);
+  const [connectStatus, setConnectStatus] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<"pro" | "max" | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -146,48 +150,101 @@ export default function CreateRestaurantPage() {
         // Build failures are surfaced in console Website tab; don't block signup.
       }
 
-      if (selectedPlan) {
-        setRedirecting(true);
-        try {
-          const res = await fetch("/api/subscription/checkout", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ plan: selectedPlan, email, orgSlug: data?.org?.slug }),
-          });
-          const checkoutData = await res.json().catch(() => null);
-          if (!res.ok) {
-            setError(checkoutData?.error ?? "Payment setup failed — your restaurant was created, but checkout did not start. Continue from the dashboard.");
-            setRedirecting(false);
-            setSubmitting(false);
-            setUploading(false);
-            router.push("/dashboard");
-            router.refresh();
-            return;
-          }
-          if (checkoutData?.url) {
-            window.location.href = checkoutData.url;
-            return;
-          }
-          setError("Payment setup did not return a checkout link — continue from the dashboard.");
-          setRedirecting(false);
-        } catch {
-          setError("Payment setup failed — your restaurant was created. Continue from the dashboard to retry payment.");
-          setRedirecting(false);
-        }
-        setSubmitting(false);
-        setUploading(false);
-        router.push("/dashboard");
-        router.refresh();
-        return;
-      }
-
-      router.push("/dashboard");
-      router.refresh();
+      // Restaurant exists — move to the payments step (Connect is optional).
+      setCreatedOrg({ id: data?.org?.id, slug: data?.org?.slug ?? slug });
+      setSubmitting(false);
+      setUploading(false);
+      return;
     } catch {
       setError("Network error — please try again");
       setSubmitting(false);
       setUploading(false);
     }
+  }
+
+  async function connectStripe() {
+    if (connecting || !createdOrg) return;
+    setConnecting(true);
+    setConnectError(null);
+    try {
+      const res = await fetch("/api/stripe/connect/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgSlug: createdOrg.slug }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.url) {
+        setConnectError(data?.error ?? "Could not start Stripe onboarding.");
+        return;
+      }
+      const popup = window.open(data.url, "stripe-connect", "width=600,height=800");
+      if (!popup) {
+        setConnectError("Popup blocked — allow popups and try again.");
+        return;
+      }
+      const onMessage = (e: MessageEvent) => {
+        if (e.data === "stripe-connected") refreshConnectStatus();
+      };
+      window.addEventListener("message", onMessage);
+      for (let i = 0; i < 100 && !popup.closed; i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        await refreshConnectStatus();
+        if (!popup.closed) continue;
+        break;
+      }
+      window.removeEventListener("message", onMessage);
+      await refreshConnectStatus();
+    } catch {
+      setConnectError("Network error — please try again.");
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  async function refreshConnectStatus() {
+    if (!createdOrg) return;
+    try {
+      const res = await fetch(`/api/stripe/connect/status?orgSlug=${encodeURIComponent(createdOrg.slug)}`);
+      const data = await res.json().catch(() => null);
+      if (data?.status) setConnectStatus(data.status);
+    } catch {}
+  }
+
+  async function continueAfterCreate() {
+    if (!createdOrg) return;
+    if (selectedPlan) {
+      setRedirecting(true);
+      try {
+        const res = await fetch("/api/subscription/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan: selectedPlan, email, orgSlug: createdOrg.slug }),
+        });
+        const checkoutData = await res.json().catch(() => null);
+        if (!res.ok) {
+          setError(checkoutData?.error ?? "Payment setup failed — your restaurant was created, but checkout did not start. Continue from the dashboard.");
+          setRedirecting(false);
+          router.push("/dashboard");
+          router.refresh();
+          return;
+        }
+        if (checkoutData?.url) {
+          window.location.href = checkoutData.url;
+          return;
+        }
+        setError("Payment setup did not return a checkout link — continue from the dashboard.");
+        setRedirecting(false);
+      } catch {
+        setError("Payment setup failed — your restaurant was created. Continue from the dashboard to retry payment.");
+        setRedirecting(false);
+      }
+      router.push("/dashboard");
+      router.refresh();
+      return;
+    }
+
+    router.push("/dashboard");
+    router.refresh();
   }
 
   return (
@@ -202,6 +259,8 @@ export default function CreateRestaurantPage() {
       </div>
 
       <div className="w-full max-w-md">
+        {!createdOrg && (
+        <>
         <div className="text-center mb-8">
           <p className="label-caps text-[color:var(--accent)] mb-1">Tablecraft</p>
           <h1 className="font-display text-3xl text-[var(--ink)]">Create your restaurant</h1>
@@ -525,6 +584,38 @@ export default function CreateRestaurantPage() {
                 : "Create restaurant"}
           </button>
         </form>
+        </>
+        )}
+
+        {createdOrg && (
+          <div className="ticket p-6 space-y-4 mt-6">
+            <h2 className="font-display text-xl">Accept online payments</h2>
+            <p className="text-sm text-[var(--ink-soft)]">
+              {createdOrg.slug} is created. Connect Stripe to take guest cart payments — a popup opens where you create a new Stripe account or sign into your existing one.
+            </p>
+            {connectStatus === "active" ? (
+              <p className="text-sm text-green-400">✓ Stripe connected — cart checkout is live.</p>
+            ) : (
+              <button
+                type="button"
+                onClick={connectStripe}
+                disabled={connecting}
+                className="btn btn-accent w-full disabled:opacity-50"
+              >
+                {connecting ? "Waiting for Stripe…" : "Connect Stripe"}
+              </button>
+            )}
+            {connectError && <p className="text-xs text-red-400">{connectError}</p>}
+            <button
+              type="button"
+              onClick={continueAfterCreate}
+              disabled={redirecting}
+              className="btn btn-outline w-full"
+            >
+              {connectStatus === "active" ? "Continue" : "Skip for now"}
+            </button>
+          </div>
+        )}
 
         <p className="text-xs text-center text-[var(--ink-faint)] mt-4">
           <Link href="/" className="hover:text-[var(--ink)] transition-colors">

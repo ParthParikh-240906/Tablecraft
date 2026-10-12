@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useDesign } from "../design/use-design";
 import { useConsoleTheme } from "../theme-wrapper";
-import { defaultBookingConfig, type BookingConfigDesign, type DesignSettingsV2 } from "@/lib/design";
+import { defaultBookingConfig, defaultCartConfig, normalizeCartConfig, type BookingConfigDesign, type CartConfigDesign, type DesignSettingsV2 } from "@/lib/design";
 
 export interface ConfigOrgItem {
   id: string;
@@ -62,6 +62,83 @@ export function ConfigPanel({
         ...patch,
       },
     } as Partial<DesignSettingsV2>);
+  };
+
+  const cartConfig: CartConfigDesign = normalizeCartConfig(settings.cart_config);
+
+  const updateCartConfig = (patch: Partial<CartConfigDesign>) => {
+    updateSettings({
+      cart_config: {
+        ...cartConfig,
+        ...patch,
+      },
+    } as Partial<DesignSettingsV2>);
+  };
+
+  const orgSlug = userOrgs.find((o) => o.id === orgId)?.slug ?? "";
+  const [connectStatus, setConnectStatus] = useState<"none" | "pending" | "active" | "restricted" | "unknown">("unknown");
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+
+  // Initial Connect status + refresh when the Stripe popup reports back.
+  useEffect(() => {
+    if (!orgSlug) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/stripe/connect/status?orgSlug=${encodeURIComponent(orgSlug)}`);
+        const data = await res.json().catch(() => null);
+        if (!cancelled && data?.status) setConnectStatus(data.status);
+      } catch {}
+    };
+    void load();
+    const onMessage = (e: MessageEvent) => {
+      if (e.data === "stripe-connected") void load();
+    };
+    window.addEventListener("message", onMessage);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("message", onMessage);
+    };
+  }, [orgSlug]);
+
+  const startConnect = async () => {
+    if (connectLoading || !orgSlug) return;
+    setConnectLoading(true);
+    setConnectError(null);
+    try {
+      const res = await fetch("/api/stripe/connect/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgSlug }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.url) {
+        setConnectError(data?.error ?? "Could not start Stripe onboarding");
+        return;
+      }
+      const popup = window.open(data.url, "stripe-connect", "width=600,height=800");
+      if (!popup) {
+        setConnectError("Popup blocked — allow popups and try again.");
+        return;
+      }
+      // Poll until the popup closes or the account goes active (max ~5 min).
+      for (let i = 0; i < 100 && !popup.closed; i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        try {
+          const s = await fetch(`/api/stripe/connect/status?orgSlug=${encodeURIComponent(orgSlug)}`);
+          const d = await s.json().catch(() => null);
+          if (d?.status) {
+            setConnectStatus(d.status);
+            if (d.status === "active") break;
+          }
+        } catch {}
+      }
+    } catch {
+      setConnectError("Network error — please try again.");
+    } finally {
+      setConnectLoading(false);
+    }
   };
 
   const bufferPresets = [
@@ -260,6 +337,148 @@ export function ConfigPanel({
             </div>
           </div>
         )}
+      </section>
+
+      {/* ── Section 2: Cart & Fulfillment ───────────────────────────── */}
+      <section className="ticket p-6 space-y-6 border border-[var(--rule)] bg-[var(--paper-raised)]">
+        <div className="border-b border-[var(--rule)] pb-3">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 rounded bg-[var(--accent)]/10 text-[var(--accent)]">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 4.6a1 1 0 00.9 1.4H19M9 22a1 1 0 100-2 1 1 0 000 2zm8 0a1 1 0 100-2 1 1 0 000 2z" />
+              </svg>
+            </span>
+            <h2 className="font-display text-lg font-semibold text-[var(--ink)]">
+              Cart & Fulfillment
+            </h2>
+          </div>
+          <p className="text-xs text-[var(--ink-soft)] mt-1">
+            Guest cart checkout on your website. Pickup by default — enable delivery to let customers choose.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <label className="block text-xs font-medium text-[var(--ink)]">
+            Fulfillment options
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => updateCartConfig({ delivery_enabled: false, mode: "pickup" })}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                !cartConfig.delivery_enabled
+                  ? "bg-[var(--accent)] text-white font-semibold shadow-xs"
+                  : "bg-[var(--paper)] text-[var(--ink-soft)] hover:text-[var(--ink)] border border-[var(--rule)]"
+              }`}
+            >
+              Pickup only
+            </button>
+            <button
+              type="button"
+              onClick={() => updateCartConfig({ delivery_enabled: true })}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                cartConfig.delivery_enabled
+                  ? "bg-[var(--accent)] text-white font-semibold shadow-xs"
+                  : "bg-[var(--paper)] text-[var(--ink-soft)] hover:text-[var(--ink)] border border-[var(--rule)]"
+              }`}
+            >
+              Pickup + Delivery
+            </button>
+          </div>
+        </div>
+
+        {cartConfig.delivery_enabled && (
+          <>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-[var(--ink-soft)]">Default fulfillment:</span>
+              <div className="flex gap-2">
+                {(["pickup", "delivery"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => updateCartConfig({ mode: m })}
+                    className={`px-3 py-1.5 rounded text-xs font-medium capitalize transition-all ${
+                      cartConfig.mode === m
+                        ? "bg-[var(--accent)] text-white font-semibold shadow-xs"
+                        : "bg-[var(--paper)] text-[var(--ink-soft)] hover:text-[var(--ink)] border border-[var(--rule)]"
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 text-xs text-[var(--ink-soft)]">
+                Delivery fee (AED)
+                <input
+                  type="number"
+                  min={0}
+                  max={500}
+                  step={1}
+                  value={cartConfig.delivery_fee}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (isNaN(val)) return;
+                    updateCartConfig({ delivery_fee: Math.min(500, Math.max(0, val)) });
+                  }}
+                  className="input w-24 text-xs py-1 px-2 border border-[var(--rule)] bg-[var(--paper)] rounded"
+                />
+              </label>
+              <label className="flex items-center gap-2 text-xs text-[var(--ink-soft)]">
+                Min order (AED)
+                <input
+                  type="number"
+                  min={0}
+                  max={10000}
+                  step={1}
+                  value={cartConfig.min_order}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (isNaN(val)) return;
+                    updateCartConfig({ min_order: Math.min(10000, Math.max(0, val)) });
+                  }}
+                  className="input w-24 text-xs py-1 px-2 border border-[var(--rule)] bg-[var(--paper)] rounded"
+                />
+              </label>
+            </div>
+          </>
+        )}
+
+        <hr className="border-[var(--rule)]" />
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-medium text-[var(--ink)]">Stripe payments</span>
+            {connectStatus !== "unknown" && (
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                connectStatus === "active"
+                  ? "bg-green-500/15 text-green-400 border-green-500/30"
+                  : connectStatus === "pending"
+                    ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30"
+                    : connectStatus === "restricted"
+                      ? "bg-red-500/15 text-red-400 border-red-500/30"
+                      : "bg-[var(--paper)] text-[var(--ink-faint)] border-[var(--rule)]"
+              }`}>
+                {connectStatus === "none" ? "Not connected" : connectStatus}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-[var(--ink-faint)]">
+            Connect your Stripe account to accept guest cart payments. Checkout runs as a popup — create a new Stripe account or sign into your existing one.
+          </p>
+          {connectError && <p className="text-xs text-red-400">{connectError}</p>}
+          {connectStatus !== "active" && (
+            <button
+              type="button"
+              onClick={startConnect}
+              disabled={connectLoading || !orgSlug}
+              className="btn btn-accent text-xs disabled:opacity-50"
+            >
+              {connectLoading ? "Waiting for Stripe…" : "Connect Stripe"}
+            </button>
+          )}
+        </div>
       </section>
 
       {/* ── Section 2: Theme Settings ───────────────────────────────── */}

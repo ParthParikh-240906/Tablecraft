@@ -55,7 +55,7 @@ export default async function MenuPage({
           <p className="text-sm mt-1">Check back soon — we're updating our menu.</p>
         </div>
       ) : (
-        <MenuItems grouped={menu} menuDesign={menuDesign} shapes={menuShapes} responsive={responsive} />
+        <MenuItems grouped={menu} menuDesign={menuDesign} shapes={menuShapes} responsive={responsive} orgSlug={org.slug} />
       )}
     </div>
   );

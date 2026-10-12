@@ -14,6 +14,9 @@ const BUILD_RULES = [
   "easy to replace",
   "endpoint",
   "orgSlug",
+  "cart",
+  "add-to-cart",
+  "CONSOLE HOOK",
 ];
 
 describe("create build hard rules", () => {
@@ -41,8 +44,18 @@ describe("create build hard rules", () => {
 
   it("hard rules list covers Menu/Book/Chatbot/Header/endpoints/orgSlug", () => {
     const joined = BUILD_RULES.join(" ").toLowerCase();
-    for (const k of ["menu", "book", "chatbot", "header", "endpoint", "orgslug"]) {
+    for (const k of ["menu", "book", "chatbot", "header", "endpoint", "orgslug", "cart"]) {
       expect(joined).toContain(k);
     }
+  });
+
+  it("build system prompt contains cart + console-hook rules", async () => {
+    const src = await import("node:fs/promises").then((fs) =>
+      fs.readFile("app/api/ai/build/route.ts", "utf8"),
+    );
+    expect(src).toContain("submitCartCheckout");
+    expect(src).toContain("CART_SETTINGS");
+    expect(src).toContain("CONSOLE HOOK");
+    expect(src).toContain("/api/cart/checkout");
   });
 });

@@ -5,7 +5,8 @@ import { requireStaffForOrgId } from "@/lib/api-auth";
 const COMBINE_SYSTEM = `You are Tablecraft's combination model (GPT 6.1 Sol, high effort).
 Hard rules:
 - Connect Menu section and Book a table endpoints to their respective places in console (menu-manager + booking-actions).
-- The restaurant website must keep orgSlug in its endpoint URLs (/{orgSlug}, /{orgSlug}/menu, /{orgSlug}/reserve, POST /api/bookings {orgSlug}).
+- Connect the cart: POST /api/cart/checkout guest orders must appear in the console Orders/Kitchen queue with fulfillment (pickup/delivery) carried through; sync CART_SETTINGS on the site with design_settings.cart_config in the console (console is source of truth; default pickup). If the org's Stripe Connect account is not active, report checkout as unwired — never fake it.
+- The restaurant website must keep orgSlug in its endpoint URLs (/{orgSlug}, /{orgSlug}/menu, /{orgSlug}/reserve, /{orgSlug}/cart, POST /api/bookings {orgSlug}, POST /api/cart/checkout {orgSlug}).
 - You may read and write lines of code but you MUST NOT change the design of the website (colors, fonts, layout, DesignSettingsV2 stay identical).
 - Return ONLY valid JSON: {"files": [{"path": "...", "lines": "file:line", "diff": "..."}], "tests": ["..."]}`;
 
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
     `orgId: ${orgId}`,
     `orgSlug: ${orgSlug}`,
     `Wire getMenuByOrg -> console/menu/menu-manager.tsx and POST /api/bookings -> console/bookings/booking-actions.tsx + BookingChatbot.tsx.`,
+    `Wire POST /api/cart/checkout -> console orders/kitchen queue (fulfillment carried through) and CART_SETTINGS <-> design_settings.cart_config (console wins, default pickup).`,
     `Keep all design_settings identical. Public URLs must keep /${orgSlug}.`,
     `List exact file:line patches as preview (do not apply).`,
   ].join("\n");

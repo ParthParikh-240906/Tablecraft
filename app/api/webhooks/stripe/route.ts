@@ -121,6 +121,43 @@ export async function POST(request: Request) {
     }
   }
 
+  // ─── Guest cart checkout: mark the order paid so it hits the kitchen queue ─
+  else if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    if (session.metadata?.type === "guest_order" && session.metadata?.orderId) {
+      const { error: updateError } = await supabase
+        .from("orders")
+        .update({ status: "paid" })
+        .eq("id", session.metadata.orderId)
+        .eq("status", "pending");
+      if (updateError) {
+        console.error(`Webhook ${session.id}: order paid update failed`, updateError);
+        return NextResponse.json({ error: "Failed to persist order payment" }, { status: 500 });
+      }
+      console.log(`Guest order ${session.metadata.orderId} paid`);
+    }
+  }
+
+  // ─── Stripe Connect onboarding state ───────────────────────────────────────
+  else if (event.type === "account.updated") {
+    const account = event.data.object as Stripe.Account;
+    const status =
+      account.details_submitted && account.charges_enabled
+        ? "active"
+        : account.requirements?.disabled_reason
+          ? "restricted"
+          : "pending";
+    const { error: updateError } = await supabase
+      .from("organizations")
+      .update({ stripe_connect_status: status })
+      .eq("stripe_connect_account_id", account.id);
+    if (updateError) {
+      console.error(`Webhook ${account.id}: connect status update failed`, updateError);
+      return NextResponse.json({ error: "Failed to persist connect status" }, { status: 500 });
+    }
+    console.log(`Connect account ${account.id}: ${status}`);
+  }
+
   return NextResponse.json({ received: true });
   } catch (err) {
     console.error("Webhook handler failed:", err);

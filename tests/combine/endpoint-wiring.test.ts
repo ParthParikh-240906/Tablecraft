@@ -30,4 +30,13 @@ describe("combine hard rules", () => {
     }));
     expect([400, 500]).toContain(res.status);
   });
+
+  it("combine prompt covers cart wiring + console-wins cart_config", async () => {
+    const src = await import("node:fs/promises").then((fs) =>
+      fs.readFile("app/api/ai/combine/route.ts", "utf8"),
+    );
+    expect(src).toContain("/api/cart/checkout");
+    expect(src).toContain("cart_config");
+    expect(src).toContain("/cart");
+  });
 });
