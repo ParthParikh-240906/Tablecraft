@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { PLAN_MONTHLY_AED, type PaidPlanKey } from "@/lib/pricing";
+import { PLAN_ANNUAL_AED, PLAN_MONTHLY_AED, getAnnualMonthlyEquivalent, getAnnualSavings, type BillingInterval, type PaidPlanKey } from "@/lib/pricing";
+import { BillingToggle } from "@/components/BillingToggle";
 
 export interface OrgMetricData {
   id: string;
@@ -43,6 +44,9 @@ export function PricingClient({
   const [portalUrl, setPortalUrl] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [billing, setBilling] = useState<BillingInterval>(
+    searchParams.get("billing") === "annual" ? "annual" : "monthly",
+  );
 
   // Auto-refresh after Stripe checkout completes (polls until webhook updates DB)
   useEffect(() => {
@@ -121,6 +125,7 @@ export function PricingClient({
           orgId: selectedOrg.id,
           orgSlug: selectedOrg.slug,
           email: userEmail,
+          billing,
         }),
       });
 
@@ -495,6 +500,11 @@ export function PricingClient({
           </div>
         )}
 
+        {/* Billing interval toggle */}
+        <div className="flex justify-center">
+          <BillingToggle value={billing} onChange={setBilling} />
+        </div>
+
         {/* Pricing Tier Comparison Cards */}
         <div className="grid md:grid-cols-2 gap-6">
           {/* Pro Tier Card */}
@@ -516,11 +526,23 @@ export function PricingClient({
                 </span>
               </div>
 
-              <div className="flex items-baseline gap-1 py-2 border-y border-[var(--rule)]">
-                <span className="font-display text-3xl font-bold text-[var(--ink)]">
-                  AED {PLAN_MONTHLY_AED.pro}
-                </span>
-                <span className="text-xs text-[var(--ink-faint)]">/ month</span>
+              <div className="py-2 border-y border-[var(--rule)]">
+                <div className="flex items-baseline gap-1">
+                  <span className="font-display text-3xl font-bold text-[var(--ink)]">
+                    AED {billing === "annual" ? PLAN_ANNUAL_AED.pro : PLAN_MONTHLY_AED.pro}
+                  </span>
+                  <span className="text-xs text-[var(--ink-faint)]">{billing === "annual" ? "/ year" : "/ month"}</span>
+                  {billing === "annual" && (
+                    <span className="ml-2 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-bold leading-none">
+                      1 month free
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-[var(--ink-faint)] mt-1">
+                  {billing === "annual"
+                    ? `AED ${getAnnualMonthlyEquivalent("pro")}/mo billed annually · Save AED ${getAnnualSavings("pro").savedAed.toLocaleString()} — 1 month free`
+                    : `or AED ${PLAN_ANNUAL_AED.pro.toLocaleString()}/year with annual billing — 1 month free`}
+                </p>
               </div>
 
               <ul className="space-y-2.5 text-xs text-[var(--ink-soft)]">
@@ -587,11 +609,23 @@ export function PricingClient({
                 </span>
               </div>
 
-              <div className="flex items-baseline gap-1 py-2 border-y border-[var(--rule)]">
-                <span className="font-display text-3xl font-bold text-[var(--ink)]">
-                  AED {PLAN_MONTHLY_AED.max}
-                </span>
-                <span className="text-xs text-[var(--ink-faint)]">/ month</span>
+              <div className="py-2 border-y border-[var(--rule)]">
+                <div className="flex items-baseline gap-1">
+                  <span className="font-display text-3xl font-bold text-[var(--ink)]">
+                    AED {billing === "annual" ? PLAN_ANNUAL_AED.max : PLAN_MONTHLY_AED.max}
+                  </span>
+                  <span className="text-xs text-[var(--ink-faint)]">{billing === "annual" ? "/ year" : "/ month"}</span>
+                  {billing === "annual" && (
+                    <span className="ml-2 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-bold leading-none">
+                      1 month free
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-[var(--ink-faint)] mt-1">
+                  {billing === "annual"
+                    ? `AED ${getAnnualMonthlyEquivalent("max")}/mo billed annually · Save AED ${getAnnualSavings("max").savedAed.toLocaleString()} — 1 month free`
+                    : `or AED ${PLAN_ANNUAL_AED.max.toLocaleString()}/year with annual billing — 1 month free`}
+                </p>
               </div>
 
               <ul className="space-y-2.5 text-xs text-[var(--ink-soft)]">

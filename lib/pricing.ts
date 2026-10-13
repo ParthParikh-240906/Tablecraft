@@ -10,14 +10,14 @@ import Stripe from "stripe";
  */
 
 export const PLAN_MONTHLY_AED: Record<"pro" | "max", number> = {
-  pro: 350,
-  max: 650,
+  pro: 150,
+  max: 350,
 };
 
-/** Annual (yearly) prices in AED. */
+/** Annual (yearly) prices in AED — 1 month free (11× monthly). */
 export const PLAN_ANNUAL_AED: Record<"pro" | "max", number> = {
-  pro: 3600,
-  max: 7000,
+  pro: 1650,
+  max: 3850,
 };
 
 /** Human-readable plan labels. */
@@ -43,6 +43,28 @@ export function getPlanConfig(plan: PaidPlanKey) {
 }
 
 export type BillingInterval = "monthly" | "annual";
+
+/** Savings of annual billing vs 12× monthly, per paid plan. */
+export function getAnnualSavings(plan: PaidPlanKey) {
+  const monthlyTotal = PLAN_MONTHLY_AED[plan] * 12;
+  const annual = PLAN_ANNUAL_AED[plan];
+  const savedAed = monthlyTotal - annual;
+  const percentOff = Math.round((savedAed / monthlyTotal) * 100);
+  return { monthlyTotal, annual, savedAed, percentOff };
+}
+
+/** Effective monthly cost when billed annually (rounded to whole AED). */
+export function getAnnualMonthlyEquivalent(plan: PaidPlanKey) {
+  return Math.round(PLAN_ANNUAL_AED[plan] / 12);
+}
+
+/** Largest % saving across paid plans — for "Save up to X%" labels. */
+export function getMaxAnnualPercentOff() {
+  return Math.max(
+    getAnnualSavings("pro").percentOff,
+    getAnnualSavings("max").percentOff,
+  );
+}
 
 // ─── Cached Stripe Price IDs ────────────────────────────────────────────────
 

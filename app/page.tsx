@@ -6,6 +6,14 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { FeaturesCarousel } from "@/components/FeaturesCarousel";
 import { MARKETING_PLANS as PRICING } from "@/lib/marketing-plans";
+import { BillingToggle } from "@/components/BillingToggle";
+import {
+  PLAN_ANNUAL_AED,
+  PLAN_MONTHLY_AED,
+  getAnnualMonthlyEquivalent,
+  getAnnualSavings,
+  type BillingInterval,
+} from "@/lib/pricing";
 import type { User } from "@supabase/supabase-js";
 
 interface Org {
@@ -641,10 +649,11 @@ function RestaurantsSection() {
 }
 
 // ─── Pricing ──────────────────────────────────────────────────────────────────
-function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }) {
+function PricingCard({ plan, index, billing }: { plan: typeof PRICING[0]; index: number; billing: BillingInterval }) {
   const router = useRouter();
   const [hovered, setHovered] = useState(false);
   const [loading] = useState(false);
+  const isAnnual = billing === "annual";
 
   async function handleCheckout() {
     if (!plan.planKey || loading) return;
@@ -665,8 +674,21 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
       router.push("/restaurants/create");
       return;
     }
-    router.push(`/console/pricing?org=${orgId}&plan=${plan.planKey}`);
+    router.push(`/console/pricing?org=${orgId}&plan=${plan.planKey}&billing=${billing}`);
   }
+
+  const paidKey = plan.planKey;
+  const monthlyAed = paidKey ? PLAN_MONTHLY_AED[paidKey] : 0;
+  const annualAed = paidKey ? PLAN_ANNUAL_AED[paidKey] : 0;
+  const savings = paidKey ? getAnnualSavings(paidKey) : null;
+  const annualEquivalent = paidKey ? getAnnualMonthlyEquivalent(paidKey) : 0;
+  const displayPrice = !paidKey ? "0" : isAnnual ? `${annualAed}` : `${monthlyAed}`;
+  const displayUnit = !paidKey ? "AED" : isAnnual ? "AED/year" : "AED/month";
+  const displayPeriod = !paidKey
+    ? plan.period
+    : isAnnual
+      ? `AED ${annualEquivalent}/mo billed annually · Save AED ${savings!.savedAed.toLocaleString()} — 1 month free`
+      : `or ${annualAed.toLocaleString()} AED/year with annual billing — 1 month free`;
 
   return (
     <Reveal delay={index * 120} className="h-full">
@@ -684,12 +706,19 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
           <p className="label-caps text-xs mb-3" style={{ color: "var(--accent)" }}>Most popular</p>
         )}
 
-        <p className="label-caps text-xs mb-2 text-[var(--ink-soft)]">{plan.name}</p>
-        <div className="flex items-baseline gap-1 mb-2">
-          <span className="font-display text-4xl text-[var(--ink)]">{plan.price}</span>
-          <span className="text-sm text-[var(--ink-faint)]">AED/month</span>
+        <div className="flex items-center gap-2 mb-2">
+          <p className="label-caps text-xs text-[var(--ink-soft)]">{plan.name}</p>
+          {paidKey && isAnnual && savings && (
+            <span className="rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-bold leading-none">
+              1 month free
+            </span>
+          )}
         </div>
-        {plan.period && <p className="text-sm text-[var(--ink-faint)] mb-4">{plan.period}</p>}
+        <div className="flex items-baseline gap-1 mb-2">
+          <span className="font-display text-4xl text-[var(--ink)]">{displayPrice}</span>
+          <span className="text-sm text-[var(--ink-faint)]">{displayUnit}</span>
+        </div>
+        {displayPeriod && <p className="text-sm text-[var(--ink-faint)] mb-4">{displayPeriod}</p>}
         <p className="text-base text-[var(--ink-soft)] leading-relaxed mb-6 flex-grow">{plan.description}</p>
 
         <ul className="space-y-2 mb-8">
@@ -741,6 +770,7 @@ function PricingCard({ plan, index }: { plan: typeof PRICING[0]; index: number }
 }
 
 function PricingSection() {
+  const [billing, setBilling] = useState<BillingInterval>("monthly");
   return (
     <section id="pricing" className="border-b border-white/10 bg-[var(--paper-raised)] scroll-mt-24">
       <div className="max-w-5xl mx-auto px-6 py-20">
@@ -753,14 +783,18 @@ function PricingSection() {
           </h2>
         </Reveal>
         <Reveal delay={160}>
-          <p className="text-center text-[var(--ink-soft)] max-w-lg mx-auto mb-10 text-base leading-relaxed">
+          <p className="text-center text-[var(--ink-soft)] max-w-lg mx-auto mb-6 text-base leading-relaxed">
             Start free with a mock site. Upgrade when you&apos;re ready to go live.
           </p>
         </Reveal>
 
+        <div className="flex justify-center mb-10">
+          <BillingToggle value={billing} onChange={setBilling} />
+        </div>
+
         <div className="grid md:grid-cols-3 gap-6">
           {PRICING.map((p, i) => (
-            <PricingCard key={p.name} plan={p} index={i} />
+            <PricingCard key={p.name} plan={p} index={i} billing={billing} />
           ))}
         </div>
 
