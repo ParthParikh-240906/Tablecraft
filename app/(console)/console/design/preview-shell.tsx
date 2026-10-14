@@ -65,64 +65,71 @@ export function PreviewShell({
   const hClass = previewHeight === 640 ? "h-[640px]" : previewHeight === 960 ? "h-[960px]" : previewHeight === 1280 ? "h-[1280px]" : `h-[${previewHeight}px]`;
 
   const { device, setDevice } = useDesignDevice();
-  const [zoom, setZoom] = useState(1);
+  const [scale, setScale] = useState(1);
   const paneRef = useRef<HTMLDivElement>(null);
   const builtHtml = settings.built_html ?? null;
 
-  // Zoom the fixed-width frame down to fit the pane (never upscale — a wider
-  // pane just centers the 1280 design frame with margins).
+  // Scale the fixed-width frame down to fit the pane (never upscale — a wider
+  // pane just centers the design frame with themed margins). Uses transform
+  // (not CSS `zoom`, which is unreliable in Safari after backgrounding).
   useEffect(() => {
     const el = paneRef.current;
     if (!el) return;
     const frame = DEVICES.find((d) => d.id === device)?.width ?? 1280;
     const measure = () => {
       const w = el.getBoundingClientRect().width;
-      if (w > 0) setZoom(Math.min(1, w / frame));
+      // Ignore 0-width measures (hidden/backgrounded tab) — they would stick
+      // a wrong scale and produce the right-side gap.
+      if (w > 0) setScale(Math.min(1, w / frame));
     };
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fit before first paint feedback
+    // Double-rAF: layout after backgrounded tabs can be stale on first read.
+    const raf = requestAnimationFrame(() => requestAnimationFrame(measure));
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
+    // Safari fires pageshow (not focus) on tab/app switch — the gap repro.
+    const remeasure = () => {
+      requestAnimationFrame(() => requestAnimationFrame(measure));
+    };
+    const onVis = () => {
+      if (document.visibilityState === "visible") remeasure();
+    };
+    window.addEventListener("focus", remeasure);
+    window.addEventListener("pageshow", remeasure);
+    window.addEventListener("resize", remeasure);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener("focus", remeasure);
+      window.removeEventListener("pageshow", remeasure);
+      window.removeEventListener("resize", remeasure);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, [device]);
 
   const handleDeviceChange = (next: DeviceKind) => {
     setDevice(next);
   };
 
-  // Fill the pane exactly at any zoom: the fixed-width frame is zoomed to fit,
-  // so the iframe must be previewHeight/zoom CSS px tall or pane background
-  // shows below it (desktop black gap). Re-measure on refocus — backgrounded
-  // tabs can return with stale zoom/layout (right-side gap).
-  useEffect(() => {
-    const remeasure = () => {
-      const el = paneRef.current;
-      if (!el) return;
-      const frame = DEVICES.find((d) => d.id === device)?.width ?? 1280;
-      const w = el.getBoundingClientRect().width;
-      if (w > 0) setZoom(Math.min(1, w / frame));
-    };
-    const onVis = () => {
-      if (document.visibilityState === "visible") remeasure();
-    };
-    window.addEventListener("focus", remeasure);
-    document.addEventListener("visibilitychange", onVis);
-    return () => {
-      window.removeEventListener("focus", remeasure);
-      document.removeEventListener("visibilitychange", onVis);
-    };
-  }, [device]);
-
   const frameWidth = DEVICES.find((d) => d.id === device)?.width ?? 1280;
   // Tablet/mobile render as a device on a neutral stage: white pane around
   // the frame plus a black border outlining the site itself. Desktop fills
   // the pane with the page background (unchanged).
   const staged = device !== "desktop";
-  const frameStyle: CSSProperties = staged
-    // Shrink the content box by the border width so the outer size stays
-    // exactly the device width (no overflow clipping under zoom).
-    ? { width: `${frameWidth - 4}px`, zoom, border: "2px solid #000000", backgroundColor: "#ffffff" }
-    : { width: `${frameWidth}px`, zoom };
+  const safeScale = scale > 0 ? scale : 1;
+  // Transform (not zoom): layout size stays frameWidth × previewHeight/scale,
+  // rendered size exactly fills the pane. The iframe owns ALL scrolling, so
+  // sticky headers inside the built site stick exactly like the live site.
+  const frameStyle: CSSProperties = {
+    width: `${frameWidth}px`,
+    height: `${previewHeight / safeScale}px`,
+    transform: `scale(${safeScale})`,
+    transformOrigin: "top center",
+    flexShrink: 0,
+    ...(staged ? { border: "2px solid #000000", backgroundColor: "#ffffff" } : {}),
+  };
+  const siteBg = staged ? "#ffffff" : settings.background_color;
 
   return (
     <div className="rounded-lg overflow-hidden border border-[var(--rule)] bg-[var(--paper-raised)]">
@@ -160,27 +167,28 @@ export function PreviewShell({
       <div
         ref={paneRef}
         data-preview-pane
-        className="overflow-y-auto overflow-x-hidden relative scroll-smooth transition-[height] duration-200 motion-reduce:transition-none"
-        style={{ height: `${previewHeight}px`, backgroundColor: staged ? "#ffffff" : settings.background_color, color: settings.text_color }}
+        className="relative flex justify-center overflow-hidden"
+        style={{ height: `${previewHeight}px`, backgroundColor: siteBg, color: settings.text_color }}
       >
         <div className="mx-auto" style={frameStyle}>
           {settings.built_html ? (
-            // AI-built standalone site: fixed viewport-height frame with hidden
-            // scrollbars (true viewport sim — vh units stay honest, no gaps).
+            // AI-built standalone site: the iframe owns scrolling (same as the
+            // live site), so sticky headers stick in preview too.
             // srcDocOverride previews exact post-apply bytes before approval.
             // Interactive overlays (children) target settings elements,
             // so they're hidden here.
-            <div className="relative">
+            <div className="relative h-full">
               {previewBadge && srcDocOverride && (
                 <span className="absolute top-2 left-2 z-10 rounded bg-amber-500/90 px-2 py-0.5 text-[10px] font-semibold text-black">
                   Previewing edits — not saved
                 </span>
               )}
               <iframe
+                key={device}
                 title={`${orgName} built-site preview`}
                 srcDoc={withPreviewChrome(withBuiltSiteGuards(withLiveMenu(srcDocOverride ?? settings.built_html, menuItems)))}
                 sandbox="allow-scripts allow-forms allow-same-origin"
-                style={{ display: "block", width: "100%", height: `${previewHeight / (zoom || 1)}px`, border: 0, backgroundColor: "#ffffff" }}
+                style={{ display: "block", width: "100%", height: "100%", border: 0, backgroundColor: siteBg }}
               />
             </div>
           ) : (
@@ -193,7 +201,7 @@ export function PreviewShell({
               onGrowHero={onGrowHero}
               previewHeight={previewHeight}
               // Preview truthfulness: resolve per-device fonts/rects from the
-              // console toggle, NOT the zoomed measured width (zoom shrinks
+              // console toggle, NOT the scaled measured width (scaling shrinks
               // getBoundingClientRect, which would misclassify tablet as mobile).
               device={device}
             />

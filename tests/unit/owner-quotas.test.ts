@@ -54,6 +54,12 @@ describe("resolveOwnerPlan (highest tier wins)", () => {
     expect(resolveOwnerPlan([])).toBe("free");
     expect(resolveOwnerPlan([null, undefined, "free"])).toBe("free");
   });
+  it("canceled orgs contribute free (parity with displayPlan quota fix)", async () => {
+    const { displayPlan } = await import("@/lib/pricing");
+    // apex-cafe/malabar-bites shape: raw paid plan + canceled status → free pool.
+    expect(resolveOwnerPlan([displayPlan("max", "canceled"), displayPlan("pro", "canceled")])).toBe("free");
+    expect(resolveOwnerPlan([displayPlan("max", "active"), displayPlan("free", "canceled")])).toBe("max");
+  });
 });
 
 describe("restaurant_create lifetime gate", () => {

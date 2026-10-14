@@ -3,7 +3,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaffForOrgId } from "@/lib/api-auth";
 import {
   normalizePlanTier,
-  peekAiQuota,
   type PlanTier,
 } from "@/lib/rate-limit";
 
@@ -13,16 +12,18 @@ const MAX_GALLERY_ITEMS = 20;
  * Resolve the org's plan tier the same way /api/subscription/status does
  * (organizations.subscription_plan). Falls back to the Free tier when the
  * lookup is impractical — a safe default that never grants more than marketed.
+ * Status-aware: a canceled subscription quotas as Free (matches displayPlan).
  */
 async function resolvePlanTier(orgId: string): Promise<PlanTier> {
   try {
     const admin = createAdminClient();
     const { data: org } = await admin
       .from("organizations")
-      .select("subscription_plan")
+      .select("subscription_plan, subscription_status")
       .eq("id", orgId)
       .maybeSingle();
-    return normalizePlanTier(org?.subscription_plan);
+    const { displayPlan } = await import("@/lib/pricing");
+    return normalizePlanTier(displayPlan((org as { subscription_plan?: unknown } | null)?.subscription_plan ?? null, (org as { subscription_status?: unknown } | null)?.subscription_status ?? null));
   } catch {
     return "free";
   }
@@ -60,20 +61,31 @@ export async function GET(request: Request) {
     }
 
     const rawGallery = (org.design_settings as Record<string, unknown> | null)?.ai_gallery;
-    const gallery = Array.isArray(rawGallery)
-      ? rawGallery.filter((u): u is string => typeof u === "string" && u.length > 0).slice(0, MAX_GALLERY_ITEMS)
-      : [];
+    const { normalizeGallery } = await import("@/lib/design");
+    const galleryItems = normalizeGallery(rawGallery, MAX_GALLERY_ITEMS);
+    const gallery = galleryItems.map((g) => g.url);
 
-    const image = peekAiQuota({ orgId, tier, kind: "image" });
-    const content = peekAiQuota({ orgId, tier, kind: "content" });
+    // Single source of truth: per-OWNER monthly quota (shared pool across all
+    // restaurants). Must match POST /api/design/ai-generate (checkOwnerQuota)
+    // or the hint diverges after generation (298/300 vs 10/10 bug).
+    const { getOwnerForOrg, getOwnerPlanContext, peekOwnerQuotaDb } = await import("@/lib/owner-quotas");
+    const { ownerId } = await getOwnerForOrg(orgId);
+    const ownerKey = ownerId ?? `org-fallback:${orgId}`;
+    const ownerPlan: PlanTier = ownerId ? (await getOwnerPlanContext(ownerId)).plan : tier;
+    const imageUsage = await peekOwnerQuotaDb(ownerKey, ownerPlan, "image");
+    const image = { ...imageUsage, plan: ownerPlan };
+    // Content hint kept generous; owner-quotas has no content category.
+    const { peekAiQuota } = await import("@/lib/rate-limit");
+    const content = { ...peekAiQuota({ orgId, tier, kind: "content" }), plan: tier };
 
     return NextResponse.json({
       tagline: typeof org.tagline === "string" ? org.tagline : null,
       about_text: typeof org.about_text === "string" ? org.about_text : null,
-      plan: tier,
-      image: { ...image, plan: tier },
-      content: { ...content, plan: tier },
+      plan: ownerPlan,
+      image,
+      content,
       gallery,
+      galleryItems,
     });
   } catch (err) {
     console.error("[CONTENT GENERATE] GET unhandled:", err);

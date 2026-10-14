@@ -54,9 +54,9 @@ export function HeaderNav({ isOwner, userOrgs, fallbackSlug }: HeaderNavProps) {
       </nav>
       <span className="text-[var(--rule)]">|</span>
       {slug && (
-        <Link href={`/${slug}`} className="text-[var(--accent)] hover:underline font-medium text-xs">
+        <a href={`/${slug}`} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline font-medium text-xs">
           Public Storefront →
-        </Link>
+        </a>
       )}
       {isOwner && (
         <>

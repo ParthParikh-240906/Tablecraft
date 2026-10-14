@@ -28,6 +28,13 @@ describe("withBuiltSiteGuards", () => {
     expect(out).toContain("location.hash");
     expect(out).toContain("scrollIntoView");
   });
+
+  it("guard scrolls instantly inside the scaled preview, smoothly on live", () => {
+    const out = withBuiltSiteGuards("<html><body></body></html>");
+    // Preview marker gates a single synchronous scroll (no torn paint tiles).
+    expect(out).toContain("data-tc-preview-chrome");
+    expect(out).toContain('preview?"auto":"smooth"');
+  });
 });
 
 describe("withLiveMenu", () => {
@@ -43,9 +50,19 @@ render();<\/script></body></html>`;
     expect(out).toContain("render();");
   });
 
-  it("is a no-op without items or without the const", () => {
-    expect(withLiveMenu(html, [])).toBe(html);
+  it("replaces with an empty list when the DB list is empty (never keeps demos)", () => {
+    const out = withLiveMenu(html, []);
+    expect(out).toContain("const MENU_ITEMS = [];");
+    expect(out).not.toContain('"Old"');
+  });
+
+  it("is a no-op without the declaration", () => {
     expect(withLiveMenu("<p>no menu here</p>", items)).toBe("<p>no menu here</p>");
+  });
+
+  it("matches let/var declarations too", () => {
+    const v = `<script>let MENU_ITEMS = [{name: "Old", price: 1}];</script>`;
+    expect(withLiveMenu(v, items)).toContain('"uuid-1"');
   });
 });
 

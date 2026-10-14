@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useDesign } from "../use-design";
 import { DesignNav } from "../design-nav";
-import { LOCAL_FONTS, newContentElement, newHeroElement, type DesignSettingsV2 } from "@/lib/design";
+import { LOCAL_FONTS, normalizeGallery, type DesignSettingsV2, type GalleryImage } from "@/lib/design";
 
 type ImageRatio = "1:1" | "16:9" | "9:16";
 const RATIOS: { value: ImageRatio; label: string }[] = [
@@ -40,7 +40,7 @@ export function AiPanel({
 
   // Image sizes / gallery / quota
   const [ratio, setRatio] = useState<ImageRatio>("16:9");
-  const [gallery, setGallery] = useState<string[]>([]);
+  const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [imageQuota, setImageQuota] = useState<QuotaHint | null>(null);
   const [metaLoading, setMetaLoading] = useState(true);
 
@@ -54,12 +54,9 @@ export function AiPanel({
         const data = await res.json().catch(() => null);
         if (cancelled || !res.ok || !data) return;
         if (data.image) setImageQuota(data.image);
-        if (Array.isArray(data.gallery)) {
-          setGallery(
-            data.gallery
-              .filter((u: unknown): u is string => typeof u === "string" && u.length > 0)
-              .slice(0, MAX_GALLERY_ITEMS),
-          );
+        const rawItems = Array.isArray(data.galleryItems) ? data.galleryItems : data.gallery;
+        if (Array.isArray(rawItems)) {
+          setGallery(normalizeGallery(rawItems, MAX_GALLERY_ITEMS));
         }
       } catch {
         // Meta is a hint — the panel works without it.
@@ -72,13 +69,24 @@ export function AiPanel({
     };
   }, [orgId]);
 
-  const persistGallery = (next: string[]) => {
+  const persistGallery = (next: GalleryImage[]) => {
     setGallery(next);
     // NEW top-level design_settings key (the settings API allows ≤50
     // top-level keys). Deep-merged server-side, so other panels' saves never
-    // clobber it — but hydrateSettings() drops unknown keys, so this local
-    // state (seeded from the GET above) is the gallery's source of truth.
+    // clobber it.
     updateSettings({ ai_gallery: next } as unknown as Partial<DesignSettingsV2>);
+  };
+
+  const autoName = () => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `generated-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+  };
+
+  const renameImage = (url: string, name: string) => {
+    const clean = name.trim().slice(0, 60);
+    if (!clean) return;
+    persistGallery(gallery.map((g) => (g.url === url ? { ...g, name: clean } : g)));
   };
 
   const FONT_WEIGHTS = ["100", "200", "300", "400", "500", "600", "700", "800", "900"];
@@ -217,7 +225,8 @@ export function AiPanel({
       if (data?.quota) setImageQuota(data.quota);
       if (res.ok && data.url) {
         setResult(data.url);
-        persistGallery([data.url, ...gallery.filter((u) => u !== data.url)].slice(0, MAX_GALLERY_ITEMS));
+        const named: GalleryImage = { url: data.url, name: autoName() };
+        persistGallery([named, ...gallery.filter((g) => g.url !== data.url)].slice(0, MAX_GALLERY_ITEMS));
       }
       else setError(data.error ?? "Generation failed");
     } catch {
@@ -255,40 +264,8 @@ export function AiPanel({
     void downloadUrl(result);
   };
 
-  const applyUrlAsHeroBackground = (url: string) => {
-    updateSettings({ hero: { ...settings.hero, background: { ...settings.hero.background, type: "image", image_url: url } } });
-  };
-
-  const useAsHeroBackground = () => {
-    if (!result) return;
-    applyUrlAsHeroBackground(result);
-  };
-
-  const addUrlAsContentImages = (url: string) => {
-    const el = newContentElement("images");
-    el.image_urls = [url];
-    el.y = Math.max(...settings.content.elements.map((e) => e.y + e.h), 0) + 2;
-    updateSettings({ content: { elements: [...settings.content.elements, el] } });
-  };
-
-  const addAsContentImages = () => {
-    if (!result) return;
-    addUrlAsContentImages(result);
-  };
-
-  const addUrlAsHeroImage = (url: string) => {
-    const el = newHeroElement("image", 18);
-    el.image_url = url;
-    updateSettings({ hero: { ...settings.hero, elements: [...settings.hero.elements, el] } });
-  };
-
-  const addAsHeroImage = () => {
-    if (!result) return;
-    addUrlAsHeroImage(result);
-  };
-
   const removeFromGallery = (url: string) => {
-    persistGallery(gallery.filter((u) => u !== url));
+    persistGallery(gallery.filter((g) => g.url !== url));
   };
 
   const uploadToGallery = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -308,7 +285,8 @@ export function AiPanel({
         setUploadError(data?.error ?? "Upload failed.");
         return;
       }
-      persistGallery([data.url, ...gallery.filter((u) => u !== data.url)].slice(0, MAX_GALLERY_ITEMS));
+      const base = file.name.replace(/\.[a-z0-9]+$/i, "").trim().slice(0, 60) || autoName();
+      persistGallery([{ url: data.url, name: base }, ...gallery.filter((g) => g.url !== data.url)].slice(0, MAX_GALLERY_ITEMS));
     } catch {
       setUploadError("Upload failed.");
     } finally {
@@ -411,15 +389,6 @@ export function AiPanel({
                 <button type="button" onClick={download} className="btn btn-outline text-xs">
                   Download
                 </button>
-                <button type="button" onClick={useAsHeroBackground} className="btn btn-outline text-xs">
-                  Use as Hero Background
-                </button>
-                <button type="button" onClick={addAsContentImages} className="btn btn-outline text-xs">
-                  Add to Content Images
-                </button>
-                <button type="button" onClick={addAsHeroImage} className="btn btn-outline text-xs">
-                  Add as Hero Image
-                </button>
                 <button
                   type="button"
                   onClick={() => { setResult(null); setPrompt(""); }}
@@ -428,9 +397,8 @@ export function AiPanel({
                   Clear
                 </button>
               </div>
-              <p className="text-[10px] text-[var(--ink-faint)] break-all">{result}</p>
               <p className="text-[10px] text-[var(--ink-faint)]">
-                Clear only hides this preview — the image is kept in your gallery below.
+                Saved to your gallery below — name it there (e.g. “logo”), then pick it by name on the Website tab.
               </p>
             </section>
           )}
@@ -541,7 +509,7 @@ export function AiPanel({
             </h3>
             <p className="text-xs text-[var(--ink-soft)]">
               Every generation is kept here (newest first, up to {MAX_GALLERY_ITEMS}).
-              Apply any image straight into your design — or upload your own photos.
+              Name each image (e.g. “logo”), then pick it by name on the Website tab.
             </p>
             <div className="flex items-center gap-2">
               <label className="btn btn-outline text-xs cursor-pointer inline-block">
@@ -554,24 +522,33 @@ export function AiPanel({
               <p className="text-xs text-[var(--ink-faint)]">No images yet — generate your first one above.</p>
             ) : (
               <ul className="grid grid-cols-2 gap-3">
-                {gallery.map((url) => (
-                  <li key={url} className="space-y-1.5 rounded border border-[var(--rule)] p-2">
+                {gallery.map((item) => (
+                  <li key={item.url} className="space-y-1.5 rounded border border-[var(--rule)] p-2">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt="AI generated" className="h-28 w-full object-cover rounded" />
+                    <img src={item.url} alt={item.name} className="h-28 w-full object-cover rounded" />
+                    <input
+                      type="text"
+                      value={item.name}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setGallery((prev) => prev.map((g) => (g.url === item.url ? { ...g, name: v } : g)));
+                      }}
+                      onBlur={(e) => renameImage(item.url, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          renameImage(item.url, (e.target as HTMLInputElement).value);
+                        }
+                      }}
+                      maxLength={60}
+                      aria-label="Image name"
+                      className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-1.5 py-1 text-[11px] text-[var(--ink)]"
+                    />
                     <div className="flex flex-wrap gap-1">
-                      <button type="button" onClick={() => applyUrlAsHeroBackground(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
-                        Hero BG
-                      </button>
-                      <button type="button" onClick={() => addUrlAsContentImages(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
-                        Content
-                      </button>
-                      <button type="button" onClick={() => addUrlAsHeroImage(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
-                        Hero Img
-                      </button>
-                      <button type="button" onClick={() => void downloadUrl(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
+                      <button type="button" onClick={() => void downloadUrl(item.url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
                         Download
                       </button>
-                      <button type="button" onClick={() => removeFromGallery(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5 text-red-500">
+                      <button type="button" onClick={() => removeFromGallery(item.url)} className="btn btn-outline text-[10px] px-1.5 py-0.5 text-red-500">
                         Delete
                       </button>
                     </div>

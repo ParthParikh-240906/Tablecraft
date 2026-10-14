@@ -41,7 +41,11 @@ export default async function PublicLayout({
         .select("id, name, price, category, description")
         .eq("org_id", org.id)
         .eq("available", true)
-        .order("sort_order", { ascending: true });
+        // Console sequence: category groups first, then item order (NULLS LAST
+        // so hand-added rows never float above numbered ones).
+        .order("category_sort_order", { ascending: true, nullsFirst: false })
+        .order("sort_order", { ascending: true, nullsFirst: false })
+        .order("id", { ascending: true });
       liveHtml = withLiveMenu(
         liveHtml,
         ((rows ?? []) as LiveMenuItem[]).filter((r) => r && typeof r.id === "string"),

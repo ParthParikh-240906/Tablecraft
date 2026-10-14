@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useConsoleTheme } from "../theme-wrapper";
+import { defaultSortOrders } from "@/lib/menu-order";
 
 interface MenuItem {
   id: string;
@@ -120,7 +121,10 @@ export function MenuManager({ orgId }: { orgId: string }) {
           .select()
       : await supabase
           .from("menu_items")
-          .insert({ ...payload, org_id: orgId, available: true })
+          // New rows go last (end of their category, or a trailing category
+          // slot) — NULL positions sort first in Postgres and used to float
+          // new dishes to the top of the website.
+          .insert({ ...payload, org_id: orgId, available: true, ...defaultSortOrders(items, payload.category) })
           .select();
 
     if (saveError) {

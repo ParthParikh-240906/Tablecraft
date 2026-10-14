@@ -376,7 +376,8 @@ export interface DesignSettingsV2 {
   menu_page_shapes?: { id: string; style: ShapeStyle }[];
   reserve_page_shapes?: { id: string; style: ShapeStyle }[];
   custom_fonts?: { name: string; value: string; url: string; weight?: number; css?: string }[];
-  ai_gallery?: string[];
+  /** Named AI/uploaded image gallery (new shape). Legacy rows may hold string[]. */
+  ai_gallery?: GalleryImage[];
   /** AI-built standalone site (raw HTML doc). When present, it IS the site. */
   built_html?: string | null;
   responsive?: ResponsiveOverrides;
@@ -390,6 +391,41 @@ export interface DesignSettingsV2 {
 // anything until the user edits on that device.
 
 export type DeviceKind = "desktop" | "tablet" | "mobile";
+
+/** Named gallery image. `name` is owner-editable; `url` is the source of truth. */
+export interface GalleryImage {
+  url: string;
+  name: string;
+}
+
+/** Normalize persisted ai_gallery (legacy string[] or new {url,name}[]) to GalleryImage[]. */
+export function normalizeGallery(raw: unknown, max = 20): GalleryImage[] {
+  if (!Array.isArray(raw)) return [];
+  const out: GalleryImage[] = [];
+  let auto = 0;
+  for (const item of raw) {
+    if (typeof item === "string" && item.length > 0) {
+      auto += 1;
+      out.push({ url: item, name: `image-${auto}` });
+    } else if (item && typeof item === "object" && typeof (item as { url?: unknown }).url === "string" && ((item as { url: string }).url.length > 0)) {
+      const url = (item as { url: string }).url;
+      const rawName = (item as { name?: unknown }).name;
+      auto += 1;
+      out.push({
+        url,
+        name: typeof rawName === "string" && rawName.trim().length > 0 ? rawName.trim().slice(0, 60) : `image-${auto}`,
+      });
+    }
+    if (out.length >= max) break;
+  }
+  // Ensure names are unique for the picker.
+  const seen = new Map<string, number>();
+  return out.map((g) => {
+    const n = seen.get(g.name) ?? 0;
+    seen.set(g.name, n + 1);
+    return n === 0 ? g : { ...g, name: `${g.name} (${n + 1})` };
+  });
+}
 
 export interface DeviceFontOverrides {
   fonts?: Record<string, number>;
@@ -1158,9 +1194,7 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
     reserve_page: { ...defaultReservePageDesign(), ...(legacy.reserve_page ?? {}) },
     booking_config: { ...defaultBookingConfig(), ...(legacy.booking_config ?? {}) },
     cart_config: normalizeCartConfig(legacy.cart_config),
-    ai_gallery: Array.isArray(legacy.ai_gallery)
-      ? legacy.ai_gallery.filter((u: unknown) => typeof u === "string").slice(0, 20)
-      : [],
+    ai_gallery: normalizeGallery(legacy.ai_gallery, 20),
     built_html: typeof legacy.built_html === "string" && legacy.built_html.length > 0 ? legacy.built_html : null,
     responsive: sanitizeResponsive(legacy.responsive),
     // Custom fonts + page shapes live in the same JSONB blob — they must

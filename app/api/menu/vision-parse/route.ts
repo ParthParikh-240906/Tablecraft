@@ -362,32 +362,60 @@ async function insertItems(
     }
   }
 
-  // Calculate category_sort_order based on first appearance of each category
-  const categoryOrder: Record<string, number> = {};
-  let catIdx = 0;
-  for (const item of items) {
-    const cat = item.category || "Other";
-    if (!(cat in categoryOrder)) {
-      categoryOrder[cat] = catIdx++;
+  // Append mode must continue AFTER existing numbering: restarting at 1
+  // would collide with current rows and scramble website order. New
+  // categories open trailing slots; existing ones keep their stored order.
+  const sortBase: Record<string, number> = {};
+  const storedCatOrder: Record<string, number> = {};
+  let maxCatOrder = -1;
+  if (mode === "append") {
+    const { data: existing } = await supabase
+      .from("menu_items")
+      .select("category, sort_order, category_sort_order")
+      .eq("org_id", orgId);
+    for (const r of (existing ?? []) as Array<{ category?: string | null; sort_order?: number | null; category_sort_order?: number | null }>) {
+      const cat = r.category || "Other";
+      if (typeof r.sort_order === "number") {
+        sortBase[cat] = Math.max(sortBase[cat] ?? 0, r.sort_order);
+      }
+      if (typeof r.category_sort_order === "number") {
+        storedCatOrder[cat] = r.category_sort_order;
+        maxCatOrder = Math.max(maxCatOrder, r.category_sort_order);
+      }
     }
   }
 
-  const rows = items.slice(0, MAX_ITEMS).map((item, index) => ({
-    org_id: orgId,
-    name: String(item.name).slice(0, MAX_NAME_LEN),
-    description:
-      typeof item.description === "string"
-        ? item.description.slice(0, MAX_DESC_LEN)
-        : null,
-    price: Number(item.price),
-    category:
-      typeof item.category === "string"
-        ? item.category.slice(0, MAX_CATEGORY_LEN)
-        : null,
-    available: true,
-    sort_order: index + 1,
-    category_sort_order: categoryOrder[item.category || "Other"] ?? 0,
-  }));
+  // Calculate category_sort_order based on first appearance of each category
+  const categoryOrder: Record<string, number> = {};
+  let catIdx = maxCatOrder + 1;
+  for (const item of items) {
+    const cat = item.category || "Other";
+    if (!(cat in categoryOrder)) {
+      categoryOrder[cat] = storedCatOrder[cat] ?? catIdx++;
+    }
+  }
+
+  const perCatCount: Record<string, number> = {};
+  const rows = items.slice(0, MAX_ITEMS).map((item) => {
+    const cat = item.category || "Other";
+    perCatCount[cat] = (perCatCount[cat] ?? 0) + 1;
+    return {
+      org_id: orgId,
+      name: String(item.name).slice(0, MAX_NAME_LEN),
+      description:
+        typeof item.description === "string"
+          ? item.description.slice(0, MAX_DESC_LEN)
+          : null,
+      price: Number(item.price),
+      category:
+        typeof item.category === "string"
+          ? item.category.slice(0, MAX_CATEGORY_LEN)
+          : null,
+      available: true,
+      sort_order: (sortBase[cat] ?? 0) + perCatCount[cat],
+      category_sort_order: categoryOrder[cat] ?? 0,
+    };
+  });
 
   const { error: insertError } = await supabase.from("menu_items").insert(rows);
 

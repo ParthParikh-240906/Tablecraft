@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DesignSettingsV2 } from "@/lib/design";
-import { defaultChatbotDesign } from "@/lib/design";
-import { extractChatbotAccent, type LiveMenuItem } from "@/lib/built-site";
+import { normalizeGallery, type GalleryImage } from "@/lib/design";
+import type { LiveMenuItem } from "@/lib/built-site";
 import type { OrgView } from "@/components/OrgPageView";
 import { PreviewShell } from "../preview-shell";
-import { ChatbotPreview } from "./chatbot-preview";
 
 export function WebsiteClient({  orgId,
   orgSlug,
@@ -32,12 +31,13 @@ export function WebsiteClient({  orgId,
   const [resultEdits, setResultEdits] = useState<PreviewEdit[] | null>(null);
   const [patchedHtml, setPatchedHtml] = useState<string | null>(null);
   const [previewHash, setPreviewHash] = useState<string | null>(null);
+  const [previewLogoUrl, setPreviewLogoUrl] = useState<string | null>(null);
   const [showPatched, setShowPatched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
   const [applyStatus, setApplyStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
+  const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [vibe, setVibe] = useState("");
   const [rebuilding, setRebuilding] = useState(false);
   const [rebuildError, setRebuildError] = useState<string | null>(null);
@@ -46,16 +46,16 @@ export function WebsiteClient({  orgId,
   const [reconnectDone, setReconnectDone] = useState(false);
   const router = useRouter();
 
-  // Gallery URLs for image edits (same source as the AI panel gallery).
+  // Gallery images for edits (same source as the AI panel gallery, by name).
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch(`/api/content/generate?org_id=${encodeURIComponent(orgId)}`);
         const data = await res.json().catch(() => null);
-        if (!cancelled && res.ok && Array.isArray(data?.gallery)) {
-          setGalleryUrls(data.gallery.filter((u: unknown): u is string => typeof u === "string" && u.length > 0));
-        }
+        if (cancelled || !res.ok || !data) return;
+        const rawItems = Array.isArray(data.galleryItems) ? data.galleryItems : data.gallery;
+        if (Array.isArray(rawItems)) setGallery(normalizeGallery(rawItems));
       } catch {
         // Gallery picker is a hint — the prompt works without it.
       }
@@ -70,7 +70,6 @@ export function WebsiteClient({  orgId,
     text: initialSettings.text_color,
     accent: initialSettings.accent_color,
   };
-  const builtChatColor = initialSettings.built_html ? extractChatbotAccent(initialSettings.built_html) : null;
 
   async function runEdit(extra?: string) {
     if (!prompt.trim() || loading) return;
@@ -94,6 +93,7 @@ export function WebsiteClient({  orgId,
       const hasPatched = typeof data?.patchedHtml === "string" && data.patchedHtml.length > 0;
       setPatchedHtml(hasPatched ? data.patchedHtml : null);
       setPreviewHash(typeof data?.previewHash === "string" ? data.previewHash : null);
+      setPreviewLogoUrl(typeof data?.logo_url === "string" && data.logo_url.length > 0 ? data.logo_url : null);
       // Show the result immediately — no hunting for the toggle.
       setShowPatched(hasPatched);
       if (edits.length === 0) {
@@ -121,6 +121,7 @@ export function WebsiteClient({  orgId,
           preview: false,
           edits: resultEdits.map((e) => ({ find: e.find, replace: e.replace })),
           ...(previewHash ? { previewHash } : {}),
+          ...(previewLogoUrl ? { logo_url: previewLogoUrl } : {}),
         }),
       });
       const data = await res.json().catch(() => null);
@@ -128,8 +129,11 @@ export function WebsiteClient({  orgId,
         setError(data?.error ?? "Apply failed — re-run Preview edit");
         return;
       }
-      setApplyStatus(`Applied ${data?.count ?? resultEdits.length} edit(s) — preview refreshed.`);
+      setApplyStatus(
+        `Applied ${data?.count ?? resultEdits.length} edit(s)${data?.logo_url ? " + restaurant logo updated" : ""} — preview refreshed.`,
+      );
       setResultEdits(null);
+      setPreviewLogoUrl(null);
       router.refresh();
     } catch {
       setError("Network error — please try again");
@@ -190,7 +194,7 @@ export function WebsiteClient({  orgId,
     <div className="space-y-4">
       <div className="rounded-lg border border-[var(--rule)] bg-[var(--paper-raised)] p-4 space-y-3">
         <label htmlFor="website-prompt" className="block text-sm font-medium">
-          Edit prompt (GPT 6.1 Sol, medium effort)
+          Website Edits
         </label>
         <textarea
           id="website-prompt"
@@ -214,7 +218,7 @@ export function WebsiteClient({  orgId,
             />
           </div>
         )}
-        {galleryUrls.length > 0 && (
+        {gallery.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             <label htmlFor="website-gallery-url" className="text-xs text-[var(--ink-soft)]">
               Gallery image:
@@ -224,16 +228,18 @@ export function WebsiteClient({  orgId,
               defaultValue=""
               onChange={(e) => {
                 if (e.target.value) {
-                  setPrompt((p) => `${p}${p.trim() ? "\n" : ""}Use this image URL: ${e.target.value}`);
+                  const picked = gallery.find((g) => g.url === e.target.value);
+                  const tag = picked ? `Use image "${picked.name}": ${picked.url}` : `Use this image URL: ${e.target.value}`;
+                  setPrompt((p) => `${p}${p.trim() ? "\n" : ""}${tag}`);
                   e.target.value = "";
                 }
               }}
               className="input text-xs max-w-full"
             >
-              <option value="">Insert a gallery URL into the prompt…</option>
-              {galleryUrls.map((u) => (
-                <option key={u} value={u}>
-                  {u.length > 60 ? `…${u.slice(-57)}` : u}
+              <option value="">Insert a gallery image by name…</option>
+              {gallery.map((g) => (
+                <option key={g.url} value={g.url}>
+                  {g.name}
                 </option>
               ))}
             </select>
@@ -347,7 +353,7 @@ export function WebsiteClient({  orgId,
 
       <div className="rounded-lg border border-[var(--rule)] bg-[var(--paper-raised)] p-4 space-y-3">
         <label htmlFor="website-rebuild-vibe" className="block text-sm font-medium">
-          Rebuild site with AI (Haiku 5.5, medium effort)
+          Rebuild site
         </label>
         <p className="text-xs text-[var(--ink-soft)]">
           Regenerates the full site from your org name, tagline, photos and this vibe. Takes 1–2 minutes and replaces the current built site.
@@ -374,7 +380,7 @@ export function WebsiteClient({  orgId,
 
       <div className="rounded-lg border border-[var(--rule)] bg-[var(--paper-raised)] p-4 space-y-3">
         <label className="block text-sm font-medium">
-          Reconnect site (Haiku 5.5, medium effort)
+          Reconnect site
         </label>
         <p className="text-xs text-[var(--ink-soft)]">
           Re-checks endpoint wiring, wires any unwired chatbot stub, and imports the site&apos;s menu items into the
@@ -404,30 +410,6 @@ export function WebsiteClient({  orgId,
         srcDocOverride={showPatched ? patchedHtml : null}
         previewBadge={showPatched && !!patchedHtml}
       />
-
-      {initialSettings.built_html ? (
-        builtChatColor ? (
-          <ChatbotPreview
-            settings={{
-              ...initialSettings,
-              chatbot: { ...defaultChatbotDesign(), ...initialSettings.chatbot, color: builtChatColor },
-            }}
-            orgName={orgName}
-          />
-        ) : (
-          <div className="rounded-lg overflow-hidden border border-[var(--rule)] bg-[var(--paper-raised)]">
-            <div className="px-3 py-1.5 text-xs font-medium text-[var(--ink-soft)] border-b border-[var(--rule)]">
-              Chatbot <span className="text-[var(--ink-faint)]">· from your AI-built site</span>
-            </div>
-            <p className="p-4 text-xs text-[var(--ink-soft)]">
-              This site&apos;s chatbot was designed by the AI build — see it live in the storefront preview above
-              (bottom-right bubble). Its look ships with the built site; use the edit prompt to restyle it.
-            </p>
-          </div>
-        )
-      ) : (
-        <ChatbotPreview settings={initialSettings} orgName={orgName} />
-      )}
     </div>
   );
 }

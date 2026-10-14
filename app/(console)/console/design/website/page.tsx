@@ -39,7 +39,10 @@ export default async function ConsoleDesignWebsitePage({
     .select("id, name, price, category, description")
     .eq("org_id", orgId)
     .eq("available", true)
-    .order("sort_order", { ascending: true });
+    // Same sequence as /console/menu: category groups, then item order.
+    .order("category_sort_order", { ascending: true, nullsFirst: false })
+    .order("sort_order", { ascending: true, nullsFirst: false })
+    .order("id", { ascending: true });
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">

@@ -11,13 +11,15 @@ export type AnchorEditStatus = AnchorEdit & {
 const MAX_EDITS = 10;
 
 const EDIT_SYSTEM = `You are Tablecraft's editing model (GPT 6.1 Sol, medium effort).
-You receive a restaurant's complete built website HTML plus its image gallery URLs.
+You receive a restaurant's complete built website HTML plus its named image gallery.
 Make ONLY the requested changes via anchored string replacements.
 Hard rules:
-- Return ONLY valid JSON: {"edits": [{"find": "<exact snippet>", "replace": "<replacement>", "summary": "<≤15 plain words>"}]} (max ${MAX_EDITS} edits).
+- Return ONLY valid JSON: {"edits": [{"find": "<exact snippet>", "replace": "<replacement>", "summary": "<≤15 plain words>"}], "logo_url": "<gallery URL or omitted>"} (max ${MAX_EDITS} edits).
 - "find" must be copied EXACTLY from the provided HTML (whitespace included) and occur exactly once in it. Prefer short unique anchors (a line or two, e.g. the element plus its distinctive text) over large blocks.
 - "replace" carries out the request at that anchor. For text removal, replace with "" or the cleaned-up line. Keep all surrounding markup, classes, and styling identical.
 - For image use, ONLY use gallery URLs from the provided list — never invent URLs. To feature a gallery image in the hero, swap the hero <img> src (or HERO_IMAGE_URL const) to the gallery URL.
+- MENU RULE: menu content changes (add/remove/rename/reprice/recategorize/reorder dishes) must be done ONLY by editing entries of the MENU_ITEMS const — never bake dish names, descriptions, or prices into static HTML, and never change the declaration shape (it must stay matchable as the const assignment the console swaps for live DB rows). The menu grid container stays empty in static markup; cards are rendered from the const via JS.
+- LOGO RULE: when the request asks to add/set/use a logo (e.g. 'use "logo" image as the logo'), swap the header/brand logo <img> src to that gallery URL AND return its exact URL in the top-level "logo_url" field so the console also saves it as the restaurant logo. Omit "logo_url" for non-logo requests.
 - NEVER touch <script> contents, endpoint URLs (/api/bookings, /api/cart/checkout, /api/chat/bookings), ORG_SLUG, the MENU_ITEMS data array, or /* CONSOLE HOOK */ markers unless the request explicitly demands it.
 - If a request cannot be done with anchored replacements, return {"edits": []}.`;
 
@@ -86,12 +88,31 @@ export async function POST(request: Request) {
   if (!builtHtml) {
     return NextResponse.json({ error: "No built site to edit yet — run the AI build first" }, { status: 400 });
   }
-  const gallery = Array.isArray(settings.ai_gallery)
-    ? (settings.ai_gallery as unknown[]).filter((u): u is string => typeof u === "string" && u.length > 0).slice(0, 20)
-    : [];
+  const { normalizeGallery } = await import("@/lib/design");
+  const gallery = normalizeGallery(settings.ai_gallery, 20);
+  const galleryUrls = new Set(gallery.map((g) => g.url));
+
+  /** Resolve a logo URL from an explicit value or a logo-intent prompt fallback. */
+  const resolveLogoUrl = (explicit: unknown, promptText: string): string | null => {
+    if (typeof explicit === "string" && galleryUrls.has(explicit)) return explicit;
+    // Fallback: prompt asks for a logo and names/pastes a gallery image.
+    if (/logo/i.test(promptText) && gallery.length > 0) {
+      // Prefer the gallery item whose name appears in the prompt (e.g. "logo").
+      const lower = promptText.toLowerCase();
+      for (const g of gallery) {
+        if (g.name && lower.includes(g.name.toLowerCase())) return g.url;
+      }
+      for (const g of gallery) {
+        if (promptText.includes(g.url)) return g.url;
+      }
+    }
+    return null;
+  };
 
   // Explicit apply path: re-validate anchors against current HTML, verify the
   // preview hash (exact bytes the user previewed), then write atomically.
+  // A logo edit also syncs organizations.logo_url (sign-in dashboard +
+  // marketing demo read the org row, not built_html).
   if (body.preview === false) {
     if (!Array.isArray(body.edits) || body.edits.length === 0) {
       return NextResponse.json({ error: "edits must be a non-empty array" }, { status: 400 });
@@ -114,12 +135,18 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
+    const logoUrl = resolveLogoUrl(
+      (body as { logo_url?: unknown }).logo_url ?? (body as { logoUrl?: unknown }).logoUrl,
+      typeof (body as { prompt?: unknown }).prompt === "string" ? (body as { prompt: string }).prompt : prompt,
+    );
+    const update: Record<string, unknown> = { design_settings: { ...settings, built_html: next } };
+    if (logoUrl) update.logo_url = logoUrl;
     await admin
       .from("organizations")
-      .update({ design_settings: { ...settings, built_html: next } })
+      .update(update)
       .eq("id", orgId);
-    console.log(`[AI EDIT] applied ${checked.length} anchor edit(s) for org ${orgId}`);
-    return NextResponse.json({ applied: true, count: checked.length });
+    console.log(`[AI EDIT] applied ${checked.length} anchor edit(s) for org ${orgId}${logoUrl ? " + logo_url" : ""}`);
+    return NextResponse.json({ applied: true, count: checked.length, logo_url: logoUrl });
   }
 
   // Per-OWNER monthly edit quota (free 3 / pro 30 / max 100) aggregated
@@ -138,7 +165,7 @@ export async function POST(request: Request) {
   const modelInput = [
     `Restaurant: ${typeof orgName === "string" ? orgName : orgId}`,
     gallery.length > 0
-      ? `Gallery image URLs (use ONLY these for any image request):\n${gallery.map((u, i) => `${i + 1}. ${u}`).join("\n")}`
+      ? `Gallery images (name -> URL, use ONLY these URLs for any image request):\n${gallery.map((g, i) => `${i + 1}. "${g.name}" -> ${g.url}`).join("\n")}`
       : `Gallery images: none yet — if the request needs a brand-new image rather than an existing URL, return {"edits": []}.`,
     `Edit request: ${prompt.slice(0, 2000)}`,
     improvise ? `Improvisation hint (apply creatively): ${improvise.slice(0, 2000)}` : ``,
@@ -152,6 +179,7 @@ export async function POST(request: Request) {
     const text = await callGptSolHigh(modelInput, { system: EDIT_SYSTEM, maxOutputTokens: 10000, effort: "medium" });
     const jsonMatch = text.match(/\{[\s\S]*\}/)?.[0];
     let edits: AnchorEdit[] = [];
+    let modelLogoUrl: string | null = null;
     try {
       const parsed: unknown = JSON.parse(jsonMatch ?? "{}");
       if (parsed && typeof parsed === "object" && Array.isArray((parsed as { edits?: unknown }).edits)) {
@@ -164,9 +192,14 @@ export async function POST(request: Request) {
           ...(typeof (e as { summary?: unknown }).summary === "string" ? { summary: (e as { summary: string }).summary } : {}),
         }));
       }
+      if (parsed && typeof parsed === "object") {
+        const rawLogo = (parsed as { logo_url?: unknown; logoUrl?: unknown }).logo_url ?? (parsed as { logoUrl?: unknown }).logoUrl;
+        if (typeof rawLogo === "string" && galleryUrls.has(rawLogo)) modelLogoUrl = rawLogo;
+      }
     } catch {
       edits = [];
     }
+    const logoUrl = modelLogoUrl ?? resolveLogoUrl(null, prompt);
     const checked = checkAnchors(builtHtml, edits);
     // Exact post-apply bytes, so the console preview toggle shows precisely
     // what Apply would write. Computed locally — zero model cost.
@@ -181,6 +214,7 @@ export async function POST(request: Request) {
       edits: checked,
       patchedHtml,
       previewHash: hashPage(patchedHtml),
+      logo_url: logoUrl,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Edit failed";

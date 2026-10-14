@@ -113,6 +113,31 @@ export function peekOwnerQuota(
   return { used, limit, remaining: Math.max(0, limit - used) };
 }
 
+/** DB-backed peek at per-owner monthly usage (no consumption). Falls back to memory. */
+export async function peekOwnerQuotaDb(
+  ownerId: string,
+  plan: PlanTier,
+  category: Exclude<QuotaCategory, "restaurant_create">,
+): Promise<{ used: number; limit: number; remaining: number }> {
+  const limit = getOwnerQuotaLimit(plan, category);
+  try {
+    const admin = createAdminClient();
+    const month = monthBucket();
+    const { data, error } = await admin
+      .from("owner_usage_monthly")
+      .select("used")
+      .eq("owner_id", ownerId)
+      .eq("category", category)
+      .eq("month", month)
+      .maybeSingle();
+    if (error) throw error;
+    const used = Math.max(0, Math.min((data as { used?: number } | null)?.used ?? 0, limit));
+    return { used, limit, remaining: Math.max(0, limit - used) };
+  } catch {
+    return peekOwnerQuota(ownerId, plan, category);
+  }
+}
+
 // ─── DB-backed helpers (best-effort, fail-open to memory) ──────────────────
 
 async function dbIncrementUsage(
@@ -296,18 +321,21 @@ export async function getOwnerPlanContext(authUserId: string): Promise<{
     const admin = createAdminClient();
     const { data: rows, error } = await admin
       .from("staff_users")
-      .select("org_id, email, organizations(subscription_plan)")
+      .select("org_id, email, organizations(subscription_plan, subscription_status)")
       .eq("auth_user_id", authUserId)
       .eq("role", "owner");
     if (error || !rows) return { plan: "free", email: null, orgCount: 0, orgIds: [] };
+    const { displayPlan } = await import("@/lib/pricing");
     const plans: string[] = [];
     const orgIds: string[] = [];
     let email: string | null = null;
     for (const r of rows as Array<{ org_id?: string; email?: string; organizations?: unknown }>) {
       if (r.org_id) orgIds.push(r.org_id);
       if (!email && typeof r.email === "string") email = r.email;
-      const org = Array.isArray(r.organizations) ? r.organizations[0] : (r.organizations as { subscription_plan?: string } | null);
-      if (org?.subscription_plan) plans.push(org.subscription_plan);
+      const org = Array.isArray(r.organizations) ? r.organizations[0] : (r.organizations as { subscription_plan?: string; subscription_status?: string } | null);
+      // Status-aware: a canceled subscription shows (and quotas) as Free even
+      // if the raw subscription_plan row still holds a paid value.
+      if (org?.subscription_plan) plans.push(displayPlan(org.subscription_plan, org?.subscription_status ?? null));
     }
     return { plan: resolveOwnerPlan(plans), email, orgCount: orgIds.length, orgIds };
   } catch {

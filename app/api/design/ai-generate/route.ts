@@ -25,16 +25,18 @@ function parseRatio(raw: unknown): ImageRatio {
  * Resolve the org's plan tier the same way /api/subscription/status does
  * (organizations.subscription_plan). Falls back to the Free tier when the
  * lookup is impractical — a safe default that never grants more than marketed.
+ * Status-aware: a canceled subscription quotas as Free (matches displayPlan).
  */
 async function resolvePlanTier(orgId: string): Promise<PlanTier> {
   try {
     const admin = createAdminClient();
     const { data: org } = await admin
       .from("organizations")
-      .select("subscription_plan")
+      .select("subscription_plan, subscription_status")
       .eq("id", orgId)
       .maybeSingle();
-    return normalizePlanTier(org?.subscription_plan);
+    const { displayPlan } = await import("@/lib/pricing");
+    return normalizePlanTier(displayPlan(org?.subscription_plan ?? null, (org as { subscription_status?: unknown } | null)?.subscription_status ?? null));
   } catch {
     return "free";
   }
