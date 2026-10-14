@@ -1,7 +1,8 @@
 /**
  * tests/combine/endpoint-wiring.test.ts
- * Combination hard rules (GPT 6.1 Sol high effort): menu + booking endpoints
- * wired to console, orgSlug preserved, design unchanged.
+ * Combination hard rules (Haiku 5.5 medium): menu + booking endpoints
+ * wired to console, orgSlug preserved, design unchanged. Runs automatically
+ * once per restaurant inside POST /api/ai/build (lib/ai-connect.ts).
  */
 import { describe, it, expect } from "vitest";
 import { GPT_SOL_MODEL } from "@/lib/ai-models";
@@ -33,7 +34,7 @@ describe("combine hard rules", () => {
 
   it("combine prompt covers cart wiring + console-wins cart_config", async () => {
     const src = await import("node:fs/promises").then((fs) =>
-      fs.readFile("app/api/ai/combine/route.ts", "utf8"),
+      fs.readFile("lib/ai-connect.ts", "utf8"),
     );
     expect(src).toContain("/api/cart/checkout");
     expect(src).toContain("cart_config");

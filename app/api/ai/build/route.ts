@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { callHaikuLow } from "@/lib/ai-models";
+import { callHaikuLow, type HaikuMeta } from "@/lib/ai-models";
+import { ingestDemoMenuItems } from "@/lib/demo-menu";
 import { requireStaffForOrgId } from "@/lib/api-auth";
 
-const BUILD_SYSTEM = `You are Tablecraft's restaurant website builder (Haiku 5.5, low effort).
+const BUILD_SYSTEM = `You are Tablecraft's restaurant website builder (Haiku 5.5, medium effort).
 Build ONE complete, self-contained single-page website: <!DOCTYPE html> with inline <style> in <head> and inline <script> at the end of <body>. No markdown fences, no explanations, no JSON — only the raw HTML.
 
 Follow the brief EXACTLY: use the given restaurant name, tagline, vibe, and owner paragraph as-is. Never invent a different restaurant, cuisine, or location. Never leave TODO comments, lorem ipsum, or fake confirmations — every button, filter, form, and chat step must actually work.
@@ -12,12 +13,13 @@ Fixed header → hero → story (owner paragraph + 3 stat figures) → menu → 
 
 Top of <script> must declare an EDITABLE DATA block:
 const ORG_SLUG = "<slug>"; const API_BOOKINGS = "/api/bookings";
-const MENU_ITEMS = [...] (8-10 items: name, price number in AED, category, description);
+const MENU_ITEMS = [...] (8-10 items: name, price number in AED, category, description — object keys MUST be double-quoted JSON-style, e.g. {"name": "Butter Chicken", "price": 45, "category": "Mains", "description": "..."}, so the console can import them);
 const GALLERY_IMAGES = [...] (4-5 entries: src, caption).
 const CART_SETTINGS = { mode: "pickup", delivery_enabled: false, delivery_fee: 0, min_order: 0 } (mirrors the console cart config; pickup by default).
 
 Wiring rules:
-- submitBooking(payload) POSTs JSON { orgSlug: ORG_SLUG, ...payload } to /api/bookings. The booking form calls it and shows real success/error status from the fetch result. The chatbot does NOT call it directly — its sendChatMessage() stub is left for the connector model, which will wire Haiku 5.5 to drive bookings through this same function.
+- Network rule: ONLY these API endpoints exist: POST /api/bookings and POST /api/cart/checkout. NEVER fetch /api/booking-actions, /api/menu-manager, /api/design-settings, or any other invented /api/* URL.
+- submitBooking(payload) POSTs JSON { orgSlug: ORG_SLUG, ...payload } to /api/bookings. The booking form calls it and shows real success/error status from the fetch result. The chatbot does NOT call it directly — it talks to /api/chat/bookings (see chatbot rule), which returns slots the booking form can reuse.
 - submitCartCheckout() POSTs JSON { orgSlug: ORG_SLUG, items: [{id, quantity}], fulfillment, customerName, customerPhone } to /api/cart/checkout and redirects the browser to the returned Stripe Checkout URL. Server-side prices win; never trust client totals.
 - Mark MENU_ITEMS, CART_SETTINGS, the submitBooking() and submitCartCheckout() functions, and the chatbot sendChatMessage() stub with a /* CONSOLE HOOK */ comment each, so the connector model (GPT 6.1 Sol) can wire the site to the console and connect the chatbot to Haiku 5.5.
 
@@ -35,8 +37,9 @@ DESIGN (this is the priority — aim for a polished, premium look):
 - Gallery: a perfect rectangle with zero empty gaps. Use a 12-column CSS grid with grid-auto-flow: dense; assign every tile an explicit grid-column span so EACH row's spans sum to exactly 12 (e.g. 7+5, 4+4+4, 6+6, 3+3+3+3); give all tiles in the same row equal heights so edges line up. Verify the span arithmetic row by row before finishing. Gradient placeholder tiles where images are missing.
 - Visit section: hours/location cards. Booking: split layout (copy + form card) with per-field error spans, JS-populated party (1-20) and time selects, min date set to today, and a confirmation panel (check icon + booking details + "make another booking" button) replacing the form on success.
 - Dark 3-column footer with a dynamic copyright year.
-- Chatbot look only (no behavior): circular FAB fixed bottom-right with a hover treatment (grow/rotate/lift — model's choice), opening panel with an open animation (scale/fade/slide — model's choice); header with assistant name, subtitle, and close button; message area; 3-dot typing indicator CSS; input row with send button. The panel starts closed (no open class in the initial HTML, nothing auto-opens it). On first open it must already show exactly one static greeting bubble (present in the initial HTML or rendered via addMessage on init) — never an empty message area; this greeting is the only bot text allowed. Do NOT script any conversation flow, canned replies beyond the greeting, validation, chips logic, or confirm steps. Instead provide a stub function sendChatMessage(text) marked with a /* CONSOLE HOOK: chatbot backend (Haiku 5.5) */ comment — the connector model will wire it to Haiku 5.5 later. The panel must render messages through an addMessage(text, who) helper the stub can reuse.
+- Chatbot fully working, never a stub (no canned replies beyond the greeting): circular FAB fixed bottom-right with a hover treatment (grow/rotate/lift — model's choice), opening panel with an open animation (scale/fade/slide — model's choice); header with assistant name, subtitle, and close button; message area; 3-dot typing indicator CSS; input row with send button. The panel starts closed (no open class in the initial HTML, nothing auto-opens it). On first open it must already show exactly one static greeting bubble (present in the initial HTML or rendered via addMessage on init) — never an empty message area; this greeting is the only bot text allowed without a backend reply. The panel must render messages through an addMessage(text, who) helper. Conversation state lives in JS: const CHAT_SLOTS = { name: null, party_size: null, date: null, time: null } and const CHAT_HISTORY = [] (capped at the last 10 {role, content} entries). sendChatMessage(text) shows the typing indicator, POSTs JSON { message: text, slots: CHAT_SLOTS, history: CHAT_HISTORY, orgSlug: ORG_SLUG, autoBook: true } to /api/chat/bookings, then hides the indicator, updates CHAT_SLOTS from res.slots, appends {role:"user",content:text} and {role:"assistant",content:res.response} to CHAT_HISTORY (cap 10), and renders res.response via addMessage(res.response, "bot"). The backend books the table automatically when slots complete, so NEVER promise a booking before res.bookingId arrives — only treat the reservation as confirmed when the reply says booked. If res.pendingCombo arrives, render its message plus a Confirm button that POSTs JSON { orgSlug: ORG_SLUG, customerName: CHAT_SLOTS.name, partySize: CHAT_SLOTS.party_size, datetime: <CHAT_SLOTS.date>T<CHAT_SLOTS.time> as ISO, tableIds: res.pendingCombo.tables.map(t => t.id) } to /api/bookings and renders the result. Mark it with a /* CONSOLE HOOK: chatbot backend (Haiku 5.5 via /api/chat/bookings) */ comment.
 - Mobile nav (verify at 390px before finishing): the hamburger button must render as three clear horizontal lines (no icon-font glyphs that can fall back to odd characters); the drawer must contain a visible × close button in its top corner; the drawer closes on link tap, on × tap, on backdrop tap, and on Escape; drawer links are large tap targets; the drawer never traps the user with no way out.
+- View switching can never blank the page: anchor nav links use plain href="#section-id" scrolling wherever possible. Any JS view switch (cart page, booking confirmation) must always leave exactly one view visible — if the target view is missing or a handler throws, fall back to showing the main page. A click that hides everything with nothing shown is a failure.
 - Header contrast on every view: header text and icons must be legible at scroll-top AND scrolled, on the main page AND on any solid-background view (cart page, booking confirmations). If the header is transparent over a dark hero with light text, it must switch to its solid blurred-background state whenever the underlying view is light — e.g. force the scrolled appearance while the cart page is open. White-on-cream or dark-on-dark at any scroll position on any view is a failure.
 - Freshness rule: never reuse the same hero animation, card hover, or button treatment across generations — invent them fresh for each brief to fit its vibe. Entrance motion must stay within opacity and translateY (see Scroll-reveal above), so the style can vary but the visibility logic cannot.
 - Mobile hero (verify at 390px before finishing): at 720px and below the hero stacks copy first — top of the hero, just clearing the fixed header, never bottom-pinned and never a large empty void above the text. The art goes below the copy in normal flow at max 40vh, horizontally centered (center with left/margin or bake the transform into every keyframe, because an animating transform replaces a static one and breaks centering). Text never overlays busy animated art on mobile: art sits below the copy or behind it at reduced opacity.
@@ -45,7 +48,7 @@ DESIGN (this is the priority — aim for a polished, premium look):
 /**
  * POST /api/ai/build
  * Body: { orgId, name, tagline, orgSlug, vibe, paragraph?, logoUrl?, imageUrls?[] }
- * Uses Haiku 5.5 low effort. Staff-gated when orgId provided.
+ * Uses Haiku 5.5 medium effort. Staff-gated when orgId provided.
  */
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
@@ -58,6 +61,14 @@ export async function POST(request: Request) {
   if (orgId) {
     const auth = await requireStaffForOrgId(orgId);
     if ("response" in auth) return auth.response;
+    // Initial build counts toward the per-OWNER edit quota (free 3 / pro 30 / max 100).
+    const { getOwnerForOrg, getOwnerPlanContext, checkOwnerQuota, ownerQuotaExceededResponse } = await import("@/lib/owner-quotas");
+    const { ownerId, ownerEmail } = await getOwnerForOrg(orgId);
+    const ownerKey = ownerId ?? `org-fallback:${orgId}`;
+    const plan = ownerId ? (await getOwnerPlanContext(ownerId)).plan : "free" as const;
+    const emailFinal = ownerEmail ?? (ownerId ? (await getOwnerPlanContext(ownerId)).email : null);
+    const q = await checkOwnerQuota({ ownerId: ownerKey, plan, category: "edit", ownerEmail: emailFinal });
+    if (!q.allowed) return ownerQuotaExceededResponse(q.used, q.limit, "edit");
   }
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const tagline = typeof body.tagline === "string" ? body.tagline.trim() : "";
@@ -123,14 +134,99 @@ export async function POST(request: Request) {
   ].join("\n");
 
   try {
-    const text = await callHaikuLow(prompt, { system: BUILD_SYSTEM, maxTokens: 100000 });
+    let buildMeta: HaikuMeta = {};
+    const text = await callHaikuLow(prompt, { system: BUILD_SYSTEM, maxTokens: 100000, effort: "medium", onMeta: (m) => { buildMeta = m; } });
     // Strip markdown fences if the model adds them; otherwise keep raw HTML.
     const html = text
       .replace(/^```html\s*/i, "")
       .replace(/^```\s*/, "")
       .replace(/\s*```$/, "")
-      .trim();
-    return NextResponse.json({ model: "claude-haiku-5-5", effort: "low", html: html.slice(0, 100000) });
+      .trim()
+      .slice(0, 100000);
+    console.log(
+      `[AI BUILD] html chars: ${html.length} ` +
+        `output_tokens: ${buildMeta.outputTokens ?? "?"} ` +
+        `input_tokens: ${buildMeta.inputTokens ?? "?"} ` +
+        `stop: ${buildMeta.stopReason ?? "?"}`,
+    );
+    // Persist: the built HTML IS the site. Merge into design_settings so the
+    // public page + console preview serve it (no-op when orgId absent, e.g. tests).
+    let connected = false;
+    let finalHtml = html;
+    if (orgId && html.length > 0) {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const admin = createAdminClient();
+      const readSettings = async () => {
+        const { data: orgRow } = await admin
+          .from("organizations")
+          .select("design_settings")
+          .eq("id", orgId)
+          .maybeSingle();
+        return ((orgRow as { design_settings?: unknown } | null)?.design_settings ?? {}) as Record<string, unknown>;
+      };
+      const saveHtml = async (nextHtml: string) => {
+        await admin
+          .from("organizations")
+          .update({ design_settings: { ...(await readSettings()), built_html: nextHtml } })
+          .eq("id", orgId);
+      };
+      try {
+        await saveHtml(html);
+      } catch (e) {
+        console.error("[AI BUILD] persist failed (returning HTML anyway):", e instanceof Error ? e.message.slice(0, 200) : e);
+      }
+      // Automatic combine (once, at creation): Haiku 5.5 medium verifies/fixes
+      // the console wiring in the built HTML and saves it back. Non-fatal —
+      // the raw build stands if this fails. No extra quota (covered by the build).
+      try {
+        const { verifyAndFixSiteHtml } = await import("@/lib/ai-connect");
+        let combineOut = "?";
+        const fixed = await verifyAndFixSiteHtml(html, {
+          orgSlug,
+          name,
+          onMeta: (m) => {
+            combineOut = String(m.outputTokens ?? "?");
+          },
+        });
+        await saveHtml(fixed);
+        finalHtml = fixed;
+        connected = true;
+        console.log(`[AI COMBINE] auto-connect for ${orgSlug}: ${html.length} → ${fixed.length} chars output_tokens: ${combineOut}`);
+      } catch (e) {
+        console.error("[AI COMBINE] auto-connect failed (raw build kept):", e instanceof Error ? e.message.slice(0, 300) : e);
+      }
+      // Demo menu ingest: the build invents MENU_ITEMS (it has no DB access).
+      // Parse them out of the final HTML and save to menu_items so the console
+      // Menu section shows the same items as the site. SEED-ONLY: runs only
+      // when the org has zero menu rows — otherwise a rebuild/reconnect would
+      // resurrect items the owner already deleted. Non-fatal.
+      try {
+        const { count: existingCount } = await admin
+          .from("menu_items")
+          .select("id", { count: "exact", head: true })
+          .eq("org_id", orgId);
+        if ((existingCount ?? 0) === 0) {
+          const count = await ingestDemoMenuItems(admin, orgId, finalHtml);
+          if (count > 0) console.log(`[AI BUILD] demo menu ingested for ${orgSlug}: ${count} items`);
+        }
+      } catch (e) {
+        console.error("[AI BUILD] demo menu ingest failed:", e instanceof Error ? e.message.slice(0, 200) : e);
+      }
+    }
+    // Final sanity scan: forbidden invented endpoints + unbalanced script tags.
+    // Logs loudly (and reports in the response) so bad output is caught here,
+    // not discovered later as blank pages and 404s.
+    const FORBIDDEN_API_URLS = ["/api/booking-actions", "/api/menu-manager", "/api/design-settings"];
+    const warnings: string[] = FORBIDDEN_API_URLS.filter((u) => finalHtml.includes(u)).map(
+      (u) => `forbidden endpoint in HTML: ${u}`,
+    );
+    const openScripts = (finalHtml.match(/<script(?=[\s>])/gi) ?? []).length;
+    const closeScripts = (finalHtml.match(/<\/script\s*>/gi) ?? []).length;
+    if (openScripts !== closeScripts) warnings.push(`unbalanced script tags: ${openScripts} open vs ${closeScripts} close`);
+    if (warnings.length > 0) {
+      console.error(`[AI BUILD] output warnings for ${orgSlug}: ${warnings.join(" | ")}`);
+    }
+    return NextResponse.json({ model: "claude-haiku-5-5", effort: "medium", html: finalHtml, connected, warnings });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Build failed";
     const status = msg.includes("CLAUDE_API") ? 500 : 502;

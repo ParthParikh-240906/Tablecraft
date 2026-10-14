@@ -4,7 +4,7 @@
  * Stripe price ensure logic (mocked), marketing plan consistency.
  */
 import { describe, it, expect, vi } from "vitest";
-import { PLAN_MONTHLY_AED, PLAN_ANNUAL_AED, PLAN_LABELS, getPlanConfig, ensurePriceIds, getMonthlyPriceId, getAnnualPriceId } from "@/lib/pricing";
+import { PLAN_MONTHLY_AED, PLAN_ANNUAL_AED, PLAN_LABELS, getPlanConfig, displayPlan, ensurePriceIds, getMonthlyPriceId, getAnnualPriceId } from "@/lib/pricing";
 import { MARKETING_PLANS } from "@/lib/marketing-plans";
 
 describe("pricing constants", () => {
@@ -99,5 +99,34 @@ describe("MARKETING_PLANS consistency", () => {
       expect(p.ctaLink.startsWith("/")).toBe(true);
       expect(p.features.length).toBeGreaterThan(0);
     }
+  });
+
+  it("no plan promises meetings with a senior developer", () => {
+    const haystack = MARKETING_PLANS.flatMap((p) => [p.description, ...p.features]).join("\n").toLowerCase();
+    expect(haystack).not.toContain("senior frontend");
+    expect(haystack).not.toContain("senior developer");
+    expect(haystack).not.toContain("meetings with senior");
+  });
+});
+
+describe("displayPlan (canceling is immediate)", () => {
+  it("canceled/canceling status always shows Free, even with a paid stored plan", () => {
+    expect(displayPlan("pro", "canceled")).toBe("free");
+    expect(displayPlan("max", "canceled")).toBe("free");
+    expect(displayPlan("pro", "canceling")).toBe("free");
+    expect(displayPlan("max", "canceling")).toBe("free");
+  });
+
+  it("active/past_due/free statuses show the stored plan", () => {
+    expect(displayPlan("pro", "active")).toBe("pro");
+    expect(displayPlan("max", "active")).toBe("max");
+    expect(displayPlan("max", "past_due")).toBe("max");
+    expect(displayPlan("free", "free")).toBe("free");
+  });
+
+  it("unknown values fall back to Free", () => {
+    expect(displayPlan(null, "active")).toBe("free");
+    expect(displayPlan("enterprise", "active")).toBe("free");
+    expect(displayPlan("pro", null)).toBe("pro");
   });
 });

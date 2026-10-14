@@ -4,15 +4,11 @@ import { requireStaffForOrgId } from "@/lib/api-auth";
 import {
   PLAN_AI_LIMITS,
   normalizePlanTier,
-  checkAiQuota,
-  aiQuotaExceededResponse,
   getClientIp,
   rateLimit,
   rateLimitedResponse,
   type PlanTier,
 } from "@/lib/rate-limit";
-
-const DEFAULT_AGNES_IMAGE_URL = "https://apihub.agnes-ai.com/v1/images/generations";
 
 const ALLOWED_RATIOS = ["1:1", "16:9", "9:16"] as const;
 type ImageRatio = (typeof ALLOWED_RATIOS)[number];
@@ -44,24 +40,6 @@ async function resolvePlanTier(orgId: string): Promise<PlanTier> {
   }
 }
 
-async function callAgnes(apiKey: string, imageUrl: string, payload: Record<string, unknown>) {
-  const res = await fetch(imageUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-  let data: unknown = null;
-  try {
-    data = await res.json();
-  } catch {
-    data = null;
-  }
-  return { res, data };
-}
-
 export async function POST(req: Request) {
   let body: unknown;
   try {
@@ -70,9 +48,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
   try {
-    const { prompt, imageBase64, org_id, orgId, ratio } = (body ?? {}) as {
+    const { prompt, org_id, orgId, ratio } = (body ?? {}) as {
       prompt?: unknown;
-      imageBase64?: unknown;
       org_id?: unknown;
       orgId?: unknown;
       ratio?: unknown;
@@ -84,15 +61,12 @@ export async function POST(req: Request) {
     if (prompt.length > 1000) {
       return NextResponse.json({ error: "prompt must be under 1000 characters" }, { status: 400 });
     }
-    if (imageBase64 != null && (typeof imageBase64 !== "string" || imageBase64.length > 7_000_000)) {
-      return NextResponse.json({ error: "Invalid image data" }, { status: 400 });
-    }
 
     const wantRatio = parseRatio(ratio);
 
-    // Monthly per-org quota (PLAN_AI_LIMITS.image) when the org is known.
-    // Without an org (legacy callers) fall back to a per-IP daily brake at
-    // the Free-tier level so the endpoint is never unauthenticated-unlimited.
+    // Per-OWNER monthly image quota (free 10 / pro 100 / max 300) aggregated
+    // across all restaurants the owner holds — covers editor, creation model
+    // and direct user generations (all flow through this route).
     let tier: PlanTier = "free";
     let quota: { used: number; limit: number; remaining: number } | null = null;
     const orgIdValue =
@@ -104,9 +78,13 @@ export async function POST(req: Request) {
     if (orgIdValue) {
       const auth = await requireStaffForOrgId(orgIdValue);
       if ("response" in auth) return auth.response;
-      tier = await resolvePlanTier(orgIdValue);
-      const q = checkAiQuota({ orgId: orgIdValue, tier, kind: "image" });
-      if (!q.allowed) return aiQuotaExceededResponse(q.used, q.limit, "image");
+      const { getOwnerForOrg, getOwnerPlanContext, checkOwnerQuota, ownerQuotaExceededResponse } = await import("@/lib/owner-quotas");
+      const { ownerId, ownerEmail } = await getOwnerForOrg(orgIdValue);
+      const ownerKey = ownerId ?? `org-fallback:${orgIdValue}`;
+      tier = ownerId ? (await getOwnerPlanContext(ownerId)).plan : await resolvePlanTier(orgIdValue);
+      const ownerEmailFinal = ownerEmail ?? (ownerId ? (await getOwnerPlanContext(ownerId)).email : null);
+      const q = await checkOwnerQuota({ ownerId: ownerKey, plan: tier, category: "image", ownerEmail: ownerEmailFinal });
+      if (!q.allowed) return ownerQuotaExceededResponse(q.used, q.limit, "image generation");
       quota = q;
     } else {
       const ipRl = rateLimit(
@@ -117,78 +95,45 @@ export async function POST(req: Request) {
       if (!ipRl.allowed) return rateLimitedResponse(ipRl.resetMs);
     }
 
-    const apiKey = process.env.AGNES_API_KEY;
-    const imageUrl = process.env.AGNES_IMAGE_API_URL?.trim() || DEFAULT_AGNES_IMAGE_URL;
-
-    // Prefer IMAGE_API (OpenAI-compatible) when configured; fall back to Agnes.
-    if (process.env.IMAGE_API) {
-      try {
-        const { callImageGen } = await import("@/lib/ai-models");
-        const size = wantRatio === "1:1" ? "1024x1024" : wantRatio === "9:16" ? "1024x1792" : "1792x1024";
-        const url = await callImageGen((prompt as string).trim().slice(0, 1000), { size });
-        return NextResponse.json({ url, quota, model: "image via IMAGE_API" });
-      } catch (e) {
-        console.warn("[AI GENERATE] IMAGE_API failed, falling back to Agnes:", e instanceof Error ? e.message.slice(0, 200) : e);
+    // OpenAI GPT Image 2.5 via OPENAI_API (same key as GPT 6.1 Sol). No fallback.
+    try {
+      const { callImageGen } = await import("@/lib/ai-models");
+      const size = wantRatio === "1:1" ? "1024x1024" : wantRatio === "9:16" ? "1024x1536" : "1536x1024";
+      let url = await callImageGen((prompt as string).trim().slice(0, 1000), { size });
+      // GPT image models return base64 data URLs (hundreds of KB) — persisting
+      // those would blow past the settings payload cap and lose the gallery on
+      // the next save. Upload to storage and hand back a short public URL.
+      if (orgIdValue && url.startsWith("data:image/")) {
+        try {
+          const m = url.match(/^data:(image\/[a-z+]+);base64,([\s\S]*)$/);
+          if (!m) throw new Error("unparseable data URL");
+          const mime = m[1];
+          const buffer = Buffer.from(m[2], "base64");
+          const ext = mime.includes("jpeg") ? "jpg" : mime.includes("webp") ? "webp" : "png";
+          const admin = createAdminClient();
+          const storagePath = `ai/${orgIdValue}/${Date.now()}.${ext}`;
+          const { error: upErr } = await admin.storage
+            .from("org-paragraph-images")
+            .upload(storagePath, buffer, { contentType: mime, upsert: false });
+          if (upErr) throw upErr;
+          const { data: pub } = admin.storage.from("org-paragraph-images").getPublicUrl(storagePath);
+          if (pub?.publicUrl) {
+            url = pub.publicUrl;
+          }
+        } catch (e) {
+          console.warn("[AI GENERATE] storage upload failed, falling back to data URL:", e instanceof Error ? e.message.slice(0, 200) : e);
+        }
       }
+      return NextResponse.json({
+        url,
+        // Lets the console update its "X of Y left" hint without an extra round-trip.
+        quota: quota ? { ...quota, plan: tier } : undefined,
+        model: "gpt-image-2.5-flare",
+      });
+    } catch (e) {
+      console.error("[AI GENERATE] OpenAI image gen failed:", e instanceof Error ? e.message.slice(0, 200) : e);
+      return NextResponse.json({ error: "Could not generate the image. Please try again." }, { status: 502 });
     }
-
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "Missing AGNES_API_KEY" },
-        { status: 500 },
-      );
-    }
-
-    const buildPayload = (r: ImageRatio): Record<string, unknown> => {
-      const payload: Record<string, unknown> = {
-        model: "agnes-image-2.5-flash",
-        prompt: (prompt as string).trim().slice(0, 1000),
-        size: "1K",
-        ratio: r,
-        extra_body: {
-          response_format: "url",
-        },
-      };
-      if (imageBase64) {
-        (payload.extra_body as Record<string, unknown>).image = [imageBase64];
-      }
-      return payload;
-    };
-
-    let { res, data } = await callAgnes(apiKey, imageUrl, buildPayload(wantRatio));
-
-    // Graceful fallback: if the provider rejects a non-default ratio, retry
-    // once with the 16:9 default instead of failing the request.
-    if (!res.ok && wantRatio !== DEFAULT_RATIO && data !== null) {
-      const errText = JSON.stringify(data).toLowerCase();
-      if (errText.includes("ratio") || errText.includes("aspect") || errText.includes("size")) {
-        console.warn(`[AI GENERATE] ratio ${wantRatio} rejected, retrying with ${DEFAULT_RATIO}`);
-        ({ res, data } = await callAgnes(apiKey, imageUrl, buildPayload(DEFAULT_RATIO)));
-      }
-    }
-
-    if (data === null) {
-      console.error("[AI GENERATE] Image API returned non-JSON");
-      return NextResponse.json({ error: "Image service error. Please try again." }, { status: 502 });
-    }
-
-    if (!res.ok) {
-      console.error("[AI GENERATE] Image API failed:", res.status);
-      return NextResponse.json(
-        { error: "Could not generate the image. Please try again." },
-        { status: 502 },
-      );
-    }
-
-    const url = (data as { data?: { url?: unknown }[] } | null)?.data?.[0]?.url ?? null;
-    if (typeof url !== "string") {
-      return NextResponse.json({ error: "Could not generate the image. Please try again." }, { status: 500 });
-    }
-    return NextResponse.json({
-      url,
-      // Lets the console update its "X of Y left" hint without an extra round-trip.
-      quota: quota ? { ...quota, plan: tier } : undefined,
-    });
   } catch (err) {
     console.error("[AI GENERATE] unhandled:", err);
     return NextResponse.json({ error: "Could not generate the image. Please try again." }, { status: 500 });

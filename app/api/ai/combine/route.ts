@@ -1,19 +1,15 @@
 import { NextResponse } from "next/server";
-import { callGptSolHigh } from "@/lib/ai-models";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaffForOrgId } from "@/lib/api-auth";
-
-const COMBINE_SYSTEM = `You are Tablecraft's combination model (GPT 6.1 Sol, high effort).
-Hard rules:
-- Connect Menu section and Book a table endpoints to their respective places in console (menu-manager + booking-actions).
-- Connect the cart: POST /api/cart/checkout guest orders must appear in the console Orders/Kitchen queue with fulfillment (pickup/delivery) carried through; sync CART_SETTINGS on the site with design_settings.cart_config in the console (console is source of truth; default pickup). If the org's Stripe Connect account is not active, report checkout as unwired — never fake it.
-- The restaurant website must keep orgSlug in its endpoint URLs (/{orgSlug}, /{orgSlug}/menu, /{orgSlug}/reserve, /{orgSlug}/cart, POST /api/bookings {orgSlug}, POST /api/cart/checkout {orgSlug}).
-- You may read and write lines of code but you MUST NOT change the design of the website (colors, fonts, layout, DesignSettingsV2 stay identical).
-- Return ONLY valid JSON: {"files": [{"path": "...", "lines": "file:line", "diff": "..."}], "tests": ["..."]}`;
+import { verifyAndFixSiteHtml, COMBINE_MODEL } from "@/lib/ai-connect";
 
 /**
  * POST /api/ai/combine
  * Body: { orgId, orgSlug }
- * GPT 6.1 Sol high effort via Responses API. Staff-gated. Preview only (no write).
+ * Manual re-run of the automatic post-build connection pass (Haiku 5.5,
+ * medium effort): loads the stored built HTML, verifies/fixes console wiring,
+ * saves it back. Staff-gated (owners pass — it checks org staff membership,
+ * not employment). GPT 6.1 Sol is reserved for edit.
  */
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
@@ -28,20 +24,54 @@ export async function POST(request: Request) {
   const auth = await requireStaffForOrgId(orgId);
   if ("response" in auth) return auth.response;
 
-  const prompt = [
-    `orgId: ${orgId}`,
-    `orgSlug: ${orgSlug}`,
-    `Wire getMenuByOrg -> console/menu/menu-manager.tsx and POST /api/bookings -> console/bookings/booking-actions.tsx + BookingChatbot.tsx.`,
-    `Wire POST /api/cart/checkout -> console orders/kitchen queue (fulfillment carried through) and CART_SETTINGS <-> design_settings.cart_config (console wins, default pickup).`,
-    `Keep all design_settings identical. Public URLs must keep /${orgSlug}.`,
-    `List exact file:line patches as preview (do not apply).`,
-  ].join("\n");
+  // Manual re-runs count toward the per-OWNER edit quota (same pool as /api/ai/edit).
+  {
+    const { getOwnerForOrg, getOwnerPlanContext, checkOwnerQuota, ownerQuotaExceededResponse } = await import("@/lib/owner-quotas");
+    const { ownerId, ownerEmail } = await getOwnerForOrg(orgId);
+    const ownerKey = ownerId ?? `org-fallback:${orgId}`;
+    const plan = ownerId ? (await getOwnerPlanContext(ownerId)).plan : "free" as const;
+    const emailFinal = ownerEmail ?? (ownerId ? (await getOwnerPlanContext(ownerId)).email : null);
+    const q = await checkOwnerQuota({ ownerId: ownerKey, plan, category: "edit", ownerEmail: emailFinal });
+    if (!q.allowed) return ownerQuotaExceededResponse(q.used, q.limit, "edit");
+  }
 
   try {
-    const text = await callGptSolHigh(prompt, { system: COMBINE_SYSTEM, maxOutputTokens: 6000 });
-    return NextResponse.json({ model: "gpt-6.1-sol", effort: "high", preview: true, raw: text.slice(0, 20000) });
+    const admin = createAdminClient();
+    const { data: orgRow } = await admin
+      .from("organizations")
+      .select("name, design_settings")
+      .eq("id", orgId)
+      .maybeSingle();
+    const settings = ((orgRow as { design_settings?: unknown } | null)?.design_settings ?? {}) as Record<string, unknown>;
+    const current = typeof settings.built_html === "string" ? settings.built_html : "";
+    if (!current) {
+      return NextResponse.json({ error: "No built site to connect yet — run the AI build first" }, { status: 400 });
+    }
+    const name = (orgRow as { name?: unknown } | null)?.name;
+    const fixed = await verifyAndFixSiteHtml(current, { orgSlug, name: typeof name === "string" ? name : orgSlug });
+    await admin
+      .from("organizations")
+      .update({ design_settings: { ...settings, built_html: fixed } })
+      .eq("id", orgId);
+    console.log(`[AI COMBINE] manual re-run for ${orgSlug}: ${current.length} → ${fixed.length} chars`);
+    // Same demo-menu ingest as build, so a re-run backfills console items —
+    // but seed-only (never resurrects items the owner deleted).
+    try {
+      const { ingestDemoMenuItems } = await import("@/lib/demo-menu");
+      const { count: existingCount } = await admin
+        .from("menu_items")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", orgId);
+      if ((existingCount ?? 0) === 0) {
+        const count = await ingestDemoMenuItems(admin, orgId, fixed);
+        if (count > 0) console.log(`[AI COMBINE] demo menu ingested for ${orgSlug}: ${count} items`);
+      }
+    } catch (e) {
+      console.error("[AI COMBINE] demo menu ingest failed:", e instanceof Error ? e.message.slice(0, 200) : e);
+    }
+    return NextResponse.json({ model: COMBINE_MODEL, effort: "medium", applied: true, chars: fixed.length });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Combine failed";
-    return NextResponse.json({ error: msg }, { status: msg.includes("OPENAI_API") ? 500 : 502 });
+    return NextResponse.json({ error: msg }, { status: msg.includes("CLAUDE_API") ? 500 : 502 });
   }
 }

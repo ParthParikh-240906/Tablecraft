@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PLAN_ANNUAL_AED, PLAN_MONTHLY_AED, getAnnualMonthlyEquivalent, getAnnualSavings, type BillingInterval, type PaidPlanKey } from "@/lib/pricing";
+import { OWNER_QUOTAS } from "@/lib/owner-quotas";
 import { BillingToggle } from "@/components/BillingToggle";
 
 export interface OrgMetricData {
@@ -38,10 +39,9 @@ export function PricingClient({
   accessDeniedOrgName?: string | null;
 }) {
   const [selectedOrgId, setSelectedOrgId] = useState<string>(activeOrgId || orgs[0]?.id || "");
-  const [loadingPlan, setLoadingPlan] = useState<PaidPlanKey | "portal" | "cancel" | "sync" | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<PaidPlanKey | "cancel" | "sync" | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [hasCanceled, setHasCanceled] = useState(false);
-  const [portalUrl, setPortalUrl] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const [billing, setBilling] = useState<BillingInterval>(
@@ -74,27 +74,6 @@ export function PricingClient({
   const selectedOrg = orgs.find((o) => o.id === selectedOrgId) || orgs[0];
   const noOrgs = !orgs || orgs.length === 0;
 
-  // Fetch Stripe portal URL so the "Manage Billing" link can open in a new tab
-  useEffect(() => {
-    if (!selectedOrg?.slug) return;
-    let cancelled = false;
-    fetch("/api/subscription/manage", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orgSlug: selectedOrg.slug }),
-    })
-      .then((r) => r.json().catch(() => null))
-      .then((data) => {
-        if (cancelled) return;
-        if (data?.url) setPortalUrl(data.url);
-        else if (data?.error) setErrorMsg(`Could not preload billing portal: ${data.error}`);
-      })
-      .catch(() => {
-        if (!cancelled) setErrorMsg("Could not preload billing portal — check connection. You can still click Manage Billing.");
-      });
-    return () => { cancelled = true; };
-  }, [selectedOrg?.slug]);
-
   if (noOrgs) {
     return (
       <div className="ticket p-8 text-center">
@@ -126,6 +105,9 @@ export function PricingClient({
           orgSlug: selectedOrg.slug,
           email: userEmail,
           billing,
+          // Deliberate purchase from the pricing page: always open Stripe
+          // Checkout instead of silently updating an existing subscription.
+          forceNew: true,
         }),
       });
 
@@ -171,40 +153,9 @@ export function PricingClient({
     }
   };
 
-  const handleManageBilling = async () => {
-    if (!selectedOrg) return;
-    setErrorMsg(null);
-    setLoadingPlan("portal");
-
-    try {
-      const res = await fetch("/api/subscription/manage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orgSlug: selectedOrg.slug,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        throw new Error(data.error || "Failed to open billing portal");
-      }
-
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error("No billing portal URL returned");
-      }
-    } catch (err: any) {
-      console.error("Portal error:", err);
-      setErrorMsg(err.message || "Could not load billing portal.");
-      setLoadingPlan(null);
-    }
-  };
-
   const handleCancel = async () => {
     if (!selectedOrg) return;
-    if (!window.confirm(`Cancel your ${selectedOrg.plan.toUpperCase()} plan? You'll keep access until the end of your billing period.`)) return;
+    if (!window.confirm(`Cancel your ${selectedOrg.plan.toUpperCase()} plan? Your plan will switch to Free immediately.`)) return;
     setLoadingPlan("cancel");
     try {
       const res = await fetch("/api/subscription/cancel", {
@@ -451,51 +402,26 @@ export function PricingClient({
                     {loadingPlan === "sync" ? "Syncing…" : "Sync Plan Status"}
                   </button>
                 )}
-                {selectedOrg.stripe_subscription_id && (
-                  <>
-                    {portalUrl ? (
-                      <a
-                        href={portalUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-outline text-xs py-1.5 px-3"
-                      >
-                        Manage Billing & Invoices ↗
-                      </a>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleManageBilling}
-                        disabled={loadingPlan === "portal"}
-                        className="btn btn-outline text-xs py-1.5 px-3"
-                      >
-                        {loadingPlan === "portal" ? "Loading…" : "Manage Billing & Invoices →"}
-                      </button>
-                    )}
-                    {selectedOrg.subscription_status !== "canceled" && (
-                      <button
-                        type="button"
-                        onClick={handleCancel}
-                        disabled={loadingPlan === "cancel"}
-                        className="btn btn-outline text-xs py-1.5 px-3 text-rose-500 hover:text-rose-600 border-rose-300 hover:border-rose-400"
-                      >
-                        {loadingPlan === "cancel" ? "Canceling…" : "Cancel Subscription"}
-                      </button>
-                    )}
-                  </>
+                {selectedOrg.stripe_subscription_id && selectedOrg.subscription_status !== "canceled" && (
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={loadingPlan === "cancel"}
+                    className="btn btn-outline text-xs py-1.5 px-3 text-rose-500 hover:text-rose-600 border-rose-300 hover:border-rose-400"
+                  >
+                    {loadingPlan === "cancel" ? "Canceling…" : "Cancel Plan"}
+                  </button>
                 )}
               </>
             )}
           </div>
         )}
 
-        {hasCanceled && selectedOrg?.currentPeriodEnd && (
+        {hasCanceled && (
           <div className="p-4 rounded bg-amber-500/10 border border-amber-500/30 text-amber-700 text-xs">
             <p className="font-semibold mb-1">Subscription Canceled</p>
             <p>
-              Your subscription has been canceled. You can still use the {selectedOrg.plan.toUpperCase()} plan until{" "}
-              <span className="font-mono font-semibold">{new Date(selectedOrg.currentPeriodEnd).toLocaleDateString()}</span>.
-              After that date, your plan will switch to Free.
+              Your subscription has been canceled. {selectedOrg?.name ?? "Your restaurant"} is now on the Free plan.
             </p>
           </div>
         )}
@@ -504,6 +430,9 @@ export function PricingClient({
         <div className="flex justify-center">
           <BillingToggle value={billing} onChange={setBilling} />
         </div>
+        <p className="text-center text-xs text-[var(--ink-soft)]">
+          Free includes {OWNER_QUOTAS.free.chatbot} chatbot · {OWNER_QUOTAS.free.menu_scanner} scanner · {OWNER_QUOTAS.free.image} images · {OWNER_QUOTAS.free.restaurant_create} restaurant · {OWNER_QUOTAS.free.edit} edits / month (1-week trial, limits shared across all your restaurants)
+        </p>
 
         {/* Pricing Tier Comparison Cards */}
         <div className="grid md:grid-cols-2 gap-6">
@@ -518,7 +447,7 @@ export function PricingClient({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-display text-lg font-bold text-[var(--ink)]">Pro Plan</h3>
+                  <h3 className="font-display text-2xl font-bold text-[var(--ink)]">Pro Plan</h3>
                   <p className="text-xs text-[var(--ink-soft)]">For growing restaurants & bustling cafes</p>
                 </div>
                 <span className="px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-[var(--accent)]/15 text-[var(--accent)] border border-[var(--accent)]/30">
@@ -546,6 +475,22 @@ export function PricingClient({
               </div>
 
               <ul className="space-y-2.5 text-xs text-[var(--ink-soft)]">
+                <li className="flex items-center gap-2">
+                  <span className="text-emerald-500 font-bold">✓</span>
+                  <span className="font-semibold text-[var(--ink)]">{OWNER_QUOTAS.pro.chatbot} AI chatbot messages / month</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-emerald-500 font-bold">✓</span>
+                  <span className="font-semibold text-[var(--ink)]">{OWNER_QUOTAS.pro.menu_scanner} AI menu scanner requests / month</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-emerald-500 font-bold">✓</span>
+                  <span className="font-semibold text-[var(--ink)]">{OWNER_QUOTAS.pro.image} AI image generations / month</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-emerald-500 font-bold">✓</span>
+                  <span>{OWNER_QUOTAS.pro.restaurant_create} restaurants · {OWNER_QUOTAS.pro.edit} edit requests / month</span>
+                </li>
                 <li className="flex items-center gap-2">
                   <span className="text-emerald-500 font-bold">✓</span>
                   <span>Unlimited digital menu & QR table orders</span>
@@ -601,7 +546,7 @@ export function PricingClient({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-display text-lg font-bold text-[var(--ink)]">Max Plan</h3>
+                  <h3 className="font-display text-2xl font-bold text-[var(--ink)]">Max Plan</h3>
                   <p className="text-xs text-[var(--ink-soft)]">For enterprise restaurants & multi-location groups</p>
                 </div>
                 <span className="px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-purple-500/15 text-purple-400 border border-purple-500/30">
@@ -629,6 +574,22 @@ export function PricingClient({
               </div>
 
               <ul className="space-y-2.5 text-xs text-[var(--ink-soft)]">
+                <li className="flex items-center gap-2">
+                  <span className="text-purple-400 font-bold">✓</span>
+                  <span className="font-semibold text-[var(--ink)]">{OWNER_QUOTAS.max.chatbot} AI chatbot messages / month</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-purple-400 font-bold">✓</span>
+                  <span className="font-semibold text-[var(--ink)]">{OWNER_QUOTAS.max.menu_scanner} AI menu scanner requests / month</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-purple-400 font-bold">✓</span>
+                  <span className="font-semibold text-[var(--ink)]">{OWNER_QUOTAS.max.image} AI image generations / month</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-purple-400 font-bold">✓</span>
+                  <span className="font-semibold text-[var(--ink)]">{OWNER_QUOTAS.max.restaurant_create} restaurants · {OWNER_QUOTAS.max.edit} edit requests / month</span>
+                </li>
                 <li className="flex items-center gap-2">
                   <span className="text-purple-400 font-bold">✓</span>
                   <span className="font-semibold text-[var(--ink)]">Everything in Pro included</span>

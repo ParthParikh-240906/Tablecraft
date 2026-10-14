@@ -144,7 +144,9 @@ export function BookingChatbot({
       const res = await fetch("/api/chat/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, slots, history: messages, orgName, orgSlug }),
+        // autoBook:false — this bot runs its own confirm UI then POSTs
+        // /api/bookings itself; server-side auto-booking would double-book.
+        body: JSON.stringify({ message: text, slots, history: messages, orgName, orgSlug, autoBook: false }),
       });
 
       const data = await res.json();

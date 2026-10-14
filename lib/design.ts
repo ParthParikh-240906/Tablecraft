@@ -254,6 +254,8 @@ export interface BookingConfigDesign {
   buffer_before_minutes: number; // minutes before booking when table is marked reserved (default: 120)
   duration_minutes: number; // reservation duration in minutes (default: 120)
   no_time_limit: boolean; // if true, reservation has no duration cap
+  open_time?: string | null; // daily opening time "HH:MM" (owner-set, informational)
+  close_time?: string | null; // daily closing time "HH:MM" (owner-set, informational)
 }
 
 export function defaultBookingConfig(): BookingConfigDesign {
@@ -375,6 +377,8 @@ export interface DesignSettingsV2 {
   reserve_page_shapes?: { id: string; style: ShapeStyle }[];
   custom_fonts?: { name: string; value: string; url: string; weight?: number; css?: string }[];
   ai_gallery?: string[];
+  /** AI-built standalone site (raw HTML doc). When present, it IS the site. */
+  built_html?: string | null;
   responsive?: ResponsiveOverrides;
 }
 
@@ -1155,8 +1159,9 @@ export function hydrateSettings(raw: Record<string, any> | null | undefined): De
     booking_config: { ...defaultBookingConfig(), ...(legacy.booking_config ?? {}) },
     cart_config: normalizeCartConfig(legacy.cart_config),
     ai_gallery: Array.isArray(legacy.ai_gallery)
-      ? legacy.ai_gallery.filter((u: unknown) => typeof u === "string").slice(0, 3)
+      ? legacy.ai_gallery.filter((u: unknown) => typeof u === "string").slice(0, 20)
       : [],
+    built_html: typeof legacy.built_html === "string" && legacy.built_html.length > 0 ? legacy.built_html : null,
     responsive: sanitizeResponsive(legacy.responsive),
     // Custom fonts + page shapes live in the same JSONB blob — they must
     // survive hydration or added fonts vanish on every page navigation (and

@@ -234,11 +234,8 @@ export async function POST(request: NextRequest) {
 }
 
 async function callLLM(rawText: string): Promise<any> {
-  const apiKey = process.env.AGNES_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("AGNES_API_KEY not configured");
-  }
+  // Menu parse via Haiku 5.5 (low effort) — same key as creation + chatbot.
+  const { callHaikuLow } = await import("@/lib/ai-models");
 
   const prompt = `You are a restaurant menu parser. Extract ALL menu items from the following text.
 
@@ -261,32 +258,8 @@ Rules:
 Raw text:
 ${rawText}`;
 
-  const response = await fetch("https://apihub.agnes-ai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "agnes-2.5-flash",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 2000,
-      temperature: 0.1,
-    }),
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    console.error("[LLM] Error response:", response.status, errText.slice(0, 500));
-    throw new Error("LLM call failed");
-  }
-
-  const data = await response.json();
-  if (process.env.NODE_ENV === "development") {
-    console.log("[LLM] Response length:", JSON.stringify(data).length);
-  }
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) throw new Error("LLM returned no content");
+  const content = await callHaikuLow(prompt, { maxTokens: 1000 });
+  if (!content?.trim()) throw new Error("LLM returned no content");
 
   // Parse JSON from response (may be wrapped in markdown code block)
   const jsonMatch = content.match(/\{[\s\S]*\}/);

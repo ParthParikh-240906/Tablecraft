@@ -14,7 +14,7 @@ const RATIOS: { value: ImageRatio; label: string }[] = [
 
 type QuotaHint = { used: number; limit: number; remaining: number; plan?: string };
 
-const MAX_GALLERY_ITEMS = 3;
+const MAX_GALLERY_ITEMS = 20;
 
 export function AiPanel({
   orgId,
@@ -27,7 +27,6 @@ export function AiPanel({
 }) {
   const { settings, updateSettings, saving, saved, saveError, retrySave } = useDesign(initialSettings, orgId);
   const [prompt, setPrompt] = useState("");
-  const [reference, setReference] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +35,8 @@ export function AiPanel({
   const [fontStatus, setFontStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [addingFont, setAddingFont] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Image sizes / gallery / quota
   const [ratio, setRatio] = useState<ImageRatio>("16:9");
@@ -202,16 +203,6 @@ export function AiPanel({
     }
   };
 
-  const handleReference = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { setError("Reference image exceeds 5MB — compress and try again."); e.target.value = ""; return; }
-    const reader = new FileReader();
-    reader.onerror = () => setError("Could not read reference image — try another file.");
-    reader.onloadend = () => setReference(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
   const generate = async () => {
     if (!prompt.trim() || generating) return;
     setGenerating(true);
@@ -220,7 +211,7 @@ export function AiPanel({
       const res = await fetch("/api/design/ai-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: prompt.trim(), imageBase64: reference ?? undefined, org_id: orgId, ratio }),
+        body: JSON.stringify({ prompt: prompt.trim(), org_id: orgId, ratio }),
       });
       const data = await res.json();
       if (data?.quota) setImageQuota(data.quota);
@@ -300,6 +291,31 @@ export function AiPanel({
     persistGallery(gallery.filter((u) => u !== url));
   };
 
+  const uploadToGallery = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || uploading) return;
+    if (file.size > 5 * 1024 * 1024) { setUploadError("Image must be under 5MB."); return; }
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("org_id", orgId);
+      const res = await fetch("/api/design/paragraphs/image", { method: "POST", body: formData });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || typeof data?.url !== "string") {
+        setUploadError(data?.error ?? "Upload failed.");
+        return;
+      }
+      persistGallery([data.url, ...gallery.filter((u) => u !== data.url)].slice(0, MAX_GALLERY_ITEMS));
+    } catch {
+      setUploadError("Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div>
       <DesignNav />
@@ -326,8 +342,7 @@ export function AiPanel({
               AI Image Generator
             </h3>
             <p className="text-xs text-[var(--ink-soft)]">
-              Describe the image you want. Optionally attach a reference image
-              to guide the result. Generated images can be dropped straight
+              Describe the image you want. Generated images can be dropped straight
               into your hero, content, or layers.
             </p>
 
@@ -342,30 +357,6 @@ export function AiPanel({
                 placeholder="e.g. A moody restaurant interior, warm candlelight, dark wood tables…"
                 className="w-full bg-[var(--paper-overlay)] border border-[var(--rule)] rounded px-3 py-2 text-sm resize-y"
               />
-            </div>
-
-            <div>
-              <label className="block text-xs text-[var(--ink-soft)] mb-1">
-                Reference Image (optional)
-              </label>
-              {reference ? (
-                <div className="relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={reference} alt="Reference" className="h-28 w-full object-cover rounded border border-[var(--rule)]" />
-                  <button
-                    type="button"
-                    onClick={() => setReference(null)}
-                    className="absolute top-1 right-1 bg-black/60 text-white text-xs px-1.5 rounded hover:bg-black/80"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ) : (
-                <label className="btn btn-outline text-xs cursor-pointer inline-block">
-                  Upload reference image
-                  <input type="file" accept="image/*" className="hidden" onChange={handleReference} />
-                </label>
-              )}
             </div>
 
             <div>
@@ -431,7 +422,7 @@ export function AiPanel({
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setResult(null); setPrompt(""); setReference(null); }}
+                  onClick={() => { setResult(null); setPrompt(""); }}
                   className="btn btn-outline text-xs text-red-500"
                 >
                   Clear
@@ -443,50 +434,6 @@ export function AiPanel({
               </p>
             </section>
           )}
-
-        </div>
-
-        {/* Right column: gallery + fonts */}
-        <div className="space-y-8">
-          {/* Image Gallery */}
-          <section className="ticket p-5 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
-              Image Gallery
-            </h3>
-            <p className="text-xs text-[var(--ink-soft)]">
-              Every generation is kept here (newest first, up to {MAX_GALLERY_ITEMS}).
-              Apply any image straight into your design.
-            </p>
-            {gallery.length === 0 ? (
-              <p className="text-xs text-[var(--ink-faint)]">No images yet — generate your first one above.</p>
-            ) : (
-              <ul className="grid grid-cols-2 gap-3">
-                {gallery.map((url) => (
-                  <li key={url} className="space-y-1.5 rounded border border-[var(--rule)] p-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt="AI generated" className="h-28 w-full object-cover rounded" />
-                    <div className="flex flex-wrap gap-1">
-                      <button type="button" onClick={() => applyUrlAsHeroBackground(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
-                        Hero BG
-                      </button>
-                      <button type="button" onClick={() => addUrlAsContentImages(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
-                        Content
-                      </button>
-                      <button type="button" onClick={() => addUrlAsHeroImage(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
-                        Hero Img
-                      </button>
-                      <button type="button" onClick={() => void downloadUrl(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
-                        Download
-                      </button>
-                      <button type="button" onClick={() => removeFromGallery(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5 text-red-500">
-                        Delete
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
 
           {/* Custom Google Fonts */}
           <section className="ticket p-5 space-y-4">
@@ -541,7 +488,6 @@ export function AiPanel({
                 {fontStatus.message}
               </p>
             )}
-            
             {(settings.custom_fonts || []).length > 0 && (
               <ul className="space-y-1">
                 {settings.custom_fonts!.map((font, idx) => (
@@ -582,6 +528,57 @@ export function AiPanel({
             <p className="text-[10px] text-[var(--ink-faint)] leading-relaxed">
               Added fonts become immediately available across all font pickers in the studio. They will be loaded automatically on the preview and public pages.
             </p>
+          </section>
+
+        </div>
+
+        {/* Right column: gallery */}
+        <div className="space-y-8">
+          {/* Image Gallery */}
+          <section className="ticket p-5 space-y-3">
+            <h3 className="font-display text-sm font-semibold text-[var(--ink)] mb-3">
+              Image Gallery
+            </h3>
+            <p className="text-xs text-[var(--ink-soft)]">
+              Every generation is kept here (newest first, up to {MAX_GALLERY_ITEMS}).
+              Apply any image straight into your design — or upload your own photos.
+            </p>
+            <div className="flex items-center gap-2">
+              <label className="btn btn-outline text-xs cursor-pointer inline-block">
+                {uploading ? "Uploading…" : "Upload from device"}
+                <input type="file" accept="image/*" className="hidden" onChange={uploadToGallery} disabled={uploading} />
+              </label>
+              {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
+            </div>
+            {gallery.length === 0 ? (
+              <p className="text-xs text-[var(--ink-faint)]">No images yet — generate your first one above.</p>
+            ) : (
+              <ul className="grid grid-cols-2 gap-3">
+                {gallery.map((url) => (
+                  <li key={url} className="space-y-1.5 rounded border border-[var(--rule)] p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="AI generated" className="h-28 w-full object-cover rounded" />
+                    <div className="flex flex-wrap gap-1">
+                      <button type="button" onClick={() => applyUrlAsHeroBackground(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
+                        Hero BG
+                      </button>
+                      <button type="button" onClick={() => addUrlAsContentImages(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
+                        Content
+                      </button>
+                      <button type="button" onClick={() => addUrlAsHeroImage(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
+                        Hero Img
+                      </button>
+                      <button type="button" onClick={() => void downloadUrl(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5">
+                        Download
+                      </button>
+                      <button type="button" onClick={() => removeFromGallery(url)} className="btn btn-outline text-[10px] px-1.5 py-0.5 text-red-500">
+                        Delete
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         </div>
 

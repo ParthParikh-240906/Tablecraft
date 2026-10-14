@@ -34,6 +34,8 @@ export default function CreateRestaurantPage() {
   const [uploading, setUploading] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [slugTouched, setSlugTouched] = useState(false);
+  const [buildStage, setBuildStage] = useState<"creating" | "building" | "finalizing" | null>(null);
+  const [buildFailed, setBuildFailed] = useState(false);
 
   // Read ?plan= query param on mount
   useEffect(() => {
@@ -93,6 +95,8 @@ export default function CreateRestaurantPage() {
     }
     setSubmitting(true);
     setUploading(true);
+    setBuildFailed(false);
+    setBuildStage("creating");
 
     try {
       const validBranches = branches.filter(b => b.trim().length > 0);
@@ -108,6 +112,7 @@ export default function CreateRestaurantPage() {
       formData.append('staffEmail', staffEmail);
       formData.append('staffPassword', staffPassword);
       formData.append('aboutText', aboutText);
+      if (selectedPlan) formData.append('intendedPlan', selectedPlan);
 
       if (validBranches.length > 0) {
         formData.append('branches', JSON.stringify(validBranches));
@@ -128,13 +133,15 @@ export default function CreateRestaurantPage() {
         setError(data?.error ?? "Could not create your restaurant");
         setSubmitting(false);
         setUploading(false);
+        setBuildStage(null);
         return;
       }
 
-      // Kick off Haiku 5.5 (low effort) initial website build. Non-blocking:
+      // Kick off Haiku 5.5 (medium effort) initial website build. Non-blocking:
       // combine/edit + tests run against the created org even if this fails.
+      setBuildStage("building");
       try {
-        await fetch("/api/ai/build", {
+        const buildRes = await fetch("/api/ai/build", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -146,19 +153,29 @@ export default function CreateRestaurantPage() {
             paragraph: aboutText,
           }),
         });
+        if (!buildRes.ok) {
+          setBuildFailed(true);
+        } else {
+          const buildData = await buildRes.json().catch(() => null);
+          if (typeof buildData?.html !== "string" || buildData.html.length === 0) setBuildFailed(true);
+        }
       } catch {
         // Build failures are surfaced in console Website tab; don't block signup.
+        setBuildFailed(true);
       }
+      setBuildStage("finalizing");
 
       // Restaurant exists — move to the payments step (Connect is optional).
       setCreatedOrg({ id: data?.org?.id, slug: data?.org?.slug ?? slug });
       setSubmitting(false);
       setUploading(false);
+      setBuildStage(null);
       return;
     } catch {
       setError("Network error — please try again");
       setSubmitting(false);
       setUploading(false);
+      setBuildStage(null);
     }
   }
 
@@ -249,6 +266,66 @@ export default function CreateRestaurantPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12 bg-[var(--paper)] text-[var(--ink)]">
+      {submitting && buildStage && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center px-6"
+          role="status"
+          aria-live="polite"
+          aria-label="Creating your restaurant"
+          style={{ backgroundColor: "color-mix(in srgb, var(--paper) 92%, transparent)" }}
+        >
+          <style>{`@keyframes tc-load-slide { 0% { transform: translateX(-110%); } 100% { transform: translateX(320%); } }`}</style>
+          <p className="font-display text-xl tracking-tight">Tablecraft</p>
+          <div
+            className="mt-4 h-10 w-10 rounded-full border-2 border-t-transparent animate-spin"
+            style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }}
+            aria-hidden="true"
+          />
+          <p className="mt-4 text-sm font-medium">
+            {buildStage === "creating" && "Creating your restaurant…"}
+            {buildStage === "building" && "Building your website with AI…"}
+            {buildStage === "finalizing" && "Connecting to console…"}
+          </p>
+          <p className="mt-1 text-xs" style={{ color: "var(--ink-faint)" }}>
+            {buildStage === "building"
+              ? "Building your site and connecting it to the console — usually a few minutes. Hang tight."
+              : "This only takes a moment."}
+          </p>
+          {/* Indeterminate progress bar */}
+          <div
+            className="mt-5 h-1.5 w-64 max-w-full overflow-hidden rounded-full"
+            style={{ backgroundColor: "color-mix(in srgb, var(--ink) 12%, transparent)" }}
+            aria-hidden="true"
+          >
+            <div
+              className="h-full w-1/3 rounded-full"
+              style={{ backgroundColor: "var(--accent)", animation: "tc-load-slide 1.4s ease-in-out infinite" }}
+            />
+          </div>
+          {/* Stage checklist */}
+          <ul className="mt-6 space-y-1.5 text-xs" style={{ color: "var(--ink-soft)" }} aria-hidden="true">
+            {(
+              [
+                ["creating", "Creating restaurant"],
+                ["building", "Building website with AI"],
+                ["finalizing", "Connecting to console"],
+              ] as const
+            ).map(([stage, label]) => {
+              const order = { creating: 0, building: 1, finalizing: 2 } as const;
+              const done = order[buildStage] > order[stage];
+              const active = buildStage === stage;
+              return (
+                <li key={stage} className="flex items-center gap-2">
+                  <span style={{ color: done ? "var(--accent)" : active ? "var(--ink)" : "var(--ink-faint)" }}>
+                    {done ? "✓" : active ? "●" : "○"}
+                  </span>
+                  <span style={active ? { color: "var(--ink)", fontWeight: 600 } : undefined}>{label}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
       <div className="w-full max-w-md mb-6">
         <Link
           href="/dashboard"
@@ -590,6 +667,11 @@ export default function CreateRestaurantPage() {
         {createdOrg && (
           <div className="ticket p-6 space-y-4 mt-6">
             <h2 className="font-display text-xl">Accept online payments</h2>
+            {buildFailed && (
+              <p className="text-xs rounded-sm border border-amber-500/30 bg-amber-500/10 p-2.5 text-amber-300">
+                The AI website build hit a snag — your restaurant was still created. You can retry the build from the console Website tab.
+              </p>
+            )}
             <p className="text-sm text-[var(--ink-soft)]">
               {createdOrg.slug} is created. Connect Stripe to take guest cart payments — a popup opens where you create a new Stripe account or sign into your existing one.
             </p>

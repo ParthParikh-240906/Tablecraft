@@ -71,6 +71,9 @@ export default async function OrgLandingPage({
 
   const hasSavedDesign = Boolean(org.design_settings);
 
+  // Note: when design.built_html exists, the layout above serves the built
+  // standalone site bare (no frame/footer/chatbot) — this renderer is the
+  // fallback for settings-driven sites only.
   return (
     <>
       <OrgPageView

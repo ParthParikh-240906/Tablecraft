@@ -103,7 +103,7 @@ USER'S LAST MESSAGE: {last_message}
 RULES FOR YOUR REPLY:
 - You already know the restaurant is "{org_name}" — never ask which restaurant.
 - Be warm, conversational, and brief (1-2 sentences max).
-- Ask for the NEXT missing field in this exact order: name → party size → date → time.
+- Ask EXACTLY ONE question per reply: the NEXT missing field in this exact order: name → party size → date → time. Never ask two things at once, even if several fields are missing.
 - When a date just resolved from a relative expression, echo the RESOLVED concrete date so the diner can confirm, e.g. "Got it — tomorrow (Sep 16). What time works for you?". Never scold about date formats when the date slot resolved successfully.
 - If the date is still missing, ask for it naturally — the diner may say things like "tomorrow" or "this Friday". Do NOT demand an exact format and do NOT scold about date formats.
 - If the user mentioned a vague time like "dinner", "lunch", "in 3 hours" and time is still missing → reply: "Could you please tell me the exact time? For example: 19:00."
@@ -111,44 +111,159 @@ RULES FOR YOUR REPLY:
 - If all fields are collected (isComplete=true), reply: "Great! I'll confirm your booking details shortly."
 - Do NOT repeat information the user already provided.`;
 
-export async function POST(request: NextRequest) {
-  const rl = rateLimit(`chat-bookings:${getClientIp(request)}`, 15, 60_000);
+/**
+ * Create the booking server-side once chat slots complete (autoBook path).
+ * Dedupes on an exact existing confirmed/pending booking so retries and
+ * double-submits never create two rows. Returns one of: booked (+id),
+ * pendingCombo (multi-table approval needed), or error (graceful message).
+ */
+async function tryAutoBook(opts: {
+  orgSlug: string | null;
+  orgId: string | null;
+  slots: SlotState;
+  origin: string;
+}): Promise<
+  | { booked: true; bookingId: string }
+  | { booked: false; pendingCombo: { message: string; tables: Array<{ id: string; label: string; capacity: number }> } }
+  | { booked: false; error: string }
+> {
+  const { orgSlug, orgId, slots } = opts;
+  const local = new Date(`${slots.date}T${slots.time}:00+04:00`);
+  const datetime = isNaN(local.getTime()) ? `${slots.date}T${slots.time}` : local.toISOString();
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const admin = createAdminClient();
+    // Resolve org id for the dedupe check.
+    let resolvedId: string | null = orgId;
+    if (!resolvedId && orgSlug) {
+      const { data } = await admin.from("organizations").select("id").eq("slug", orgSlug).maybeSingle();
+      resolvedId = (data as { id?: string } | null)?.id ?? null;
+    }
+    if (resolvedId) {
+      const { data: existing } = await admin
+        .from("bookings")
+        .select("id")
+        .eq("org_id", resolvedId)
+        .eq("customer_name", slots.name)
+        .eq("datetime", datetime)
+        .in("status", ["confirmed", "pending"])
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        return { booked: true, bookingId: (existing as { id: string }).id };
+      }
+    }
+    const res = await fetch(`${opts.origin}/api/bookings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...(orgSlug ? { orgSlug } : { orgId }),
+        customerName: slots.name,
+        partySize: slots.party_size,
+        datetime,
+      }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.error) {
+      return { booked: false, error: (data?.error as string) ?? "booking service error" };
+    }
+    if (data.needsConfirmation) {
+      return {
+        booked: false,
+        pendingCombo: {
+          message: (data.message as string) ?? "We may need to combine tables — is that okay?",
+          tables: Array.isArray(data.tables) ? data.tables : [],
+        },
+      };
+    }
+    const id = data?.booking?.id ?? data?.id;
+    if (typeof id !== "string") return { booked: false, error: "booking service error" };
+    return { booked: true, bookingId: id };
+  } catch (err) {
+    console.error("[CHAT BOOKINGS] tryAutoBook failed:", err);
+    return { booked: false, error: "booking service error" };
+  }
+}
+
+export async function POST(request: NextRequest) {  const rl = rateLimit(`chat-bookings:${getClientIp(request)}`, 15, 60_000);
   if (!rl.allowed) return rateLimitedResponse(rl.resetMs);
 
+  // Per-OWNER monthly chatbot quota (free 50 / pro 300 / max 1000) aggregated
+  // across all restaurants. Guests pass orgSlug/orgId/orgName; we resolve the
+  // owner and consume 1 unit. Missing org → IP brake only (fail-open).
   try {
-  const agnesKey = process.env.AGNES_API_KEY;
+    const clone = request.clone();
+    const probe = await clone.json().catch(() => null) as { orgSlug?: unknown; orgId?: unknown; orgName?: unknown } | null;
+    const probeSlug = typeof probe?.orgSlug === "string" ? probe.orgSlug : null;
+    const probeId = typeof probe?.orgId === "string" ? probe.orgId : null;
+    const probeName = typeof probe?.orgName === "string" ? probe.orgName : null;
+    if (probeSlug || probeId || probeName) {
+      try {
+        const { createAdminClient } = await import("@/lib/supabase/admin");
+        const admin = createAdminClient();
+        let orgRow: { id?: string; subscription_plan?: string } | null = null;
+        if (probeId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(probeId)) {
+          const { data } = await admin.from("organizations").select("id, subscription_plan").eq("id", probeId).maybeSingle();
+          orgRow = data as { id?: string; subscription_plan?: string } | null;
+        } else if (probeSlug) {
+          const { data } = await admin.from("organizations").select("id, subscription_plan").eq("slug", probeSlug).maybeSingle();
+          orgRow = data as { id?: string; subscription_plan?: string } | null;
+        } else if (probeName) {
+          const { data } = await admin.from("organizations").select("id, subscription_plan").ilike("name", probeName.slice(0, 100)).limit(1).maybeSingle();
+          orgRow = data as { id?: string; subscription_plan?: string } | null;
+        }
+        if (orgRow?.id) {
+          const { getOwnerForOrg, getOwnerPlanContext, checkOwnerQuota, ownerQuotaExceededResponse } = await import("@/lib/owner-quotas");
+          const { ownerId, ownerEmail } = await getOwnerForOrg(orgRow.id);
+          if (ownerId) {
+            const ctx = await getOwnerPlanContext(ownerId);
+            const q = await checkOwnerQuota({ ownerId, plan: ctx.plan, category: "chatbot", ownerEmail: ownerEmail ?? ctx.email });
+            if (!q.allowed) return ownerQuotaExceededResponse(q.used, q.limit, "AI chatbot");
+          }
+        }
+      } catch {
+        // Fail-open: quota lookup errors never block guest chat (IP brake above applies).
+      }
+    }
+  } catch {
+    // Body probe failed — continue to main handler (which validates JSON).
+  }
+
+  try {
   const claudeKey = process.env.CLAUDE_API;
-  if (!agnesKey && !claudeKey) {
+  if (!claudeKey) {
     return NextResponse.json({ error: "AI service not configured" }, { status: 500 });
   }
 
-  // Prefer Haiku 5.5 (low effort) via CLAUDE_API; fall back to Agnes.
+  // Haiku 5.5 (low effort) via CLAUDE_API — no fallback.
   async function llmChat(
     messages: Array<{ role: string; content: string }>,
     maxTokens: number,
-  ): Promise<string | null> {
-    if (claudeKey) {
-      try {
-        const { callHaikuLow } = await import("@/lib/ai-models");
-        const system = messages.find((m) => m.role === "system")?.content;
-        const rest = messages
-          .filter((m) => m.role !== "system")
-          .map((m) => `${m.role}: ${m.content}`)
-          .join("\n");
-        const text = await callHaikuLow(rest || "Reply.", {
-          ...(system ? { system } : {}),
-          maxTokens,
-        });
-        if (text?.trim()) return text.trim();
-      } catch (e) {
-        console.warn("[CHAT BOOKINGS] Haiku 5.5 failed, falling back to Agnes:", e instanceof Error ? e.message.slice(0, 200) : e);
-      }
-    }
-    if (!agnesKey) return null;
-    return null;
+  ): Promise<string> {
+    const { callHaikuLow } = await import("@/lib/ai-models");
+    const system = messages.find((m) => m.role === "system")?.content;
+    const rest = messages
+      .filter((m) => m.role !== "system")
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n");
+    const text = await callHaikuLow(rest || "Reply.", {
+      ...(system ? { system } : {}),
+      maxTokens,
+    });
+    if (!text?.trim()) throw new Error("Haiku 5.5 returned no content");
+    return text.trim();
   }
 
-  let body: { message?: string; slots?: SlotState; history?: Array<{ role: string; content: string }>; orgName?: string };
+  let body: {
+    message?: string;
+    slots?: SlotState;
+    history?: Array<{ role: string; content: string }>;
+    orgName?: string;
+    orgSlug?: string;
+    orgId?: string;
+    /** Built-site bots send true: create the booking server-side once complete. */
+    autoBook?: boolean;
+  };
   try {
     body = await request.json();
   } catch {
@@ -156,6 +271,8 @@ export async function POST(request: NextRequest) {
   }
 
   const { message, slots: currentSlots = { name: null, party_size: null, date: null, time: null }, history = [], orgName } = body ?? {};
+  const orgSlug = typeof body?.orgSlug === "string" ? body.orgSlug : null;
+  const orgId = typeof body?.orgId === "string" ? body.orgId : null;
 
   if (!message || typeof message !== "string" || !message.trim()) {
     return NextResponse.json({ error: "message is required" }, { status: 400 });
@@ -202,30 +319,9 @@ export async function POST(request: NextRequest) {
 
   let extracted: SlotState & { isComplete?: boolean };
   try {
-    const haikuText = await llmChat(messages1, 750);
-    if (haikuText) {
-      const jsonMatch = haikuText.match(/\{[\s\S]*\}/)?.[0];
-      extracted = JSON.parse(jsonMatch ?? "{}");
-    } else {
-    const res1 = await fetch("https://apihub.agnes-ai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${agnesKey}` },
-      body: JSON.stringify({ model: "agnes-2.5-flash", response_format: { type: "json_object" }, messages: messages1, max_tokens: 750 }),
-    });
-
-    if (!res1.ok) {
-      const errText = await res1.text();
-      console.error("[CHAT BOOKINGS] Extraction call failed:", res1.status, errText.slice(0, 500));
-      return NextResponse.json({ error: "AI service error. Please try again." }, { status: 502 });
-    }
-
-    const data1 = await res1.json();
-    const content1 = data1.choices?.[0]?.message?.content;
-    if (!content1) return NextResponse.json({ error: "AI returned no content" }, { status: 500 });
-
-    const jsonMatch = content1.match(/\{[\s\S]*\}/)?.[0];
+    const haikuText = await llmChat(messages1, 150);
+    const jsonMatch = haikuText.match(/\{[\s\S]*\}/)?.[0];
     extracted = JSON.parse(jsonMatch ?? "{}");
-    }
     if (process.env.NODE_ENV === "development") {
       console.log("[CHAT BOOKINGS] extracted keys:", Object.keys(extracted ?? {}));
     }
@@ -295,37 +391,51 @@ export async function POST(request: NextRequest) {
 
   let conversationalReply = "Thanks! Let me confirm your details shortly.";
   try {
-    const haikuReply = await llmChat(messages2, 500);
-    if (haikuReply) {
-      conversationalReply = haikuReply;
-    } else if (agnesKey) {
-    const res2 = await fetch("https://apihub.agnes-ai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${agnesKey}` },
-      body: JSON.stringify({ model: "agnes-2.5-flash", messages: messages2, max_tokens: 500 }),
-    });
-
-    if (res2.ok) {
-      const data2 = await res2.json();
-      const reply = data2.choices?.[0]?.message?.content?.trim();
-      if (reply) {
-        conversationalReply = reply;
-      } else {
-        console.warn("[CHAT BOOKINGS] Agnes returned empty content — thinking may have consumed all tokens");
-      }
-    } else {
-      const errText = await res2.text();
-      console.error("[CHAT BOOKINGS] Response call failed:", res2.status, errText);
-    }
-    }
+    conversationalReply = await llmChat(messages2, 150);
   } catch (err) {
     console.error("[CHAT BOOKINGS] Response failed:", err);
+  }
+
+  // Auto-book: built-site bots get the booking created server-side the moment
+  // slots complete. Defaults ON unless the caller explicitly opts out
+  // (the orange console bot sends autoBook:false — it runs its own confirm UI,
+  // and server auto-booking there would double-book).
+  const autoBook = body?.autoBook !== false;
+  let bookingId: string | null = null;
+  let pendingCombo: { message: string; tables: Array<{ id: string; label: string; capacity: number }> } | null = null;
+  if (isComplete && autoBook && (orgSlug || orgId)) {
+    try {
+      const bookingResult = await tryAutoBook({
+        orgSlug,
+        orgId,
+        slots: updatedSlots,
+        origin: new URL(request.url).origin,
+      });
+      if (bookingResult.booked) {
+        bookingId = bookingResult.bookingId;
+        conversationalReply =
+          `You're booked, ${updatedSlots.name}! Table for ${updatedSlots.party_size} on ${updatedSlots.date} at ${updatedSlots.time}. ` +
+          `Show this confirmation at the restaurant — we look forward to seeing you.`;
+      } else if ("pendingCombo" in bookingResult) {
+        pendingCombo = bookingResult.pendingCombo;
+        conversationalReply =
+          `${bookingResult.pendingCombo.message} Reply with the table option you'd like, or use the booking form on this page.`;
+      } else {
+        conversationalReply =
+          `I have your details (${updatedSlots.name}, ${updatedSlots.party_size} on ${updatedSlots.date} at ${updatedSlots.time}), ` +
+          `but I couldn't lock a table just now: ${bookingResult.error} Please try the booking form on this page.`;
+      }
+    } catch (err) {
+      console.error("[CHAT BOOKINGS] auto-book failed:", err);
+    }
   }
 
   return NextResponse.json({
     slots: updatedSlots,
     response: conversationalReply.slice(0, 1000),
     complete: isComplete,
+    ...(bookingId ? { bookingId } : {}),
+    ...(pendingCombo ? { pendingCombo } : {}),
   });
   } catch (err) {
     console.error("[CHAT BOOKINGS] unhandled:", err);

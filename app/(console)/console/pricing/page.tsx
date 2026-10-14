@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveOrgId } from "@/lib/org";
+import { displayPlan } from "@/lib/pricing";
 import { PricingClient, type OrgMetricData } from "./pricing-client";
 export const dynamic = "force-dynamic";
 
@@ -92,7 +93,7 @@ export default async function ConsolePricingPage({
       name: org.name,
       slug: org.slug,
       logo_url: org.logo_url ?? null,
-      plan: (org.subscription_plan as "free" | "pro" | "max") || "free",
+      plan: displayPlan(org.subscription_plan, org.subscription_status),
       subscription_status: org.subscription_status ?? "free",
       stripe_customer_id: org.stripe_customer_id ?? null,
       stripe_subscription_id: org.stripe_subscription_id ?? null,

@@ -1,13 +1,13 @@
 /**
  * tests/edit/vibe-first.test.ts
- * Editing hard rules: exact file:line pinpoint, vibe-first ordering, GPT high effort.
+ * Editing hard rules: exact file:line pinpoint, vibe-first ordering, GPT medium effort.
  */
 import { describe, it, expect } from "vitest";
 import { pinpoint } from "@/lib/ai-code-tools";
 import { GPT_SOL_MODEL } from "@/lib/ai-models";
 
 describe("edit hard rules", () => {
-  it("uses GPT 6.1 Sol high effort", () => {
+  it("uses GPT 6.1 Sol medium effort", () => {
     expect(GPT_SOL_MODEL).toBe("gpt-6.1-sol");
   });
 

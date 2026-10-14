@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getOrgBySlug, getMenuByOrg } from "@/lib/org";
+import { hydrateSettings } from "@/lib/design";
 import { CartClient } from "./cart-client";
 
 export const revalidate = 60;
@@ -17,6 +18,13 @@ export default async function CartPage({
   const org = await getOrgBySlug(orgSlug);
   if (!org) {
     notFound();
+  }
+  // AI-built standalone site handles its own cart in-page (hash view) — the
+  // settings-driven cart page would render empty/dark, so send users to the site.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB row, loosely typed by supabase
+  const builtDesign = hydrateSettings(org.design_settings as Record<string, any> | null | undefined);
+  if (builtDesign.built_html) {
+    redirect(`/${org.slug}`);
   }
   const menu = (await getMenuByOrg(org.id)) ?? [];
   const flatMenu = menu.flatMap((g) => g.items);

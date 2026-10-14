@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org";
 import { hydrateSettings } from "@/lib/design";
+import { withBuiltSiteGuards, withLiveMenu, type LiveMenuItem } from "@/lib/built-site";
 import { BookingChatbot } from "@/components/BookingChatbot";
 import { PublicSiteFrame } from "@/components/PublicSiteFrame";
 
@@ -26,6 +27,39 @@ export default async function PublicLayout({
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB row, loosely typed by supabase
   const design = hydrateSettings(org.design_settings as Record<string, any> | null | undefined);
+
+  // AI-built standalone site: it is a complete page (own header/footer/chatbot),
+  // so render it bare — no Tablecraft frame, footer, or second chatbot.
+  // The menu const is swapped for live DB rows (console edits reflect instantly
+  // and cart checkout posts real UUIDs the server accepts).
+  if (design.built_html) {
+    let liveHtml = design.built_html;
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const { data: rows } = await createAdminClient()
+        .from("menu_items")
+        .select("id, name, price, category, description")
+        .eq("org_id", org.id)
+        .eq("available", true)
+        .order("sort_order", { ascending: true });
+      liveHtml = withLiveMenu(
+        liveHtml,
+        ((rows ?? []) as LiveMenuItem[]).filter((r) => r && typeof r.id === "string"),
+      );
+    } catch {
+      // Fall back to the baked-in const.
+    }
+    return (
+      <div className="min-h-screen bg-black">
+        <iframe
+          title={`${org.name} website`}
+          srcDoc={withBuiltSiteGuards(liveHtml)}
+          sandbox="allow-scripts allow-forms allow-same-origin"
+          className="block h-[100dvh] w-full border-0"
+        />
+      </div>
+    );
+  }
 
   const hasSavedDesign = Boolean(org.design_settings);
   const mainColor = hasSavedDesign ? design.background_color : (org.theme_color ?? "#141414");

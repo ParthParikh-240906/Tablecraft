@@ -13,9 +13,9 @@ const buckets = new Map<string, number[]>();
 
 /** Monthly AI quotas per plan (from lib/marketing-plans.ts). Chatbot bookings are unlimited in marketing copy — capped here generously to prevent AI bill burn. */
 export const PLAN_AI_LIMITS = {
-  free: { scan: 10, image: 5, chatbotPerDay: 100 },
-  pro: { scan: 15, image: 10, chatbotPerDay: 500 },
-  max: { scan: 40, image: 25, chatbotPerDay: 500 },
+  free: { scan: 10, image: 10, chatbotPerDay: 100 },
+  pro: { scan: 30, image: 100, chatbotPerDay: 500 },
+  max: { scan: 70, image: 300, chatbotPerDay: 500 },
 } as const;
 
 export type PlanTier = keyof typeof PLAN_AI_LIMITS;

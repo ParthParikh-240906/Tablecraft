@@ -6,8 +6,10 @@ import { requireOwnerForSlug } from "@/lib/api-auth";
 /**
  * POST /api/subscription/cancel
  *
- * Cancels the active subscription for an org at the end of the current billing period.
- * The user retains access until the period end date, after which Stripe auto-cancels.
+ * Cancels the active subscription for an org immediately.
+ * The plan switches to Free right away (no grace period): the Stripe
+ * subscription is canceled at once and the org row is reset to
+ * subscription_plan='free' so every surface shows Free.
  */
 export async function POST(request: Request) {
   let body: unknown;
@@ -45,27 +47,32 @@ export async function POST(request: Request) {
       );
     }
 
-    if (org.subscription_status === "canceled") {
-      return NextResponse.json(
-        { error: "Subscription is already canceled" },
-        { status: 400 },
-      );
+    // Cancel immediately in Stripe (no grace period — plan becomes Free at once).
+    try {
+      await stripe.subscriptions.cancel(org.stripe_subscription_id);
+    } catch (stripeErr: any) {
+      // If Stripe says the sub is already gone, still reset the local row below.
+      const msg = String(stripeErr?.message ?? "");
+      if (!/no such subscription|canceled|deleted/i.test(msg)) throw stripeErr;
     }
 
-    await stripe.subscriptions.update(org.stripe_subscription_id, {
-      cancel_at_period_end: true,
-    });
-
-    // Fetch period end before writing to DB
-    const stripeSub = (await stripe.subscriptions.retrieve(org.stripe_subscription_id)) as any;
-    const periodEnd = stripeSub.current_period_end
-      ? new Date(stripeSub.current_period_end * 1000).toISOString()
-      : null;
+    // Fetch period end for reference before writing to DB
+    let periodEnd: string | null = null;
+    try {
+      const stripeSub = (await stripe.subscriptions.retrieve(org.stripe_subscription_id)) as any;
+      periodEnd = stripeSub.current_period_end
+        ? new Date(stripeSub.current_period_end * 1000).toISOString()
+        : null;
+    } catch {
+      // Subscription is gone — no period end to record.
+    }
 
     const { error: updateError } = await supabase
       .from("organizations")
       .update({
-        subscription_status: "canceling",
+        subscription_plan: "free",
+        subscription_status: "canceled",
+        stripe_subscription_id: null,
         subscription_current_period_end: periodEnd,
       })
       .eq("slug", orgSlug);

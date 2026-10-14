@@ -5,7 +5,6 @@ import {
   getClientIp,
   rateLimit,
   rateLimitedResponse,
-  PLAN_AI_LIMITS,
 } from "@/lib/rate-limit";
 import { spawn } from "child_process";
 import { promises as fs } from "fs";
@@ -22,7 +21,7 @@ const MAX_CATEGORY_LEN = 100;
 
 /**
  * POST /api/menu/vision-parse
- * Upload a menu image → Gemini vision extracts items → save to DB.
+ * Upload a menu image → Haiku 5.5 vision extracts items → save to DB.
  */
 export async function POST(request: NextRequest) {
   let formData: FormData;
@@ -142,31 +141,35 @@ export async function POST(request: NextRequest) {
     // Monthly AI scan quota per org (marketed 10/15/40 per month) —
     // same rateLimit() pattern as the legacy scan route, but with a
     // 30-day window and the org's plan-tier limit.
+    // Per-OWNER monthly scan quota (free 10 / pro 30 / max 70) aggregated
+    // across all restaurants the owner holds — see lib/owner-quotas.ts.
+    // 75% usage triggers a Resend warning email (same API key as inquiry).
+    const { getOwnerForOrg, getOwnerPlanContext, checkOwnerQuota, ownerQuotaExceededResponse } = await import("@/lib/owner-quotas");
+    const { ownerId: scanOwnerId, ownerEmail: scanOwnerEmail } = await getOwnerForOrg(orgId);
+    const ownerKey = scanOwnerId ?? `org-fallback:${orgId}`;
     const quotaAdmin = createAdminClient();
-    let planTier: keyof typeof PLAN_AI_LIMITS = "free";
+    const ownerCtx = scanOwnerId ? await getOwnerPlanContext(scanOwnerId) : { plan: "free" as const, email: null as string | null };
+    // Prefer aggregated owner plan when known; otherwise fall back to this org's plan.
+    let effectiveTier = ownerCtx.plan;
     try {
       const { data: orgRow } = await quotaAdmin
         .from("organizations")
         .select("subscription_plan")
         .eq("id", orgId)
         .maybeSingle();
-      const plan = (orgRow as { subscription_plan?: string } | null)
-        ?.subscription_plan;
-      if (plan === "pro" || plan === "max") planTier = plan;
+      const plan = (orgRow as { subscription_plan?: string } | null)?.subscription_plan;
+      if (!scanOwnerId && (plan === "pro" || plan === "max")) effectiveTier = plan;
     } catch {
       // Fail open to the free-tier quota on lookup errors.
     }
-    const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
-    const scanQuota = PLAN_AI_LIMITS[planTier].scan;
-    const orgRl = rateLimit(`vision-parse:org:${orgId}`, scanQuota, MONTH_MS);
-    if (!orgRl.allowed) {
-      const retryAfter = Math.max(1, Math.ceil(orgRl.resetMs / 1000));
-      return NextResponse.json(
-        {
-          error: `Monthly AI menu scan quota reached (${scanQuota}/month on the ${planTier} plan). Quota resets soon — or upgrade your plan for more scans.`,
-        },
-        { status: 429, headers: { "Retry-After": String(retryAfter) } }
-      );
+    const scanCheck = await checkOwnerQuota({
+      ownerId: ownerKey,
+      plan: effectiveTier,
+      category: "menu_scanner",
+      ownerEmail: scanOwnerEmail ?? ownerCtx.email,
+    });
+    if (!scanCheck.allowed) {
+      return ownerQuotaExceededResponse(scanCheck.used, scanCheck.limit, "menu scan");
     }
     const ipRl = rateLimit(
       `vision-parse:ip:${getClientIp(request)}`,
@@ -202,14 +205,9 @@ export async function POST(request: NextRequest) {
     const base64 = finalBuffer.toString("base64");
     const mimeType = `image/${ext === "jpg" ? "jpeg" : ext}`;
 
-    // Call OmniRoute
-    const apiKey = process.env.AGNES_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "AGNES_API_KEY not configured" },
-        { status: 500 }
-      );
-    }
+    // Call Haiku 5.5 (low effort) with the menu image — same key as the
+    // rest of the Tablecraft models. No fallback.
+    const { callHaikuLow } = await import("@/lib/ai-models");
 
     const prompt = `You are a restaurant menu parser. Extract ALL menu items from this image.
 
@@ -228,54 +226,20 @@ Rules:
 - Extract ALL items visible in the menu
 - Return ONLY JSON, no other text`;
 
-    const response = await fetch("https://apihub.agnes-ai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "agnes-2.5-flash",
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              {
-                type: "image_url",
-                image_url: { url: `data:${mimeType};base64,${base64}` },
-              },
-            ],
-          },
-        ],
-        max_tokens: 4000,
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("[VISION PARSE] API error:", response.status, errText.slice(0, 500));
-      return NextResponse.json(
-        { error: "Could not parse the menu image. Please try again." },
-        { status: 502 }
-      );
-    }
-
-    const responseText = await response.text();
-    let data: any;
+    let content: string;
     try {
-      data = JSON.parse(responseText);
-    } catch {
-      console.error("[VISION PARSE] Response is not JSON:", responseText.slice(0, 500));
+      content = await callHaikuLow(prompt, {
+        maxTokens: 4000,
+        images: [{ mediaType: mimeType, data: base64 }],
+      });
+    } catch (e) {
+      console.error("[VISION PARSE] Haiku 5.5 failed:", e instanceof Error ? e.message.slice(0, 200) : e);
       return NextResponse.json(
         { error: "Could not parse the menu image. Please try again." },
         { status: 502 }
       );
     }
-
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
+    if (!content?.trim()) {
       return NextResponse.json(
         { error: "Could not parse the menu image. Please try again." },
         { status: 500 }

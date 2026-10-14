@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { type DesignSettingsV2, type DeviceKind } from "@/lib/design";
+import { withBuiltSiteGuards, withLiveMenu, withPreviewChrome, type LiveMenuItem } from "@/lib/built-site";
 import { OrgPageView, type OrgView } from "@/components/OrgPageView";
 import { useDesignDevice } from "./design-device";
 
@@ -43,6 +44,9 @@ export function PreviewShell({
   onGrowHero,
   children,
   previewHeight = 640,
+  menuItems = [],
+  srcDocOverride = null,
+  previewBadge = false,
 }: {
   settings: DesignSettingsV2;
   org: OrgView;
@@ -52,12 +56,18 @@ export function PreviewShell({
   onGrowHero?: (id: string, h: number) => void;
   children?: ReactNode;
   previewHeight?: number;
+  menuItems?: LiveMenuItem[];
+  /** Exact post-apply bytes to preview instead of the live site. */
+  srcDocOverride?: string | null;
+  /** Show the "preview — not yet applied" badge over the frame. */
+  previewBadge?: boolean;
 }) {
   const hClass = previewHeight === 640 ? "h-[640px]" : previewHeight === 960 ? "h-[960px]" : previewHeight === 1280 ? "h-[1280px]" : `h-[${previewHeight}px]`;
 
   const { device, setDevice } = useDesignDevice();
   const [zoom, setZoom] = useState(1);
   const paneRef = useRef<HTMLDivElement>(null);
+  const builtHtml = settings.built_html ?? null;
 
   // Zoom the fixed-width frame down to fit the pane (never upscale — a wider
   // pane just centers the 1280 design frame with margins).
@@ -79,6 +89,29 @@ export function PreviewShell({
   const handleDeviceChange = (next: DeviceKind) => {
     setDevice(next);
   };
+
+  // Fill the pane exactly at any zoom: the fixed-width frame is zoomed to fit,
+  // so the iframe must be previewHeight/zoom CSS px tall or pane background
+  // shows below it (desktop black gap). Re-measure on refocus — backgrounded
+  // tabs can return with stale zoom/layout (right-side gap).
+  useEffect(() => {
+    const remeasure = () => {
+      const el = paneRef.current;
+      if (!el) return;
+      const frame = DEVICES.find((d) => d.id === device)?.width ?? 1280;
+      const w = el.getBoundingClientRect().width;
+      if (w > 0) setZoom(Math.min(1, w / frame));
+    };
+    const onVis = () => {
+      if (document.visibilityState === "visible") remeasure();
+    };
+    window.addEventListener("focus", remeasure);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", remeasure);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [device]);
 
   const frameWidth = DEVICES.find((d) => d.id === device)?.width ?? 1280;
   // Tablet/mobile render as a device on a neutral stage: white pane around
@@ -131,20 +164,41 @@ export function PreviewShell({
         style={{ height: `${previewHeight}px`, backgroundColor: staged ? "#ffffff" : settings.background_color, color: settings.text_color }}
       >
         <div className="mx-auto" style={frameStyle}>
-          <OrgPageView
-            mode="preview"
-            org={org}
-            settings={settings}
-            paragraphs={paragraphs}
-            colors={colors}
-            onGrowHero={onGrowHero}
-            previewHeight={previewHeight}
-            // Preview truthfulness: resolve per-device fonts/rects from the
-            // console toggle, NOT the zoomed measured width (zoom shrinks
-            // getBoundingClientRect, which would misclassify tablet as mobile).
-            device={device}
-          />
-          {children}
+          {settings.built_html ? (
+            // AI-built standalone site: fixed viewport-height frame with hidden
+            // scrollbars (true viewport sim — vh units stay honest, no gaps).
+            // srcDocOverride previews exact post-apply bytes before approval.
+            // Interactive overlays (children) target settings elements,
+            // so they're hidden here.
+            <div className="relative">
+              {previewBadge && srcDocOverride && (
+                <span className="absolute top-2 left-2 z-10 rounded bg-amber-500/90 px-2 py-0.5 text-[10px] font-semibold text-black">
+                  Previewing edits — not saved
+                </span>
+              )}
+              <iframe
+                title={`${orgName} built-site preview`}
+                srcDoc={withPreviewChrome(withBuiltSiteGuards(withLiveMenu(srcDocOverride ?? settings.built_html, menuItems)))}
+                sandbox="allow-scripts allow-forms allow-same-origin"
+                style={{ display: "block", width: "100%", height: `${previewHeight / (zoom || 1)}px`, border: 0, backgroundColor: "#ffffff" }}
+              />
+            </div>
+          ) : (
+            <OrgPageView
+              mode="preview"
+              org={org}
+              settings={settings}
+              paragraphs={paragraphs}
+              colors={colors}
+              onGrowHero={onGrowHero}
+              previewHeight={previewHeight}
+              // Preview truthfulness: resolve per-device fonts/rects from the
+              // console toggle, NOT the zoomed measured width (zoom shrinks
+              // getBoundingClientRect, which would misclassify tablet as mobile).
+              device={device}
+            />
+          )}
+          {!settings.built_html && children}
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { getActiveOrgId, getDesignData } from "@/lib/org";
 import { DesignDeviceProvider } from "../design-device";
 import { DesignNav } from "../design-nav";
 import { WebsiteClient } from "./website-client";
+import { ViewSiteLink } from "@/components/ViewSiteLink";
 export const dynamic = "force-dynamic";
 
 export default async function ConsoleDesignWebsitePage({
@@ -33,6 +34,13 @@ export default async function ConsoleDesignWebsitePage({
   const data = await getDesignData(orgId);
   if (!data) return null;
 
+  const { data: menuRows } = await admin
+    .from("menu_items")
+    .select("id, name, price, category, description")
+    .eq("org_id", orgId)
+    .eq("available", true)
+    .order("sort_order", { ascending: true });
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
@@ -43,9 +51,9 @@ export default async function ConsoleDesignWebsitePage({
           </p>
         </div>
         {data.org.slug && (
-          <a href={`/${data.org.slug}`} target="_blank" rel="noopener noreferrer" className="btn btn-outline text-xs px-3 py-1.5">
+          <ViewSiteLink href={`/${data.org.slug}`} className="btn btn-outline text-xs px-3 py-1.5">
             Preview Site →
-          </a>
+          </ViewSiteLink>
         )}
       </div>
       <DesignNav />
@@ -69,6 +77,7 @@ export default async function ConsoleDesignWebsitePage({
             restaurant_photos: (data.org.restaurant_photos as string[] | null) ?? [],
           }}
           paragraphs={data.paragraphs}
+          menuItems={((menuRows ?? []) as { id: string; name: string; price: number; category: string | null; description: string | null }[]).filter((r) => r && typeof r.id === "string")}
         />
       </DesignDeviceProvider>
     </div>

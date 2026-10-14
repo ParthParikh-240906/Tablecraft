@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireStaffForOrgId } from "@/lib/api-auth";
 
 const MAX_TOP_LEVEL_KEYS = 50;
-const MAX_SETTINGS_BYTES = 100_000;
+const MAX_SETTINGS_BYTES = 200_000;
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -51,12 +51,18 @@ export async function POST(req: Request) {
     if (!isPlainObject(design_settings)) {
       return NextResponse.json({ error: "Missing or invalid design_settings" }, { status: 400 });
     }
-    if (Object.keys(design_settings).length > MAX_TOP_LEVEL_KEYS) {
+    // built_html is write-only for AI routes (build/combine/edit) — never
+    // accept it from console saves. The client POSTs full settings including
+    // the 70KB+ site, which would breach the byte cap AND let a stale tab
+    // overwrite a fresher build. Strip it; merge keeps the stored copy.
+    const { built_html: _dropBuiltHtml, ...clientSettings } = design_settings;
+    void _dropBuiltHtml;
+    if (Object.keys(clientSettings).length > MAX_TOP_LEVEL_KEYS) {
       return NextResponse.json({ error: "Settings payload too large" }, { status: 400 });
     }
     let serialized = "";
     try {
-      serialized = JSON.stringify(design_settings);
+      serialized = JSON.stringify(clientSettings);
     } catch {
       return NextResponse.json({ error: "Invalid design_settings" }, { status: 400 });
     }
@@ -71,7 +77,7 @@ export async function POST(req: Request) {
       .eq("id", org_id)
       .maybeSingle();
 
-    const merged = mergeSettings(existing?.design_settings ?? null, design_settings);
+    const merged = mergeSettings(existing?.design_settings ?? null, clientSettings);
 
     const { error } = await admin
       .from("organizations")

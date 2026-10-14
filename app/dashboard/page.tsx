@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { PLAN_LABELS } from "@/lib/pricing";
+import { PLAN_LABELS, displayPlan } from "@/lib/pricing";
 import { SignOutButton } from "./sign-out-button";
+import { ViewSiteLink } from "@/components/ViewSiteLink";
 import { DeleteRestaurantButton } from "./delete-restaurant-button";
 import { DashboardPricingSection } from "./pricing-section";
 
@@ -142,6 +143,8 @@ export default async function DashboardPage() {
 
               {/* Org rows — horizontal lines only */}
               {orgs.map((org, i) => {
+                // Canceled subscriptions always display as Free.
+                const rowPlan = displayPlan(org.subscription_plan, org.subscription_status);
                 return (
                   <div
                     key={org.id}
@@ -168,20 +171,20 @@ export default async function DashboardPage() {
                       </div>
                     </div>
 
-                    <Link
+                    <ViewSiteLink
                       href={`/${org.slug}`}
                       className="inline-flex items-center justify-center text-xs font-semibold h-8 w-[4.5rem] rounded-sm border border-[var(--rule)] text-[var(--ink)] hover:bg-[var(--paper-raised)]"
                     >
                       View site
-                    </Link>
+                    </ViewSiteLink>
                     <Link
                       href={`/console?org=${org.id}`}
                       className="inline-flex items-center justify-center text-xs font-semibold h-8 w-[4.5rem] rounded-sm bg-[var(--accent)] text-white hover:opacity-90"
                     >
                       Console
                     </Link>
-                    <span className={`inline-flex items-center justify-center text-xs font-semibold h-8 w-[4.5rem] rounded-sm ${planBadge(org.subscription_plan)}`}>
-                      {PLAN_LABELS[(org.subscription_plan ?? "free") as keyof typeof PLAN_LABELS] ?? "Free"}
+                    <span className={`inline-flex items-center justify-center text-xs font-semibold h-8 w-[4.5rem] rounded-sm ${planBadge(rowPlan)}`}>
+                      {PLAN_LABELS[rowPlan] ?? "Free"}
                     </span>
                     <DeleteRestaurantButton orgId={org.id} orgName={org.name} />
                   </div>

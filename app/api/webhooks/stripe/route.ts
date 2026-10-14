@@ -74,7 +74,9 @@ export async function POST(request: Request) {
           : sub.status === "past_due"
             ? "past_due"
             : "canceled";
-      const plan = (sub.metadata?.plan as "pro" | "max") || "free";
+      // Canceling is immediate: a canceled subscription always drops to Free,
+      // never keeps its paid plan for a grace period.
+      const plan = status === "canceled" ? "free" : ((sub.metadata?.plan as "pro" | "max") || "free");
       const periodEnd = sub.current_period_end
         ? new Date(sub.current_period_end * 1000).toISOString()
         : null;
@@ -107,6 +109,7 @@ export async function POST(request: Request) {
         .from("organizations")
         .update({
           subscription_status: "canceled",
+          subscription_plan: "free",
           stripe_subscription_id: null,
           // preserve current_period_end — don't null it out
         })

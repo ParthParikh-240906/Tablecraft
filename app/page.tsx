@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ViewSiteLink } from "@/components/ViewSiteLink";
 import { createClient } from "@/lib/supabase/client";
 import { FeaturesCarousel } from "@/components/FeaturesCarousel";
 import { MARKETING_PLANS as PRICING } from "@/lib/marketing-plans";
@@ -118,7 +119,7 @@ const FAQS = [
   },
   {
     q: "Do I need a designer or developer?",
-    a: "No. The AI generates your tagline, about copy, and menu descriptions, and the image editor creates hero art and logos from a prompt. Max-plan teams get senior frontend help for custom tweaks.",
+    a: "No. The AI generates your tagline, about copy, and menu descriptions, and the image editor creates hero art and logos from a prompt. Max-plan teams get priority support for custom tweaks.",
   },
   {
     q: "How do bookings work?",
@@ -576,12 +577,12 @@ function RestaurantCard({ org, index }: { org: Org; index: number }) {
           style={{ width: "100%", backgroundColor: `${color}55` }}
         />
         <div className="flex gap-2">
-          <Link
+          <ViewSiteLink
             href={`/${org.slug}`}
             className="flex-1 btn btn-outline text-xs py-1.5"
           >
             Visit Storefront
-          </Link>
+          </ViewSiteLink>
           <a
             href={`/api/demo/redirect?org=${org.slug}`}
             className="flex-1 btn btn-accent text-xs py-1.5 whitespace-nowrap"
@@ -707,7 +708,7 @@ function PricingCard({ plan, index, billing }: { plan: typeof PRICING[0]; index:
         )}
 
         <div className="flex items-center gap-2 mb-2">
-          <p className="label-caps text-xs text-[var(--ink-soft)]">{plan.name}</p>
+          <p className="font-display text-2xl font-bold tracking-tight text-[var(--ink)]">{plan.name}</p>
           {paidKey && isAnnual && savings && (
             <span className="rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-bold leading-none">
               1 month free

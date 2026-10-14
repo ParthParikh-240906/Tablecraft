@@ -52,11 +52,12 @@ export async function POST(request: Request) {
     });
 
     if (!subs.data.length) {
-      // No active subscription — mark as canceled
+      // No active subscription — drop straight to Free (no grace period).
       const { error: updateError } = await supabase
         .from("organizations")
         .update({
           stripe_subscription_id: null,
+          subscription_plan: "free",
           subscription_status: "canceled",
           subscription_current_period_end: null,
         })

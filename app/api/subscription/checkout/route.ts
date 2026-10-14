@@ -19,12 +19,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
   try {
-    const { plan, email, orgSlug, orgId, billing } = body as {
+    const { plan, email, orgSlug, orgId, billing, forceNew } = body as {
       plan: PlanKey;
       email?: string;
       orgSlug?: string;
       orgId?: string;
       billing?: BillingInterval;
+      /** Deliberate new purchase: skip the silent in-place upgrade and always open Stripe Checkout. */
+      forceNew?: boolean;
     };
     const interval: BillingInterval = billing === "annual" ? "annual" : "monthly";
 
@@ -122,12 +124,17 @@ export async function POST(request: Request) {
       }
     }
 
-    // Check if customer already has an active subscription (upgrade case)
-    const existingSubs = await stripe.subscriptions.list({
-      customer: stripeCustomer.id,
-      status: "active",
-      limit: 1,
-    });
+    // Check if customer already has an active subscription (upgrade case).
+    // A deliberate new purchase (forceNew) skips this silent in-place upgrade
+    // so the buyer always lands on Stripe Checkout.
+    const existingSubs =
+      forceNew === true
+        ? { data: [] as Stripe.Subscription[] }
+        : await stripe.subscriptions.list({
+            customer: stripeCustomer.id,
+            status: "active",
+            limit: 1,
+          });
 
     const successUrl = orgSlug
       ? `${origin}/console/pricing?org=${orgSlug}&checkout=done`

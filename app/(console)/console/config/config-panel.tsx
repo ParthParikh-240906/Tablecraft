@@ -253,6 +253,49 @@ export function ConfigPanel({
 
         <hr className="border-[var(--rule)]" />
 
+        {/* Opening Hours */}
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-[var(--ink)] mb-1">
+              Opening hours
+            </label>
+            <p className="text-xs text-[var(--ink-faint)]">
+              Daily start and close time set by the owner (shown on request; bookings are not auto-blocked outside these hours).
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="text-xs text-[var(--ink-soft)]">
+              Opens{" "}
+              <input
+                type="time"
+                value={bookingConfig.open_time ?? ""}
+                onChange={(e) => updateBookingConfig({ open_time: e.target.value || null })}
+                className="input w-32 text-xs py-1 px-2 border border-[var(--rule)] bg-[var(--paper)] rounded"
+              />
+            </label>
+            <label className="text-xs text-[var(--ink-soft)]">
+              Closes{" "}
+              <input
+                type="time"
+                value={bookingConfig.close_time ?? ""}
+                onChange={(e) => updateBookingConfig({ close_time: e.target.value || null })}
+                className="input w-32 text-xs py-1 px-2 border border-[var(--rule)] bg-[var(--paper)] rounded"
+              />
+            </label>
+            {(bookingConfig.open_time || bookingConfig.close_time) && (
+              <button
+                type="button"
+                onClick={() => updateBookingConfig({ open_time: null, close_time: null })}
+                className="text-xs text-[var(--ink-faint)] underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        <hr className="border-[var(--rule)]" />
+
         {/* No Time Limit Option */}
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-4 p-4 rounded bg-[var(--paper)] border border-[var(--rule)]">

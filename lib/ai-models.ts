@@ -2,19 +2,22 @@
  * lib/ai-models.ts
  * Central router for Tablecraft AI models.
  *
- * - Haiku 5.5 (low reasoning effort) via CLAUDE_API — creation + chatbot
+ * - Haiku 5.5 via CLAUDE_API — build (medium effort) + chatbot/scan/vision (low)
  *   POST https://api.anthropic.com/v1/messages
- *   { model: "claude-haiku-5-5", output_config: { effort: "low" } }
- * - GPT 6.1 Sol (high effort) via OPENAI_API — combine + edit (code read/write)
+ *   { model: "claude-haiku-5-5", output_config: { effort: "low"|"medium" } }
+ * - GPT 6.1 Sol via OPENAI_API — combine (high effort) + edit (medium effort)
  *   POST https://api.openai.com/v1/responses
- *   { model: "gpt-6.1-sol", reasoning: { effort: "high" } }
+ *   { model: "gpt-6.1-sol", reasoning: { effort: "high"|"medium" } }
  *   Responses API is required for tool calling (Chat Completions has no tools
  *   for this model). We use it without tools for plain text, with the same shape.
- * - Image generation via IMAGE_API (OpenAI-compatible images endpoint base URL)
+ * - Image generation via OpenAI Images API (GPT Image 2.5) with OPENAI_API —
+ *   POST {IMAGE_API base}/images/generations { model: "gpt-image-2.5-flare", prompt, size, n }
+ *   IMAGE_API is an optional base-URL override (defaults to https://api.openai.com/v1).
  */
 
 export const HAIKU_MODEL = "claude-haiku-5-5";
 export const GPT_SOL_MODEL = "gpt-6.1-sol";
+export const IMAGE_MODEL = "gpt-image-2.5-flare";
 
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
@@ -32,24 +35,48 @@ function openaiKey(): string {
 }
 
 function imageBase(): string {
-  // IMAGE_API may be a full endpoint or a base URL. Normalise to .../images/generations
-  const raw = process.env.IMAGE_API;
-  if (!raw) throw new Error("IMAGE_API is not configured");
-  const trimmed = raw.replace(/\/$/, "");
-  if (trimmed.endsWith("/images/generations")) return trimmed;
-  if (trimmed.endsWith("/v1")) return `${trimmed}/images/generations`;
-  return `${trimmed}/images/generations`;
+  // Optional base-URL override; defaults to OpenAI. Accepts a base URL
+  // (https://api.openai.com/v1) or a full .../images/generations endpoint.
+  const raw = (process.env.IMAGE_API || "https://api.openai.com/v1").trim().replace(/\/$/, "");
+  if (raw.endsWith("/images/generations")) return raw;
+  if (raw.endsWith("/v1")) return `${raw}/images/generations`;
+  return `${raw}/images/generations`;
 }
+
+export type HaikuMeta = {
+  stopReason?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+};
 
 export type HaikuOpts = {
   maxTokens?: number;
   system?: string;
+  effort?: "low" | "medium" | "high";
+  images?: Array<{ mediaType: string; data: string }>;
+  /**
+   * Disable thinking blocks. Thinking is ON by default and counts toward
+   * max_tokens — for long-form generation / small-budget JSON extraction the
+   * model can burn the whole budget thinking and return zero text.
+   */
+  disableThinking?: boolean;
+  /** Optional callback receiving stop reason + token usage (for logging). */
+  onMeta?: (m: HaikuMeta) => void;
 };
 
 /**
- * Call Haiku 5.5 at low effort. Returns display text.
+ * Call Haiku 5.5. Returns display text.
+ * `effort` defaults to low; build uses medium.
+ * Pass `images` (base64 data + media type) for vision tasks.
  */
 export async function callHaikuLow(prompt: string, opts: HaikuOpts = {}): Promise<string> {
+  const content: Array<Record<string, unknown>> = [{ type: "text", text: prompt }];
+  for (const img of opts.images ?? []) {
+    content.push({
+      type: "image",
+      source: { type: "base64", media_type: img.mediaType, data: img.data },
+    });
+  }
   const res = await fetch(ANTHROPIC_MESSAGES_URL, {
     method: "POST",
     headers: {
@@ -60,9 +87,10 @@ export async function callHaikuLow(prompt: string, opts: HaikuOpts = {}): Promis
     body: JSON.stringify({
       model: HAIKU_MODEL,
       max_tokens: opts.maxTokens ?? 2048,
-      output_config: { effort: "low" },
+      output_config: { effort: opts.effort ?? "low" },
+      ...(opts.disableThinking ? { thinking: { type: "disabled" } } : {}),
       ...(opts.system ? { system: opts.system } : {}),
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content }],
     }),
   });
   if (!res.ok) {
@@ -71,22 +99,41 @@ export async function callHaikuLow(prompt: string, opts: HaikuOpts = {}): Promis
   }
   const data = (await res.json()) as {
     content?: Array<{ type: string; text?: string }>;
+    stop_reason?: string;
+    usage?: { input_tokens?: number; output_tokens?: number };
   };
+  opts.onMeta?.({
+    stopReason: data.stop_reason,
+    inputTokens: data.usage?.input_tokens,
+    outputTokens: data.usage?.output_tokens,
+  });
+  if (process.env.NODE_ENV === "development") {
+    console.log(
+      `[Haiku 5.5] stop=${data.stop_reason ?? "?"} ` +
+        `in=${data.usage?.input_tokens ?? "?"} out=${data.usage?.output_tokens ?? "?"} ` +
+        `blocks=${(data.content ?? []).map((b) => b.type).join(",") || "(none)"}`,
+    );
+  }
   const text = (data.content ?? [])
     .filter((b) => b.type === "text" && b.text)
     .map((b) => b.text as string)
     .join("\n");
+  if (!text.trim()) {
+    throw new Error(`Haiku 5.5 returned no text (stop_reason: ${data.stop_reason ?? "unknown"})`);
+  }
   return text;
 }
 
 export type GptSolOpts = {
   maxOutputTokens?: number;
   system?: string;
+  effort?: "low" | "medium" | "high";
 };
 
 /**
- * Call GPT 6.1 Sol at high effort via Responses API. Returns output text.
- * Uses `input` array shape; `reasoning.effort: high`.
+ * Call GPT 6.1 Sol via Responses API. Returns output text.
+ * Uses `input` array shape; `reasoning.effort` defaults to high.
+ * Uses it without tools for plain text, with the same shape.
  */
 export async function callGptSolHigh(prompt: string, opts: GptSolOpts = {}): Promise<string> {
   const input: Array<Record<string, unknown>> = [];
@@ -110,7 +157,7 @@ export async function callGptSolHigh(prompt: string, opts: GptSolOpts = {}): Pro
     },
     body: JSON.stringify({
       model: GPT_SOL_MODEL,
-      reasoning: { effort: "high" },
+      reasoning: { effort: opts.effort ?? "high" },
       input,
       store: false,
       ...(opts.maxOutputTokens ? { max_output_tokens: opts.maxOutputTokens } : {}),
@@ -143,8 +190,9 @@ export type ImageGenOpts = {
 };
 
 /**
- * Generate an image via IMAGE_API (OpenAI-compatible).
- * Returns the first image URL (or b64 data URL when b64_json).
+ * Generate an image via the OpenAI Images API (GPT Image 2.5) using OPENAI_API.
+ * Returns the first image URL (or b64 data URL — GPT image models always
+ * return base64).
  */
 export async function callImageGen(
   prompt: string,
@@ -154,9 +202,10 @@ export async function callImageGen(
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${process.env.IMAGE_API}`,
+      authorization: `Bearer ${openaiKey()}`,
     },
     body: JSON.stringify({
+      model: IMAGE_MODEL,
       prompt,
       size: opts.size ?? "1024x1024",
       n: opts.n ?? 1,

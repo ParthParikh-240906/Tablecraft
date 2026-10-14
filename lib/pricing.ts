@@ -66,6 +66,20 @@ export function getMaxAnnualPercentOff() {
   );
 }
 
+/**
+ * Display plan for pricing UI.
+ *
+ * Canceling is immediate: a canceled (or legacy "canceling") subscription
+ * always shows as Free, even if the stored subscription_plan row still holds
+ * a paid value. This keeps every surface (console breakdown, dashboard badge)
+ * consistent the moment a user cancels.
+ */
+export function displayPlan(plan: unknown, status: unknown): "free" | "pro" | "max" {
+  const s = typeof status === "string" ? status : "free";
+  if (s === "canceled" || s === "canceling") return "free";
+  return plan === "pro" || plan === "max" ? plan : "free";
+}
+
 // ─── Cached Stripe Price IDs ────────────────────────────────────────────────
 
 type PriceIds = {

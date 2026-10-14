@@ -103,7 +103,7 @@ function PricingCard({ plan, index, billing }: { plan: typeof MARKETING_PLANS[0]
         )}
 
         <div className="flex items-center gap-2 mb-2">
-          <p className="label-caps text-xs text-[var(--ink-soft)]">{plan.name}</p>
+          <p className="font-display text-2xl font-bold tracking-tight text-[var(--ink)]">{plan.name}</p>
           {paidKey && isAnnual && savings && (
             <span className="rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-bold leading-none">
               1 month free

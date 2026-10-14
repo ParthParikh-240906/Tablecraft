@@ -138,12 +138,17 @@ export async function POST(request: Request) {
     }
   }
 
-  // --- Restaurant limit check (3 for free accounts, 20 for pro/max) ---
+  // --- Restaurant limit check (per-OWNER: free 1, pro 5, max 20) ---
+  // Owner plan = highest tier among orgs they already own. Usage aggregates
+  // across all owned restaurants (see lib/owner-quotas.ts).
   {
+    const { resolveOwnerPlan } = await import("@/lib/owner-quotas");
+    const { OWNER_QUOTAS } = await import("@/lib/owner-quotas");
     const { data: existingStaff, error: existingStaffError } = await admin
       .from("staff_users")
       .select("organizations(subscription_plan)")
-      .eq("auth_user_id", authUserId);
+      .eq("auth_user_id", authUserId)
+      .eq("role", "owner");
 
     if (existingStaffError) {
       console.error("signup: staff limit check failed", existingStaffError);
@@ -154,11 +159,12 @@ export async function POST(request: Request) {
     }
 
     const orgCount = existingStaff?.length ?? 0;
-    const hasPaid = existingStaff?.some((r: any) => {
+    const ownedPlans = (existingStaff ?? []).map((r: any) => {
       const org = Array.isArray(r.organizations) ? r.organizations[0] : r.organizations;
-      return org?.subscription_plan === "pro" || org?.subscription_plan === "max";
+      return org?.subscription_plan as string | undefined;
     });
-    const limit = hasPaid ? 20 : 3;
+    const ownerPlan = resolveOwnerPlan(ownedPlans);
+    const limit = OWNER_QUOTAS[ownerPlan].restaurant_create;
 
     if (orgCount >= limit) {
       if (!isSessionUser) {
@@ -166,9 +172,9 @@ export async function POST(request: Request) {
       }
       return NextResponse.json(
         {
-          error: hasPaid
-            ? "You've reached the 20-restaurant limit for Pro/Max accounts."
-            : `Free accounts can have up to ${limit} restaurants. Upgrade to Pro to unlock more.`,
+          error: ownerPlan === "free"
+            ? `Free trial includes ${limit} restaurant. Upgrade to Pro (5) or Max (20) for more.`
+            : `You've reached the ${limit}-restaurant limit for ${ownerPlan === "max" ? "Max" : "Pro"} accounts.`,
         },
         { status: 409 },
       );

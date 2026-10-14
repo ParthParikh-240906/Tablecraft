@@ -4,6 +4,7 @@ import { getActiveOrgId } from "@/lib/org";
 import { getDesignData } from "@/lib/org";
 import { DesignDeviceProvider } from "../design-device";
 import { AiPanel } from "./ai-panel";
+import { ViewSiteLink } from "@/components/ViewSiteLink";
 export const dynamic = "force-dynamic";
 
 export default async function ConsoleDesignAiPage({
@@ -39,14 +40,12 @@ export default async function ConsoleDesignAiPage({
           </p>
         </div>
         {data.org.slug && (
-          <a
+          <ViewSiteLink
             href={`/${data.org.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
             className="btn btn-outline text-xs px-3 py-1.5"
           >
             Preview Site →
-          </a>
+          </ViewSiteLink>
         )}
       </div>
       <DesignDeviceProvider>
