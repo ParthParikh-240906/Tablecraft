@@ -6,8 +6,8 @@ import { computeOwnerPlan } from "@/lib/billing";
 /**
  * GET /api/subscription/status?orgSlug=...
  *
- * Returns the current subscription plan and status for an organization,
- * plus the owner-wide plan covering all restaurants the owner holds.
+ * Returns the owner-wide subscription plan covering all restaurants the owner
+ * holds, plus the raw single-org row for debugging.
  * Requires a signed-in staff member of the org (billing data is sensitive).
  */
 export async function GET(request: Request) {
@@ -109,7 +109,11 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
-      plan: typed.subscription_plan ?? "free",
+      // Owner-wide: ONE plan covers ALL restaurants. `plan` is the aggregated
+      // owner plan (previously this returned the single-org row, which
+      // diverged after fan-out writes — 1 org Max, 2 Free).
+      plan: ownerPlan,
+      orgPlan: typed.subscription_plan ?? "free",
       status: typed.subscription_status ?? "free",
       periodEnd: typed.subscription_current_period_end ?? null,
       ownerPlan,

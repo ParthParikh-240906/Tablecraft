@@ -371,17 +371,17 @@ export function PricingClient({
             </div>
 
             {(anchorOrg.stripe_customer_id || anchorOrg.subscription_status === "active") && anchorOrg.subscription_status !== "free" && (
-              <>
-                {!anchorOrg.stripe_subscription_id && (
-                  <button
-                    type="button"
-                    onClick={handleSyncPlan}
-                    disabled={loadingPlan === "sync"}
-                    className="btn btn-outline text-xs py-1.5 px-3"
-                  >
-                    {loadingPlan === "sync" ? "Syncing…" : "Sync Plan Status"}
-                  </button>
-                )}
+              <div className="flex items-center gap-2">
+                {/* Always available when paid: re-mirrors the Stripe plan to
+                    every owned restaurant (repairs stale 1x Max / 2x Free rows). */}
+                <button
+                  type="button"
+                  onClick={handleSyncPlan}
+                  disabled={loadingPlan === "sync"}
+                  className="btn btn-outline text-xs py-1.5 px-3"
+                >
+                  {loadingPlan === "sync" ? "Syncing…" : "Sync Plan Status"}
+                </button>
                 {anchorOrg.stripe_subscription_id && anchorOrg.subscription_status !== "canceled" && (
                   <button
                     type="button"
@@ -392,7 +392,7 @@ export function PricingClient({
                     {loadingPlan === "cancel" ? "Canceling…" : "Cancel Plan"}
                   </button>
                 )}
-              </>
+              </div>
             )}
           </div>
         )}

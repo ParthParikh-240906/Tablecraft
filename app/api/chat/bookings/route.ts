@@ -201,16 +201,19 @@ export async function POST(request: NextRequest) {  const rl = rateLimit(`chat-b
       try {
         const { createAdminClient } = await import("@/lib/supabase/admin");
         const admin = createAdminClient();
-        let orgRow: { id?: string; subscription_plan?: string } | null = null;
+        // Owner-wide quotas: only the org id is needed to resolve the owner.
+        // (The per-org subscription_plan column is a mirrored cache — the
+        // entitlement comes from getOwnerPlanContext below.)
+        let orgRow: { id?: string } | null = null;
         if (probeId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(probeId)) {
-          const { data } = await admin.from("organizations").select("id, subscription_plan").eq("id", probeId).maybeSingle();
-          orgRow = data as { id?: string; subscription_plan?: string } | null;
+          const { data } = await admin.from("organizations").select("id").eq("id", probeId).maybeSingle();
+          orgRow = data as { id?: string } | null;
         } else if (probeSlug) {
-          const { data } = await admin.from("organizations").select("id, subscription_plan").eq("slug", probeSlug).maybeSingle();
-          orgRow = data as { id?: string; subscription_plan?: string } | null;
+          const { data } = await admin.from("organizations").select("id").eq("slug", probeSlug).maybeSingle();
+          orgRow = data as { id?: string } | null;
         } else if (probeName) {
-          const { data } = await admin.from("organizations").select("id, subscription_plan").ilike("name", probeName.slice(0, 100)).limit(1).maybeSingle();
-          orgRow = data as { id?: string; subscription_plan?: string } | null;
+          const { data } = await admin.from("organizations").select("id").ilike("name", probeName.slice(0, 100)).limit(1).maybeSingle();
+          orgRow = data as { id?: string } | null;
         }
         if (orgRow?.id) {
           const { getOwnerForOrg, getOwnerPlanContext, checkOwnerQuota, ownerQuotaExceededResponse } = await import("@/lib/owner-quotas");

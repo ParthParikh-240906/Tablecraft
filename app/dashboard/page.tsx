@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PLAN_LABELS, displayPlan } from "@/lib/pricing";
+import { resolveOwnerPlan } from "@/lib/owner-quotas";
 import { SignOutButton } from "./sign-out-button";
 import { ViewSiteLink } from "@/components/ViewSiteLink";
 import { DeleteRestaurantButton } from "./delete-restaurant-button";
@@ -10,8 +11,8 @@ import { DashboardPricingSection } from "./pricing-section";
 
 /**
  * Post-sign-in dashboard.
- * Lists the user's restaurants in row format, AI tools, getting-started
- * checklist, and marketing pricing at the bottom.
+ * Lists the user's restaurants, a getting-started checklist, and pricing.
+ * Styled to match the marketing page: white field, black ink, orange accent.
  */
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -76,6 +77,20 @@ export default async function DashboardPage() {
     .map((r: any) => Array.isArray(r.organizations) ? r.organizations[0] : r.organizations)
     .filter(Boolean);
 
+  // Owner-wide plan: ONE plan covers ALL restaurants the owner holds.
+  // Previously each row rendered its own subscription_plan (per-restaurant
+  // billing), so a stale fan-out left 1 row on Max and 2 on Free even though
+  // /console/pricing (ownerPlan) showed Max everywhere. Now every badge uses
+  // the aggregated owner plan.
+  const ownedRows = (staffRows ?? []).filter((r: any) => r.role === "owner");
+  const planSource = ownedRows.length > 0 ? ownedRows : (staffRows ?? []);
+  const ownerPlan = resolveOwnerPlan(
+    planSource.map((r: any) => {
+      const o = Array.isArray(r.organizations) ? r.organizations[0] : r.organizations;
+      return displayPlan(o?.subscription_plan, o?.subscription_status ?? null);
+    }),
+  );
+
   const hasRestaurants = orgs.length > 0;
   const firstOrgId = orgs[0]?.id ?? null;
   const withOrg = (href: string) =>
@@ -83,157 +98,176 @@ export default async function DashboardPage() {
 
   const planBadge = (plan: string | null) => {
     switch (plan) {
-      case "pro": return "bg-orange-900/40 text-orange-300";
-      case "max": return "bg-purple-900/40 text-purple-300";
-      default: return "bg-[var(--paper-raised)] text-white";
+      case "pro": return "bg-[#d45200] text-white";
+      case "max": return "bg-neutral-950 text-white";
+      default: return "bg-white text-neutral-700";
     }
   };
 
   return (
-    <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)]">
+    <div className="min-h-screen bg-white text-neutral-950">
       <a href="#main-content" className="skip-link">Skip to content</a>
+
       {/* ─── Header ─────────────────────────────────────────────────────────── */}
-      <header className="border-b border-white/30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-2xl tracking-tight">
-              Welcome, {displayName}
-            </h1>
-            <p className="text-sm text-[var(--ink-soft)] mt-0.5">{user.email}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <a href="#pricing" className="btn btn-outline-strong text-xs">
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-[0_6px_24px_-8px_rgba(0,0,0,0.12)]">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="font-display text-[22px] tracking-tight text-neutral-950">
+            Tablecraft
+          </Link>
+          <div className="flex items-center gap-1">
+            <a
+              href="#pricing"
+              className="relative hidden sm:inline-block text-[15px] font-medium px-4 py-2.5 text-neutral-600 hover:text-neutral-950 transition-colors after:content-[''] after:absolute after:left-4 after:right-4 after:bottom-1.5 after:h-px after:bg-[#d45200] after:origin-left after:scale-x-0 after:transition-transform after:duration-300 hover:after:scale-x-100"
+            >
               Pricing
             </a>
-            <Link href="/setup-guide" className="btn btn-outline-accent text-xs">
-              Setup guide
+            <Link
+              href="/"
+              className="relative hidden sm:inline-block text-[15px] font-medium px-4 py-2.5 text-neutral-600 hover:text-neutral-950 transition-colors after:content-[''] after:absolute after:left-4 after:right-4 after:bottom-1.5 after:h-px after:bg-[#d45200] after:origin-left after:scale-x-0 after:transition-transform after:duration-300 hover:after:scale-x-100"
+            >
+              Marketing site
             </Link>
-            <Link href="/" className="btn btn-outline-strong text-xs">
-              ← Marketing site
-            </Link>
-            <SignOutButton />
+            <SignOutButton className="text-[15px] font-semibold px-5 py-2.5 rounded-full bg-[#d45200] text-white hover:bg-[#b54600] transition-colors disabled:opacity-50" />
           </div>
         </div>
       </header>
 
-      <div className="layer2-bg border-2 border-white/50 mx-8 md:mx-16 mt-8 mb-12 rounded-sm">
-        <div className="relative max-w-6xl mx-auto">
-          <main id="main-content" className="px-4 sm:px-6 py-10 space-y-12">
-
-        {/* ─── My Restaurants (row table) ───────────────────────────────────── */}
+      <main id="main-content" className="max-w-6xl mx-auto px-6 pt-12 pb-24 space-y-20">
+        {/* ─── Welcome ──────────────────────────────────────────────────────── */}
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display text-lg">My Restaurants</h2>
-            <Link href="/restaurants/create" className="btn btn-accent text-xs">
-              + Create restaurant
+          <h1 className="font-display text-[32px] sm:text-[41.6px] leading-[1.02] tracking-[-0.03em] text-neutral-950">
+            Welcome back, {displayName}.
+          </h1>
+          <p className="text-[17px] text-neutral-500 mt-4">{user.email}</p>
+        </section>
+
+        {/* ─── My Restaurants ───────────────────────────────────────────────── */}
+        <section aria-labelledby="restaurants-heading">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <h2 id="restaurants-heading" className="font-display text-[30px] leading-tight tracking-[-0.02em]">
+              My restaurants
+            </h2>
+            <Link
+              href="/restaurants/create"
+              className="bg-[#d45200] text-white text-[13.6px] font-semibold px-[22px] py-[13px] rounded-full hover:bg-[#b54600] transition-colors"
+            >
+              Create restaurant
             </Link>
           </div>
 
           {hasRestaurants ? (
-            <div>
-              {/* Header row */}
-              <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-3 px-2 pb-2 text-[11px] uppercase tracking-wider text-[var(--ink-faint)] border-b border-[var(--rule)]">
-                <span>SR</span>
-                <span>Restaurant</span>
-                <span className="text-center w-[4.5rem]">View Site</span>
-                <span className="text-center w-[4.5rem]">Console</span>
-                <span className="text-center w-[4.5rem]">Plan</span>
-                <span className="text-center w-[4.5rem]">Delete</span>
-              </div>
-
-              {/* Org rows — horizontal lines only */}
-              {orgs.map((org, i) => {
-                // Canceled subscriptions always display as Free.
-                const rowPlan = displayPlan(org.subscription_plan, org.subscription_status);
-                return (
-                  <div
-                    key={org.id}
-                    className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-3 px-2 py-3 border-b border-[var(--rule)]"
-                  >
-                    <span className="text-xs text-[var(--ink-faint)]">{i + 1}</span>
-                    <div className="flex items-center gap-3 min-w-0">
-                      {org.logo_url ? (
-                        <img
-                          src={org.logo_url}
-                          alt={org.name}
-                          className="w-8 h-8 rounded-full object-cover border border-[var(--rule)] bg-[var(--paper-raised)] shrink-0"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent-border)] flex items-center justify-center font-bold text-xs shrink-0">
-                          {org.name?.[0]?.toUpperCase() ?? "R"}
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold truncate">{org.name}</p>
-                        <p className="text-xs text-[var(--ink-faint)]">
-                          /{org.slug}
-                        </p>
-                      </div>
-                    </div>
-
-                    <ViewSiteLink
-                      href={`/${org.slug}`}
-                      className="inline-flex items-center justify-center text-xs font-semibold h-8 w-[4.5rem] rounded-sm border border-[var(--rule)] text-[var(--ink)] hover:bg-[var(--paper-raised)]"
-                    >
-                      View site
-                    </ViewSiteLink>
-                    <Link
-                      href={`/console?org=${org.id}`}
-                      className="inline-flex items-center justify-center text-xs font-semibold h-8 w-[4.5rem] rounded-sm bg-[var(--accent)] text-white hover:opacity-90"
-                    >
-                      Console
-                    </Link>
-                    <span className={`inline-flex items-center justify-center text-xs font-semibold h-8 w-[4.5rem] rounded-sm ${planBadge(rowPlan)}`}>
-                      {PLAN_LABELS[rowPlan] ?? "Free"}
-                    </span>
-                    <DeleteRestaurantButton orgId={org.id} orgName={org.name} />
-                  </div>
-                );
-              })}
+            <div className="overflow-x-auto rounded-3xl bg-neutral-100 border border-black p-2 sm:p-3">
+              <table className="w-full min-w-[760px] border-separate border-spacing-0 text-left">
+                <thead>
+                  <tr className="text-[13px] font-semibold uppercase tracking-wide text-neutral-500">
+                    <th scope="col" className="px-4 py-3 w-16">SR</th>
+                    <th scope="col" className="px-4 py-3">Table name</th>
+                    <th scope="col" className="px-4 py-3">Status</th>
+                    <th scope="col" className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orgs.map((org, index) => {
+                    // Owner-wide: every restaurant shares the owner's plan.
+                    const rowPlan = ownerPlan;
+                    return (
+                      <tr key={org.id} className="bg-white">
+                        <td className="px-4 py-4 text-[15px] font-medium text-neutral-500 rounded-l-2xl border-y border-l border-transparent">
+                          {index + 1}
+                        </td>
+                        <td className="px-4 py-4 border-y border-transparent">
+                          <div className="flex items-center gap-4 min-w-0">
+                            {org.logo_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={org.logo_url}
+                                alt={org.name}
+                                className="w-12 h-12 rounded-full object-cover bg-white shrink-0"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded-full bg-[#d45200] text-white flex items-center justify-center font-bold text-base shrink-0">
+                                {org.name?.[0]?.toUpperCase() ?? "R"}
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="font-display text-[20px] leading-tight truncate">{org.name}</p>
+                              <p className="text-[14px] text-neutral-500 truncate">{org.tagline || org.id}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 border-y border-transparent">
+                          <span className={`inline-flex items-center text-[13px] font-semibold px-3.5 py-2 rounded-full ${planBadge(rowPlan)}`}>
+                            {PLAN_LABELS[rowPlan] ?? "Free"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 rounded-r-2xl border-y border-r border-transparent">
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            <ViewSiteLink
+                              href={`/${org.slug}`}
+                              className="inline-flex items-center text-[14px] font-semibold px-4 py-2.5 rounded-full bg-neutral-100 text-neutral-950 hover:bg-neutral-200 transition-colors"
+                              ariaLabel={`View ${org.name} site`}
+                            >
+                              View site
+                            </ViewSiteLink>
+                            <Link
+                              href={`/console?org=${org.id}`}
+                              className="inline-flex items-center text-[14px] font-semibold px-4 py-2.5 rounded-full bg-neutral-950 text-white hover:bg-neutral-800 transition-colors"
+                            >
+                              Console
+                            </Link>
+                            <DeleteRestaurantButton orgId={org.id} orgName={org.name} />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           ) : (
-            <div className="ticket p-8 text-center">
-              <p className="text-[var(--ink-soft)] mb-4">You haven&apos;t created a restaurant yet.</p>
-              <Link href="/restaurants/create" className="btn btn-accent text-sm">
-                Create your first restaurant →
+            <div className="rounded-3xl bg-neutral-100 p-10 text-center">
+              <p className="font-display text-[26px] leading-tight mb-3">No restaurants yet.</p>
+              <p className="text-[16px] text-neutral-600 mb-7">Create your first restaurant and design its website in minutes.</p>
+              <Link
+                href="/restaurants/create"
+                className="inline-block bg-[#d45200] text-white text-[16px] font-semibold px-7 py-4 rounded-full hover:bg-[#b54600] transition-colors"
+              >
+                Create your first restaurant
               </Link>
             </div>
           )}
         </section>
 
-        {/* ─── Getting Started Checklist ────────────────────────────────────── */}
-        <section>
-          <div className="flex items-center gap-3 mb-4">
-            <h2 className="font-display text-lg">Getting Started</h2>
-            <Link href="/setup-guide" className="btn btn-accent text-[10px] px-2.5 py-1">
-              Setup guide
-            </Link>
-          </div>
-          <div className="ticket p-5 space-y-3">
+        {/* ─── Getting Started ──────────────────────────────────────────────── */}
+        <section aria-labelledby="started-heading">
+          <h2 id="started-heading" className="font-display text-[30px] leading-tight tracking-[-0.02em] mb-6">
+            Getting started
+          </h2>
+          <div className="rounded-3xl bg-neutral-100 border border-black p-4 sm:p-6 space-y-2">
             {[
               { label: "Create a restaurant", href: "/restaurants/create" },
-              { label: "Design Website", href: withOrg("/console/design") },
+              { label: "Design website", href: withOrg("/console/design") },
               { label: "Add menu items", href: withOrg("/console/menu") },
               { label: "Set up tables", href: withOrg("/console/tables") },
-              { label: "Make payment - Go live", href: withOrg("/console/pricing") },
+              { label: "Make payment and go live", href: withOrg("/console/pricing") },
             ].map((item) => (
               <Link
                 key={item.label}
                 href={item.href}
-                className="flex items-center gap-3 group"
+                className="group flex items-center justify-between gap-4 rounded-2xl bg-white border border-black px-5 py-4 hover:bg-neutral-950 transition-colors"
               >
-                <span className="text-sm text-[var(--accent)] shrink-0">→</span>
-                <span className="text-sm text-[var(--ink-soft)] group-hover:text-[var(--ink)] transition-colors">{item.label}</span>
+                <span className="text-[16px] font-medium text-neutral-950 group-hover:text-white transition-colors">
+                  {item.label}
+                </span>
+                <span aria-hidden="true" className="text-[18px] text-[#d45200]">→</span>
               </Link>
             ))}
           </div>
         </section>
 
-        {/* ─── Pricing (marketing-style cards) ──────────────────────────────── */}
+        {/* ─── Pricing ──────────────────────────────────────────────────────── */}
         <DashboardPricingSection />
       </main>
-        </div>
-      </div>
     </div>
   );
 }

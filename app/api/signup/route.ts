@@ -144,9 +144,10 @@ export async function POST(request: Request) {
   {
     const { resolveOwnerPlan } = await import("@/lib/owner-quotas");
     const { OWNER_QUOTAS } = await import("@/lib/owner-quotas");
+    const { displayPlan } = await import("@/lib/pricing");
     const { data: existingStaff, error: existingStaffError } = await admin
       .from("staff_users")
-      .select("organizations(subscription_plan)")
+      .select("organizations(subscription_plan, subscription_status)")
       .eq("auth_user_id", authUserId)
       .eq("role", "owner");
 
@@ -161,7 +162,8 @@ export async function POST(request: Request) {
     const orgCount = existingStaff?.length ?? 0;
     const ownedPlans = (existingStaff ?? []).map((r: any) => {
       const org = Array.isArray(r.organizations) ? r.organizations[0] : r.organizations;
-      return org?.subscription_plan as string | undefined;
+      // Status-aware: a canceled subscription counts as Free (matches displayPlan).
+      return displayPlan(org?.subscription_plan, org?.subscription_status ?? null);
     });
     const ownerPlan = resolveOwnerPlan(ownedPlans);
     const limit = OWNER_QUOTAS[ownerPlan].restaurant_create;

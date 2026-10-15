@@ -74,9 +74,11 @@ export async function GET(request: Request) {
     const ownerPlan: PlanTier = ownerId ? (await getOwnerPlanContext(ownerId)).plan : tier;
     const imageUsage = await peekOwnerQuotaDb(ownerKey, ownerPlan, "image");
     const image = { ...imageUsage, plan: ownerPlan };
-    // Content hint kept generous; owner-quotas has no content category.
+    // Content hint kept generous; owner-quotas has no content category, so the
+    // count stays per-org but the TIER is owner-wide (previously the per-org
+    // row tier caused Free-limit hints on paid owners with stale rows).
     const { peekAiQuota } = await import("@/lib/rate-limit");
-    const content = { ...peekAiQuota({ orgId, tier, kind: "content" }), plan: tier };
+    const content = { ...peekAiQuota({ orgId, tier: ownerPlan, kind: "content" }), plan: ownerPlan };
 
     return NextResponse.json({
       tagline: typeof org.tagline === "string" ? org.tagline : null,

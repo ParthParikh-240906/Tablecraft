@@ -74,39 +74,39 @@ function Reveal({
 /* ── Data ── */
 const FEATURES = [
   {
-    id: "chatbot",
-    title: "Guests book tables by chatting.",
-    body: "“Table for 4 this Friday at 7.” The AI collects the details, checks availability, and confirms instantly, day or night.",
-    image: "/features/chatbot.png",
-    alt: "The Tablecraft booking chatbot answering a guest",
-  },
-  {
-    id: "scanner",
-    title: "A photo of your menu becomes your menu.",
-    body: "Snap your printed menu. OCR lifts every dish, price, and category into a structured digital menu in one click.",
-    image: "/features/menu-scanner.png",
-    alt: "The Tablecraft menu scanner digitising a printed menu",
-  },
-  {
-    id: "editor",
-    title: "Edit the site by just asking.",
-    body: "New headline, different hours, a whole new section. Tell the AI in plain words and the edit lands on your live site in seconds.",
-    image: "/features/Website_Edit.png",
-    alt: "Editing a Tablecraft website by chatting with the AI",
+    id: "create",
+    title: "AI Website Builder",
+    body: "Tell the AI your name, cuisine, and vibe. It designs your full website — tagline, copy, and theme — in minutes.",
+    image: "/features/Website_Create.png",
+    alt: "Creating a Tablecraft website with the AI website builder",
   },
   {
     id: "images",
-    title: "Photography without the shoot.",
+    title: "AI Image Generator",
     body: "Generate hero images, logos, and menu artwork from a prompt, or upload a photo and ask the AI to improve it.",
     image: "/features/image-editor.png",
     alt: "The Tablecraft image studio generating restaurant artwork",
   },
   {
-    id: "console",
-    title: "The whole floor on one screen.",
-    body: "Tables, bookings, live orders, and kitchen tickets update in real time, on desktop and on the floor.",
-    image: "/features/dashboard.png",
-    alt: "The Tablecraft staff dashboard with live tables and orders",
+    id: "editor",
+    title: "AI Website Editor",
+    body: "New headline, different hours, a whole new section. Tell the AI in plain words and the edit lands on your live site in seconds.",
+    image: "/features/Website_Edit.png",
+    alt: "Editing a Tablecraft website by chatting with the AI",
+  },
+  {
+    id: "scanner",
+    title: "AI Menu Scanner",
+    body: "Snap your printed menu. OCR lifts every dish, price, and category into a structured digital menu in one click.",
+    image: "/features/menu-scanner.png",
+    alt: "The Tablecraft menu scanner digitising a printed menu",
+  },
+  {
+    id: "chatbot",
+    title: "AI Booking Chatbot",
+    body: "“Table for 4 this Friday at 7.” The AI collects the details, checks availability, and confirms instantly, day or night.",
+    image: "/features/chatbot.png",
+    alt: "The Tablecraft booking chatbot answering a guest",
   },
 ];
 
@@ -148,7 +148,7 @@ const FAQS = [
   },
   {
     q: "Which models power the AI website builder and editor?",
-    a: "We use some of the best frontier models, such as Haiku 5.5 and GPT 6.1 Solo, for the AI website builder and edits.",
+    a: "We use some of the best frontier models, such as Haiku 5.5 and GPT 6.1 Sol, for the AI website builder and edits.",
   },
 ];
 
@@ -195,10 +195,10 @@ function DevicePreview() {
       caption: "Taj Restaurant · live site",
     },
     console: {
-      label: "Dashboard",
+      label: "Management console",
       src: "/features/dashboard.png",
-      alt: "Tablecraft staff console with live tables and orders",
-      caption: "Taj Restaurant · live dashboard",
+      alt: "Tablecraft management console with live tables and orders",
+      caption: "Taj Restaurant · live management console",
     },
   } as const;
   const current = views[view];
@@ -216,7 +216,7 @@ function DevicePreview() {
             type="button"
             onClick={() => setView(key)}
             aria-pressed={view === key}
-            className={`text-[14px] font-medium px-4 py-2 rounded-full btn-press ${
+            className={`text-[14px] font-medium px-4 py-2 rounded-full btn-press border border-black ${
               view === key
                 ? "bg-neutral-950 text-white"
                 : "bg-neutral-100 text-neutral-600 hover:text-neutral-950"
@@ -241,7 +241,7 @@ function DevicePreview() {
             key={current.src}
             src={current.src}
             alt={current.alt}
-            className="h-full w-full object-cover object-top"
+            className={`h-full w-full ${view === "console" ? "object-contain" : "object-cover object-top"}`}
           />
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -304,6 +304,14 @@ function Navbar() {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
@@ -332,11 +340,23 @@ function Navbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-white">
+    <header
+      className={`sticky top-0 z-50 transition-[background-color,box-shadow,backdrop-filter] duration-300 ${
+        scrolled
+          ? "bg-white/80 backdrop-blur-md shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)]"
+          : "bg-white"
+      }`}
+    >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link
           href="/"
-          className="font-display text-[24px] tracking-tight"
+          onClick={(e) => {
+            if (window.location.pathname === "/") {
+              e.preventDefault();
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          }}
+          className="font-display text-[22px] tracking-tight"
           style={{ color: INK }}
         >
           Tablecraft
@@ -346,9 +366,13 @@ function Navbar() {
             <a
               key={l.href}
               href={l.href}
-              className="text-[15px] text-neutral-600 hover:text-neutral-950 transition-colors"
+              className="group relative inline-block py-1 text-[15px] text-neutral-600 hover:text-neutral-950 transition-colors"
             >
               {l.label}
+              <span
+                aria-hidden="true"
+                className="absolute left-0 right-0 -bottom-0.5 h-[2px] rounded-full bg-[#d45200] origin-left scale-x-0 transition-transform duration-300 ease-out group-hover:scale-x-100 group-focus-visible:scale-x-100"
+              />
             </a>
           ))}
         </nav>
@@ -465,22 +489,17 @@ function Hero() {
             style={{ color: INK, fontSize: "clamp(2.75rem, 5.2vw, 4.5rem)" }}
           >
             <span className="block" style={{ animationDelay: "60ms" }}>
-              Your restaurant online.
-            </span>
-            <span
-              className="block text-neutral-400"
-              style={{ animationDelay: "140ms" }}
-            >
-              Built by asking.
+              Your restaurant online{" "}
+              <span style={{ color: ACCENT }}>in&nbsp;minutes</span>
             </span>
           </h1>
           <p
             className="hero-line text-[18px] leading-[1.6] text-neutral-600 mb-9 max-w-[42ch]"
             style={{ animationDelay: "220ms" }}
           >
-            Tablecraft is the AI website builder and operator console for
-            restaurants and cafés. Site, bookings, ordering, and staff screen in
-            one place.
+            Tablecraft is an AI website builder and management console for
+            restaurants and cafés. Website, bookings, ordering all in one
+            place.
           </p>
           <div
             className="hero-line flex flex-wrap items-center gap-3"
@@ -867,7 +886,7 @@ function RestaurantsSection() {
                 const color = org.theme_color ?? ACCENT;
                 return (
                   <Reveal key={org.id} delay={Math.min(i, 5) * 60}>
-                    <div className="rounded-2xl bg-neutral-100 p-6 h-full flex flex-col card-lift">
+                    <div className="rounded-2xl bg-neutral-100 border border-[#00000] p-6 h-full flex flex-col card-lift">
                       <div className="flex items-center gap-3 mb-3">
                         <div
                           className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold shrink-0 overflow-hidden"

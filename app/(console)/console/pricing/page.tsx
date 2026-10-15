@@ -77,6 +77,16 @@ export default async function ConsolePricingPage({
       : { data: [] },
   ]);
 
+  // Owner-wide plan: ONE plan covers ALL restaurants. Computed first so every
+  // per-org row below inherits it (previously each row rendered its own
+  // subscription_plan, hiding stale fan-out divergence).
+  const ownerPlan = resolveOwnerPlan(
+    orgs
+      .filter((o) => o.staffRole === "owner")
+      .map((o) => displayPlan(o.subscription_plan, o.subscription_status)),
+  );
+  const ownerOrgCount = orgs.filter((o) => o.staffRole === "owner").length || orgs.length;
+
   // Aggregate metrics per organization
   const orgMetrics: OrgMetricData[] = orgs.map((org) => {
     const orgOrders = (allOrders ?? []).filter((o) => o.org_id === org.id);
@@ -94,7 +104,8 @@ export default async function ConsolePricingPage({
       name: org.name,
       slug: org.slug,
       logo_url: org.logo_url ?? null,
-      plan: displayPlan(org.subscription_plan, org.subscription_status),
+      // Owner-wide: every restaurant shares the owner's plan.
+      plan: org.staffRole === "owner" ? ownerPlan : displayPlan(org.subscription_plan, org.subscription_status),
       subscription_status: org.subscription_status ?? "free",
       stripe_customer_id: org.stripe_customer_id ?? null,
       stripe_subscription_id: org.stripe_subscription_id ?? null,
@@ -123,12 +134,8 @@ export default async function ConsolePricingPage({
       userEmail={user.email ?? ""}
       orgs={orgMetrics}
       accessDeniedOrgName={accessDeniedOrgName}
-      ownerPlan={resolveOwnerPlan(
-        orgs
-          .filter((o) => o.staffRole === "owner")
-          .map((o) => displayPlan(o.subscription_plan, o.subscription_status)),
-      )}
-      ownerOrgCount={orgs.filter((o) => o.staffRole === "owner").length || orgs.length}
+      ownerPlan={ownerPlan}
+      ownerOrgCount={ownerOrgCount}
     />
   );
 }

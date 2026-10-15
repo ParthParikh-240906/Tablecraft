@@ -150,15 +150,22 @@ export async function POST(request: NextRequest) {
     const quotaAdmin = createAdminClient();
     const ownerCtx = scanOwnerId ? await getOwnerPlanContext(scanOwnerId) : { plan: "free" as const, email: null as string | null };
     // Prefer aggregated owner plan when known; otherwise fall back to this org's plan.
+    // Status-aware: a canceled subscription falls back to Free (matches displayPlan).
     let effectiveTier = ownerCtx.plan;
     try {
       const { data: orgRow } = await quotaAdmin
         .from("organizations")
-        .select("subscription_plan")
+        .select("subscription_plan, subscription_status")
         .eq("id", orgId)
         .maybeSingle();
-      const plan = (orgRow as { subscription_plan?: string } | null)?.subscription_plan;
-      if (!scanOwnerId && (plan === "pro" || plan === "max")) effectiveTier = plan;
+      if (!scanOwnerId) {
+        const { displayPlan } = await import("@/lib/pricing");
+        const fallback = displayPlan(
+          (orgRow as { subscription_plan?: unknown } | null)?.subscription_plan ?? null,
+          (orgRow as { subscription_status?: unknown } | null)?.subscription_status ?? null,
+        );
+        if (fallback === "pro" || fallback === "max") effectiveTier = fallback;
+      }
     } catch {
       // Fail open to the free-tier quota on lookup errors.
     }
