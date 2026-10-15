@@ -25,10 +25,11 @@ interface Org {
 }
 
 const ACCENT = "#d45200";
-const INK = "#16130f";
+const ACCENT_DARK = "#b54600";
+const INK = "#0a0a0a";
 
-/* ── Reveal on scroll: heading, then text, then media, staggered ── */
-function useReveal(threshold = 0.2) {
+/* ── Reveal on scroll: once, staggered by delay ── */
+function useReveal(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
@@ -41,7 +42,7 @@ function useReveal(threshold = 0.2) {
           obs.disconnect();
         }
       },
-      { threshold }
+      { threshold },
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -74,43 +75,53 @@ function Reveal({
 const FEATURES = [
   {
     id: "chatbot",
-    sentence: "Guests book tables by chatting.",
-    body: "“Table for 4 this Friday at 7” — the AI collects the details, checks availability, and confirms instantly, day or night.",
-    control: "See the chatbot",
+    title: "Guests book tables by chatting.",
+    body: "“Table for 4 this Friday at 7.” The AI collects the details, checks availability, and confirms instantly, day or night.",
     image: "/features/chatbot.png",
     alt: "The Tablecraft booking chatbot answering a guest",
   },
   {
     id: "scanner",
-    sentence: "A photo of your menu becomes your menu.",
+    title: "A photo of your menu becomes your menu.",
     body: "Snap your printed menu. OCR lifts every dish, price, and category into a structured digital menu in one click.",
-    control: "See the scanner",
     image: "/features/menu-scanner.png",
     alt: "The Tablecraft menu scanner digitising a printed menu",
   },
   {
     id: "editor",
-    sentence: "Edit the site by just asking.",
-    body: "New headline, different hours, a whole new section — tell the AI in plain words and the edit lands on your live site in seconds.",
-    control: "See the editor",
+    title: "Edit the site by just asking.",
+    body: "New headline, different hours, a whole new section. Tell the AI in plain words and the edit lands on your live site in seconds.",
     image: "/features/Website_Edit.png",
     alt: "Editing a Tablecraft website by chatting with the AI",
   },
   {
     id: "images",
-    sentence: "Photography without the shoot.",
-    body: "Generate hero images, logos, and menu artwork from a prompt — or upload a photo and ask the AI to improve it.",
-    control: "See the studio",
+    title: "Photography without the shoot.",
+    body: "Generate hero images, logos, and menu artwork from a prompt, or upload a photo and ask the AI to improve it.",
     image: "/features/image-editor.png",
     alt: "The Tablecraft image studio generating restaurant artwork",
   },
   {
     id: "console",
-    sentence: "The whole floor on one screen.",
+    title: "The whole floor on one screen.",
     body: "Tables, bookings, live orders, and kitchen tickets update in real time, on desktop and on the floor.",
-    control: "See the console",
     image: "/features/dashboard.png",
     alt: "The Tablecraft staff dashboard with live tables and orders",
+  },
+];
+
+const STEPS = [
+  {
+    title: "Create your restaurant and design website",
+    body: "Sign up, name your restaurant, and let the AI design your site from a few words.",
+  },
+  {
+    title: "Add menu items and tables",
+    body: "Scan your printed menu with AI, then set up your tables and floor plan.",
+  },
+  {
+    title: "Make payment and host the website",
+    body: "Upgrade and your site goes live, so guests can book and order straight away.",
   },
 ];
 
@@ -125,7 +136,7 @@ const FAQS = [
   },
   {
     q: "How do bookings work?",
-    a: "Guests chat with the AI assistant on your public site — it collects party size, date, and time, checks availability, and confirms instantly. Staff see everything live in the console.",
+    a: "Guests chat with the AI assistant on your public site. It collects party size, date, and time, checks availability, and confirms instantly. Staff see everything live in the console.",
   },
   {
     q: "Can I start free?",
@@ -133,7 +144,7 @@ const FAQS = [
   },
   {
     q: "What do staff get day-to-day?",
-    a: "One screen for tables, orders, reservations, and kitchen tickets — plus capacity toggles and daily specials. It works on desktop and on the floor.",
+    a: "One screen for tables, orders, reservations, and kitchen tickets, plus capacity toggles and daily specials. It works on desktop and on the floor.",
   },
   {
     q: "Which models power the AI website builder and editor?",
@@ -141,173 +152,148 @@ const FAQS = [
   },
 ];
 
-/* ── Taj screenshots (real product output) with built-in fallback ── */
-function TajDesktopFallback() {
+/* ── Hero preview: real product screenshots on a laptop and a phone ── */
+function PreviewImage({
+  src,
+  alt,
+  className,
+}: {
+  src: string;
+  alt: string;
+  className: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div
+        className={`${className} bg-neutral-200`}
+        aria-label={alt}
+        role="img"
+      />
+    );
+  }
   return (
-    <div className="bg-white text-neutral-900 text-left h-full flex flex-col" data-ui>
-      <div className="flex items-center gap-1.5 border-b border-neutral-200 px-3 py-2 bg-neutral-50">{/* taste-skill-ignore: product UI fragment */}
-        <span className="w-2 h-2 rounded-full bg-neutral-300" />
-        <span className="w-2 h-2 rounded-full bg-neutral-300" />
-        <span className="w-2 h-2 rounded-full bg-neutral-300" />
-        <span className="ml-2 flex-1 truncate rounded bg-white border border-neutral-200 px-2 py-0.5 text-[9px] text-neutral-500">
-          tablecraft.app/taj-restaurant
-        </span>
-      </div>
-      <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100">{/* taste-skill-ignore: product UI fragment */}
-        <div className="flex items-center gap-2">
-          <div
-            className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
-            style={{ backgroundColor: ACCENT }}
-          >
-            T
-          </div>
-          <p className="text-[11px] font-bold tracking-tight">Taj Restaurant</p>
-        </div>
-        <div className="flex items-center gap-2 text-[8px] text-neutral-500">
-          <span>Menu</span>
-          <span>About</span>
-          <span>Contact</span>
-          <span className="rounded-full bg-neutral-900 text-white px-2 py-1 text-[8px] font-semibold">
-            Book a table
-          </span>
-        </div>
-      </div>
-      <div className="relative h-32 overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/hero.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-black/45" />
-        <div className="relative h-full flex flex-col items-center justify-center text-white px-4 text-center">
-          <p className="text-[8px] uppercase tracking-widest opacity-80">Mughlai · North Indian · Dubai</p>
-          <p className="text-[17px] font-bold tracking-tight leading-tight mt-0.5">Taj Restaurant</p>
-          <p className="text-[9px] opacity-90 mt-0.5">Butter chicken, biryani &amp; tandoor — order ahead or book in seconds.</p>
-        </div>
-      </div>
-      <div className="px-4 py-2.5 flex-1">
-        <p className="text-[10px] font-bold mb-1.5">Popular dishes</p>
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { n: "Butter Chicken", p: "AED 48" },
-            { n: "Chicken Biryani", p: "AED 42" },
-            { n: "Garlic Naan", p: "AED 12" },
-          ].map((d) => (
-            <div key={d.n} className="rounded-lg border border-neutral-200 overflow-hidden" data-ui>
-              <div className="h-10 flex items-center justify-center text-[13px] font-bold text-white" style={{ backgroundColor: "#b54600" }}>{d.n.charAt(0)}</div>
-              <div className="p-1.5">
-                <p className="text-[8px] font-semibold truncate">{d.n}</p>
-                <p className="text-[8px] text-neutral-500">{d.p}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      key={src}
+      src={src}
+      alt={alt}
+      onError={() => setFailed(true)}
+      className={`${className} xfade`}
+      draggable={false}
+    />
   );
 }
 
-function TajMobileFallback() {
+function DevicePreview() {
+  const [view, setView] = useState<"site" | "console">("site");
+  const views = {
+    site: {
+      label: "Website",
+      src: "/taj-desktop.jpg",
+      alt: "Taj Restaurant website on a laptop",
+      caption: "Taj Restaurant · live site",
+    },
+    console: {
+      label: "Dashboard",
+      src: "/features/dashboard.png",
+      alt: "Tablecraft staff console with live tables and orders",
+      caption: "Taj Restaurant · live dashboard",
+    },
+  } as const;
+  const current = views[view];
+
   return (
-    <div className="bg-white text-neutral-900 text-left h-full flex flex-col" data-ui>
-      <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-100">{/* taste-skill-ignore: product UI fragment */}
-        <p className="text-[10px] font-bold">Taj</p>
-        <span className="flex flex-col gap-[3px]" aria-hidden="true">
-          <span className="block w-3.5 h-[2px] bg-neutral-500" />
-          <span className="block w-3.5 h-[2px] bg-neutral-500" />
-          <span className="block w-3.5 h-[2px] bg-neutral-500" />
-        </span>
-      </div>
-      <div className="p-2.5 space-y-2 flex-1">
-        {["Butter Chicken · AED 48", "Chicken Biryani · AED 42", "Garlic Naan · AED 12"].map((d) => (
-          <div key={d} className="rounded-lg border border-neutral-200 p-1.5">
-            <p className="text-[8px] font-semibold">{d}</p>
-          </div>
+    <div className="relative w-full max-w-[600px] mx-auto select-none">
+      <div
+        className="flex items-center gap-1 mb-4"
+        role="group"
+        aria-label="Preview"
+      >
+        {(Object.keys(views) as (keyof typeof views)[]).map((key) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setView(key)}
+            aria-pressed={view === key}
+            className={`text-[14px] font-medium px-4 py-2 rounded-full btn-press ${
+              view === key
+                ? "bg-neutral-950 text-white"
+                : "bg-neutral-100 text-neutral-600 hover:text-neutral-950"
+            }`}
+          >
+            {views[key].label}
+          </button>
         ))}
       </div>
-    </div>
-  );
-}
 
-function TajDesktopScreen() {
-  const [missing, setMissing] = useState(false);
-  if (missing) return <TajDesktopFallback />;
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src="/taj-desktop.jpg"
-      alt="Taj Restaurant website on a laptop"
-      onError={() => setMissing(true)}
-      className="h-full w-full object-cover object-top"
-      draggable={false}
-    />
-  );
-}
-
-function TajMobileScreen() {
-  const [missing, setMissing] = useState(false);
-  if (missing) return <TajMobileFallback />;
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src="/taj-mobile.jpg"
-      alt="Taj Restaurant website on a phone"
-      onError={() => setMissing(true)}
-      className="h-full w-full object-contain"
-      draggable={false}
-    />
-  );
-}
-
-function DeviceMockup() {
-  return (
-    <div className="relative w-full max-w-[560px] mx-auto select-none" aria-label="Preview of a Taj restaurant website on laptop and mobile">
-      <div>
-        <div className="rounded-t-xl bg-neutral-300 p-2 pb-0 border border-neutral-300">
-          <div className="flex items-center justify-center pb-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-neutral-500" />
-          </div>
-          <div className="overflow-hidden rounded-t-md bg-black aspect-[2020/1476]" style={{ aspectRatio: "2020 / 1476" }}>
-            <TajDesktopScreen />
-          </div>
-        </div>
-        <div className="mx-10 h-1 rounded-full bg-neutral-500" aria-hidden="true" />
+      <div className="relative w-full aspect-[800/489]">
         <div
-          className="mx-[-10px] bg-neutral-300 px-5 pb-3 pt-2 sm:mx-[-14px] sm:px-7"
-          style={{ clipPath: "polygon(3.5% 0, 96.5% 0, 100% 100%, 0% 100%)" }}
+          className="absolute overflow-hidden bg-black"
+          style={{
+            left: "9.38%",
+            top: "3.89%",
+            width: "81.25%",
+            height: "85.89%",
+          }}
         >
-          <div className="grid grid-cols-14 gap-1" aria-hidden="true">
-            {Array.from({ length: 42 }).map((_, i) => (
-              <span key={i} className="h-1.5 rounded-[2px] bg-neutral-500/80" />
-            ))}
+          <PreviewImage
+            key={current.src}
+            src={current.src}
+            alt={current.alt}
+            className="h-full w-full object-cover object-top"
+          />
+        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/mockups/macbook-frame.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full pointer-events-none"
+          draggable={false}
+        />
+
+        <div
+          className="absolute right-0 -bottom-[6%] float-slow"
+          style={{ height: "50%", aspectRatio: "391 / 800" }}
+        >
+          <div className="relative h-full w-full">
+            <div
+              className="absolute overflow-hidden rounded-[10%] bg-black"
+              style={{
+                left: "4.86%",
+                top: "1.88%",
+                width: "90.54%",
+                height: "96.25%",
+              }}
+            >
+              <PreviewImage
+                src="/taj-mobile.jpg"
+                alt="Taj Restaurant website on a phone"
+                className="h-full w-full object-contain"
+              />
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/mockups/iphone-frame.png"
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full pointer-events-none"
+              draggable={false}
+            />
           </div>
-          <div className="mt-1 grid grid-cols-14 gap-1" aria-hidden="true">
-            <span className="col-span-3" />
-            <span className="col-span-8 h-1.5 rounded-[2px] bg-neutral-500/80" />
-            <span className="col-span-3" />
-          </div>
-          <div className="mx-auto mt-2 h-6 w-24 rounded-md border border-neutral-400/70 bg-neutral-200/80" aria-hidden="true" />
         </div>
       </div>
 
-      <div className="absolute right-0 sm:right-2 -bottom-6 w-[104px] sm:w-[124px]" style={{ maxWidth: 124 }}>
-        <div className="rounded-[22px] bg-white p-1 border border-neutral-300">
-          <div className="rounded-[20px] bg-neutral-900 p-1">
-            <div className="flex items-center justify-center pb-1">
-              <span className="w-10 h-3.5 rounded-full bg-black border border-neutral-800 relative">
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-neutral-700" />
-              </span>
-            </div>
-            <div className="overflow-hidden rounded-[16px] bg-black aspect-[9/19]" style={{ aspectRatio: "9 / 19" }}>
-              <TajMobileScreen />
-            </div>
-            <div className="flex items-center justify-center pt-1">
-              <span className="w-8 h-1 rounded-full bg-neutral-700" />
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <div className="absolute -left-1 sm:left-2 -bottom-7 flex items-center gap-1.5 bg-white px-2.5 py-1.5">
-        <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
-        <span className="text-[11px] font-medium text-neutral-600">Live preview — Taj Restaurant</span>
+      <div className="absolute left-3 -bottom-8 flex items-center gap-2 rounded-full bg-white px-3.5 py-2">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inset-0 rounded-full bg-green-500 pulse-ring" />
+          <span className="relative h-2 w-2 rounded-full bg-green-600" />
+        </span>
+        <span className="text-[13px] font-medium text-neutral-700">
+          {current.caption}
+        </span>
       </div>
     </div>
   );
@@ -346,48 +332,66 @@ function Navbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-neutral-100 border-b-2 border-neutral-900">{/* taste-skill-ignore: deliberate black rule separating the header */}
+    <header className="sticky top-0 z-50 bg-white">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="font-display text-lg" style={{ color: INK }}>
+        <Link
+          href="/"
+          className="font-display text-[24px] tracking-tight"
+          style={{ color: INK }}
+        >
           Tablecraft
         </Link>
-        <nav className="hidden md:flex items-center gap-7">
+        <nav className="hidden md:flex items-center gap-8">
           {navLinks.map((l) => (
-            <a key={l.href} href={l.href} className="text-[15px] text-neutral-600 hover:text-neutral-900 navlink">
+            <a
+              key={l.href}
+              href={l.href}
+              className="text-[15px] text-neutral-600 hover:text-neutral-950 transition-colors"
+            >
               {l.label}
             </a>
           ))}
         </nav>
-        <div className="hidden md:flex items-center gap-2">
+        <div className="hidden md:flex items-center gap-1">
           {user ? (
             <button
               type="button"
               onClick={handleSignOut}
-              className="text-sm font-medium px-4 py-2.5 text-neutral-700 hover:text-neutral-900"
+              className="text-[15px] font-medium px-4 py-2.5 text-neutral-600 hover:text-neutral-950"
             >
               Sign out
             </button>
           ) : (
             <Link
               href="/signin?next=/dashboard"
-              className="text-sm font-medium px-4 py-2.5 text-neutral-700 hover:text-neutral-900"
+              className="text-[15px] font-medium px-4 py-2.5 text-neutral-600 hover:text-neutral-950"
             >
               Sign in
             </Link>
           )}
           <Link
             href={user ? "/dashboard" : "/signup"}
-            className="btn-primary text-sm px-5 py-2.5"
+            className="btn-accent text-[15px] font-semibold px-5 py-2.5 rounded-full btn-press"
           >
             {user ? "Dashboard" : "Get started"}
           </Link>
         </div>
         <button
+          type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="md:hidden p-2 text-neutral-900"
+          className="md:hidden p-2 text-neutral-950"
           aria-label="Toggle menu"
+          aria-expanded={mobileOpen}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
             {mobileOpen ? (
               <>
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -404,7 +408,7 @@ function Navbar() {
         </button>
       </div>
       {mobileOpen && (
-        <div className="md:hidden bg-neutral-100 px-6 py-4">
+        <div className="md:hidden bg-white px-6 pb-6 pt-2">
           {navLinks.map((l) => (
             <a
               key={l.href}
@@ -415,7 +419,7 @@ function Navbar() {
               {l.label}
             </a>
           ))}
-          <div className="flex gap-2 pt-2 pb-1">
+          <div className="flex gap-2 pt-3">
             {user ? (
               <button
                 type="button"
@@ -423,7 +427,7 @@ function Navbar() {
                   handleSignOut();
                   setMobileOpen(false);
                 }}
-                className="flex-1 text-sm font-medium px-4 py-3 border border-neutral-300"
+                className="flex-1 text-[15px] font-medium px-4 py-3 rounded-full bg-neutral-100"
               >
                 Sign out
               </button>
@@ -431,7 +435,7 @@ function Navbar() {
               <Link
                 href="/signin?next=/dashboard"
                 onClick={() => setMobileOpen(false)}
-                className="flex-1 text-center text-sm font-medium px-4 py-3 border border-neutral-300"
+                className="flex-1 text-center text-[15px] font-medium px-4 py-3 rounded-full bg-neutral-100"
               >
                 Sign in
               </Link>
@@ -439,7 +443,7 @@ function Navbar() {
             <Link
               href={user ? "/dashboard" : "/signup"}
               onClick={() => setMobileOpen(false)}
-              className="flex-1 text-center btn-primary text-sm px-4 py-3"
+              className="flex-1 text-center btn-accent text-[15px] font-semibold px-4 py-3 rounded-full"
             >
               {user ? "Dashboard" : "Get started"}
             </Link>
@@ -450,230 +454,196 @@ function Navbar() {
   );
 }
 
-/* ── Hero: menu sheet left, the room (devices on black) right ── */
+/* ── Hero: copy left, live product preview right ── */
 function Hero() {
   return (
-    <section className="bg-[#f7f2e9]">
-      <div className="max-w-6xl mx-auto px-6 pt-14 pb-24 grid lg:grid-cols-[45fr_55fr] gap-12 items-center">
+    <section className="bg-white">
+      <div className="max-w-6xl mx-auto px-6 pt-12 pb-28 lg:pt-20 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-14 items-center">
         <div>
-          <h1 className="hero-line font-display leading-[1.02] mb-5" style={{ color: INK, fontSize: "clamp(2.5rem, 3.6vw, 3.5rem)" }}>
-            <span className="hero-line block" style={{ animationDelay: "60ms" }}>Get your restaurant</span>
-            <span className="hero-line block" style={{ animationDelay: "150ms" }}>online in minutes.</span>
+          <h1
+            className="hero-line font-display leading-[1.0] tracking-[-0.03em] mb-6"
+            style={{ color: INK, fontSize: "clamp(2.75rem, 5.2vw, 4.5rem)" }}
+          >
+            <span className="block" style={{ animationDelay: "60ms" }}>
+              Your restaurant online.
+            </span>
+            <span
+              className="block text-neutral-400"
+              style={{ animationDelay: "140ms" }}
+            >
+              Built by asking.
+            </span>
           </h1>
-          <p className="hero-line text-[18px] leading-[1.6] text-neutral-600 mb-8 max-w-[40ch]" style={{ animationDelay: "240ms" }}>
-            Tablecraft is the AI website builder for restaurants — site, bookings, ordering, and staff console in one place.
+          <p
+            className="hero-line text-[18px] leading-[1.6] text-neutral-600 mb-9 max-w-[42ch]"
+            style={{ animationDelay: "220ms" }}
+          >
+            Tablecraft is the AI website builder and operator console for
+            restaurants and cafés. Site, bookings, ordering, and staff screen in
+            one place.
           </p>
-          <p className="hero-line mb-3" style={{ animationDelay: "320ms" }}>
-            <Link href="/signup" className="btn-accent inline-block text-base font-semibold px-9 py-4">
+          <div
+            className="hero-line flex flex-wrap items-center gap-3"
+            style={{ animationDelay: "300ms" }}
+          >
+            <Link
+              href="/signup"
+              className="btn-accent text-[16px] font-semibold px-7 py-4 rounded-full btn-press"
+            >
               Create your restaurant
             </Link>
-          </p>
-          <p className="hero-line text-[15px] text-neutral-500" style={{ animationDelay: "390ms" }}>
+            <a
+              href="#features"
+              className="text-[16px] font-semibold px-6 py-4 rounded-full bg-neutral-100 text-neutral-950 hover:bg-neutral-200 btn-press"
+            >
+              See how it works
+            </a>
+          </div>
+          <p
+            className="hero-line text-[14px] text-neutral-500 mt-5"
+            style={{ animationDelay: "370ms" }}
+          >
             Free to start · No credit card required
           </p>
         </div>
-        <div className="hero-line" style={{ animationDelay: "250ms" }}>
-          <DeviceMockup />
+        <div className="hero-line" style={{ animationDelay: "200ms" }}>
+          <DevicePreview />
         </div>
       </div>
     </section>
   );
 }
 
-/* ── Features: sticky output left, capability blocks right, each with a control ── */
+/* ── Features: pick a capability, the product shows it ── */
 function FeaturesSection() {
   const [active, setActive] = useState(0);
-  const blockRefs = useRef<(HTMLDivElement | null)[]>([]);
-
+  const count = FEATURES.length;
+  const prev = () => setActive((i) => (i - 1 + count) % count);
+  const next = () => setActive((i) => (i + 1) % count);
   useEffect(() => {
-    const obs = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            const i = Number((e.target as HTMLElement).dataset.i);
-            if (!Number.isNaN(i)) setActive(i);
-          }
-        });
-      },
-      { rootMargin: "-40% 0px -40% 0px" }
-    );
-    blockRefs.current.forEach((el) => el && obs.observe(el));
-    return () => obs.disconnect();
-  }, []);
-
-  const f = FEATURES[active];
+    const id = setInterval(() => setActive((i) => (i + 1) % count), 3000);
+    return () => clearInterval(id);
+  }, [active, count]);
   return (
     <section id="features" className="bg-white scroll-mt-20">
-      <div className="max-w-6xl mx-auto px-6 py-24 lg:py-32 grid lg:grid-cols-2 gap-12">
-        <div className="lg:sticky lg:top-16 lg:h-[calc(100svh-4rem)] flex items-center bg-neutral-950 px-6 py-10 lg:py-0">
-          <figure className="w-full max-w-[420px] mx-auto" data-ui>
-            <div key={f.id} className="xfade overflow-hidden bg-white">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={f.image} alt={f.alt} className="w-full h-auto block" loading="lazy" />
-            </div>
-            <figcaption className="mt-4 text-[15px] text-neutral-400">{f.sentence}</figcaption>
-          </figure>
-        </div>
-        <div>
-          <Reveal>
-            <h2 className="font-display leading-[1.05] mb-4" style={{ color: INK, fontSize: "clamp(2rem, 3vw, 2.75rem)" }}>
-              Everything runs<br />on AI.
-            </h2>
-          </Reveal>
-          <Reveal delay={80}>
-            <p className="text-[17px] leading-[1.6] text-neutral-600 max-w-[44ch] mb-4">
-              From booking guests to scanning menus to designing the site — Tablecraft does the heavy lifting.
-            </p>
-          </Reveal>
-          <div className="mt-10">
+      <div className="max-w-6xl mx-auto px-6 py-24 lg:py-32">
+        <Reveal>
+          <h2
+            className="font-display leading-[1.02] tracking-[-0.03em] max-w-[18ch]"
+            style={{ color: INK, fontSize: "clamp(2.25rem, 4vw, 3.5rem)" }}
+          >
+            Everything runs on AI.
+          </h2>
+        </Reveal>
+        <Reveal delay={80}>
+          <p className="text-[18px] leading-[1.6] text-neutral-600 mt-5 max-w-[48ch]">
+            From booking guests to scanning menus to designing the site.
+            Tablecraft does the heavy lifting.
+          </p>
+        </Reveal>
+
+        <div className="mt-14 grid lg:grid-cols-[5fr_7fr] gap-10 lg:gap-14 items-start">
+          <div
+            role="tablist"
+            aria-label="Features"
+            className="flex flex-col gap-2"
+          >
             {FEATURES.map((item, i) => (
-              <div
+              <button
                 key={item.id}
-                ref={(el) => {
-                  blockRefs.current[i] = el;
-                }}
-                data-i={i}
-                className="py-10 min-h-[46vh] lg:min-h-[56vh] flex flex-col justify-center"
+                type="button"
+                role="tab"
+                aria-selected={i === active}
+                onClick={() => setActive(i)}
+                className={`text-left rounded-2xl px-6 py-5 transition-colors duration-300 btn-press ${
+                  i === active
+                    ? "bg-neutral-950"
+                    : "bg-transparent hover:bg-neutral-100"
+                }`}
               >
-                <Reveal delay={40}>
-                  <p className="font-display leading-[1.15] mb-3" style={{ color: i === active ? ACCENT : INK, fontSize: "clamp(1.5rem, 2.2vw, 2rem)" }}>
-                    {item.sentence}
+                <p
+                  className={`font-display text-[21px] leading-snug tracking-[-0.01em] transition-colors duration-300 ${
+                    i === active ? "text-white" : "text-neutral-500"
+                  }`}
+                >
+                  {item.title}
+                </p>
+                {i === active && (
+                  <p className="xfade text-[16px] leading-[1.6] text-neutral-400 mt-3 max-w-[44ch]">
+                    {item.body}
                   </p>
-                  <p className="text-[17px] leading-[1.6] text-neutral-600 max-w-[44ch] mb-5">{item.body}</p>
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div
+            className="rounded-3xl bg-neutral-100 border-2 border-neutral-950 p-4 sm:p-8 lg:sticky lg:top-24"
+            role="region"
+            aria-roledescription="carousel"
+            aria-label="Feature screenshots"
+          >
+            <div className="overflow-hidden rounded-2xl bg-white">
+              <div
+                className="flex transition-transform duration-500 ease-out"
+                style={{ transform: `translateX(-${active * 100}%)` }}
+              >
+                {FEATURES.map((item, i) => (
+                  <div
+                    key={item.id}
+                    className="flex h-[380px] sm:h-[440px] w-full shrink-0 items-center justify-center p-4"
+                    aria-hidden={i !== active}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.image}
+                      alt={item.alt}
+                      className="h-full w-auto max-w-full object-contain"
+                      loading="lazy"
+                      draggable={false}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mt-5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2" role="group" aria-label="Choose a screenshot">
+                {FEATURES.map((item, i) => (
                   <button
+                    key={item.id}
                     type="button"
                     onClick={() => setActive(i)}
-                    aria-pressed={i === active}
-                    className={`text-[15px] font-semibold px-5 py-2.5 ${i === active ? "btn-accent" : "btn-ghost"}`}
-                  >
-                    {i === active ? "Showing now" : item.control}
-                  </button>
-                </Reveal>
+                    aria-label={`Show ${item.id}`}
+                    aria-current={i === active}
+                    className={`h-2.5 rounded-full transition-all duration-300 ${
+                      i === active ? "w-8 bg-neutral-950" : "w-2.5 bg-neutral-300 hover:bg-neutral-400"
+                    }`}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ── How it works: statements left, live fragment right ── */
-const STEPS = [
-  {
-    lead: "First, claim it.",
-    body: "Sign up, pick a name, claim your public URL, and generate the design.",
-    state: 0,
-  },
-  {
-    lead: "Then, fill it.",
-    body: "Scan your printed menu with AI and arrange your tables.",
-    state: 1,
-  },
-  {
-    lead: "Finally, open it.",
-    body: "Upgrade and go live. Guests book through the chatbot and order online.",
-    state: 2,
-  },
-];
-
-function HowItWorksSection() {
-  const [active, setActive] = useState(0);
-  const blockRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-  useEffect(() => {
-    const obs = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            const i = Number((e.target as HTMLElement).dataset.i);
-            if (!Number.isNaN(i)) setActive(i);
-          }
-        });
-      },
-      { rootMargin: "-40% 0px -40% 0px" }
-    );
-    blockRefs.current.forEach((el) => el && obs.observe(el));
-    return () => obs.disconnect();
-  }, []);
-
-  return (
-    <section id="how-it-works" className="bg-white scroll-mt-20">
-      <div className="max-w-6xl mx-auto px-6 py-24 lg:py-32 grid lg:grid-cols-[5fr_7fr] gap-12">
-        <div>
-          <Reveal>
-            <h2 className="font-display leading-[1.05] mb-12" style={{ color: INK, fontSize: "clamp(1.75rem, 2.4vw, 2.25rem)" }}>
-              Three steps.<br />One afternoon.
-            </h2>
-          </Reveal>
-          <ol className="list-none">
-            {STEPS.map((s, i) => (
-              <li key={s.lead} className="min-h-[38vh] lg:min-h-[52vh] flex flex-col justify-center">
-                <div
-                  ref={(el) => {
-                    blockRefs.current[i] = el;
-                  }}
-                  data-i={i}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={prev}
+                  aria-label="Previous screenshot"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-neutral-950 hover:bg-neutral-200 btn-press"
                 >
-                  <p
-                    className="font-display leading-[1.15] mb-3 transition-colors duration-300"
-                    style={{ color: active === i ? INK : "#a8a29e", fontSize: "clamp(1.5rem, 2.2vw, 2rem)" }}
-                  >
-                    {s.lead}
-                  </p>
-                  <p className="text-[16px] leading-[1.6] max-w-[40ch]" style={{ color: active === i ? "#57534e" : "#a8a29e" }}>
-                    {s.body}
-                  </p>
-                  <Link
-                    href="/signup"
-                    className={`inline-block mt-5 text-[15px] font-semibold px-5 py-2.5 ${active === i ? "btn-accent" : "btn-ghost"}`}
-                  >
-                    {i === 0 ? "Start step one" : i === 1 ? "See the scanner" : "Go live"}
-                  </Link>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
-        <div className="lg:sticky lg:top-16 lg:h-[calc(100svh-4rem)] flex items-center">
-          <div className="w-full max-w-[520px] mx-auto bg-neutral-950 text-white px-8 py-10" data-ui>
-            <p className="text-[15px] text-neutral-400 mb-6">tablecraft.app/{active === 0 ? "…" : active === 1 ? "taj-restaurant" : "taj-restaurant · live"}</p>
-            {active === 0 && (
-              <div className="xfade">
-                <p className="font-display text-white mb-6" style={{ fontSize: "clamp(1.75rem, 2.4vw, 2.25rem)" }}>Name your restaurant</p>
-                <div className="border border-neutral-700 px-4 py-3.5 text-[17px] text-neutral-500">e.g. Taj Restaurant</div>
-                <div className="mt-6 inline-block text-[15px] font-semibold px-7 py-3" style={{ backgroundColor: ACCENT, color: "#fff" }}>
-                  Claim your URL
-                </div>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={next}
+                  aria-label="Next screenshot"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-neutral-950 text-white hover:bg-neutral-800 btn-press"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
               </div>
-            )}
-            {active === 1 && (
-              <div className="xfade">
-                <p className="font-display text-white mb-6" style={{ fontSize: "clamp(1.75rem, 2.4vw, 2.25rem)" }}>Menu, scanned</p>
-                <ul className="space-y-3 text-[17px]">
-                  {["Butter Chicken · AED 48", "Chicken Biryani · AED 42", "Garlic Naan · AED 12"].map((d) => (
-                    <li key={d} className="flex items-center gap-3">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="3" strokeLinecap="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                      <span className="tabular-nums">{d}</span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-6 text-[15px] text-neutral-400">4 tables arranged · floor plan saved</p>
-              </div>
-            )}
-            {active === 2 && (
-              <div className="xfade">
-                <p className="font-display text-white mb-4" style={{ fontSize: "clamp(1.75rem, 2.4vw, 2.25rem)" }}>You&apos;re live</p>
-                <p className="text-[17px] leading-[1.6] text-neutral-300 mb-6 max-w-[38ch]">
-                  Guests are booking Table 2 for tonight. The kitchen sees the ticket the second they order.
-                </p>
-                <div className="inline-block text-[15px] font-semibold px-7 py-3" style={{ backgroundColor: ACCENT, color: "#fff" }}>
-                  Open the console
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -681,108 +651,162 @@ function HowItWorksSection() {
   );
 }
 
-/* ── Ambiance: one full-bleed photograph, slow drift ── */
-function AmbianceSection() {
+/* ── How it works: three plain steps on one line ── */
+function HowItWorksSection() {
   return (
-    <section aria-label="The dining room" className="bg-white">
-      <div className="max-w-6xl mx-auto px-6 pb-24 lg:pb-32">
+    <section id="how-it-works" className="bg-neutral-100 scroll-mt-20">
+      <div className="max-w-6xl mx-auto px-6 py-24 lg:py-32">
         <Reveal>
-          <figure>
-            <div className="overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/hero.jpg"
-                alt="A candlelit restaurant dining room at night"
-                className="drift w-full h-[52svh] lg:h-[68svh] object-cover block"
-                loading="lazy"
-              />
-            </div>
-            <figcaption className="mt-5 flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-6">
-              <p className="font-display leading-tight" style={{ color: INK, fontSize: "clamp(1.5rem, 2.2vw, 2rem)" }}>
-                Built for rooms like this one.
-              </p>
-              <p className="text-[15px] text-neutral-500">The dining room, photographed. Tablecraft handles the internet.</p>
-            </figcaption>
-          </figure>
+          <h2
+            className="font-display leading-[1.02] tracking-[-0.03em] max-w-[16ch]"
+            style={{ color: INK, fontSize: "clamp(2.25rem, 4vw, 3.5rem)" }}
+          >
+            Live in about 15 minutes.
+          </h2>
+        </Reveal>
+        <div className="mt-16 grid md:grid-cols-3 gap-10 md:gap-8">
+          {STEPS.map((s, i) => (
+            <Reveal key={s.title} delay={i * 90}>
+              <div className="flex flex-col h-full">
+                <span
+                  className="block h-3 w-3 rounded-full"
+                  style={{ backgroundColor: ACCENT }}
+                  aria-hidden="true"
+                />
+                <h3
+                  className="font-display text-[26px] leading-tight tracking-[-0.01em] mt-8 mb-3"
+                  style={{ color: INK }}
+                >
+                  {s.title}
+                </h3>
+                <p className="text-[17px] leading-[1.6] text-neutral-600 max-w-[34ch]">
+                  {s.body}
+                </p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+        <Reveal delay={120}>
+          <div className="mt-14">
+            <Link
+              href="/signup"
+              className="btn-accent inline-block text-[16px] font-semibold px-7 py-4 rounded-full btn-press"
+            >
+              Create your restaurant
+            </Link>
+          </div>
         </Reveal>
       </div>
     </section>
   );
 }
 
-/* ── Operations preview: the real console fragment ── */
+/* ── Operations: the console on black, one screen for the whole floor ── */
 function OpsPreviewSection() {
   const stats = [
     { label: "Total tables", value: "4", sub: "2 available" },
     { label: "Booked today", value: "1", sub: "reservations" },
-    { label: "Order count", value: "1", sub: "live orders" },
-    { label: "Available now", value: "2", sub: "9 seats" },
+    { label: "Live orders", value: "1", sub: "in the kitchen" },
+    { label: "Seats free", value: "9", sub: "right now" },
   ];
   return (
-    <section aria-label="Staff operations preview" className="bg-neutral-100">
-      <div className="max-w-6xl mx-auto px-6 py-24 lg:py-32 grid lg:grid-cols-2 gap-12 items-center">
+    <section
+      aria-label="Staff operations preview"
+      className="bg-neutral-950 text-white"
+    >
+      <div className="max-w-6xl mx-auto px-6 py-24 lg:py-32 grid lg:grid-cols-[5fr_7fr] gap-14 items-center">
         <div>
           <Reveal>
-            <h2 className="font-display leading-[1.05] mb-4" style={{ color: INK, fontSize: "clamp(2rem, 3vw, 2.75rem)" }}>
-              One screen<br />for the whole floor.
+            <h2
+              className="font-display leading-[1.02] tracking-[-0.03em]"
+              style={{ fontSize: "clamp(2.25rem, 4vw, 3.5rem)" }}
+            >
+              One screen for the whole floor.
             </h2>
           </Reveal>
           <Reveal delay={80}>
-            <p className="text-[17px] leading-[1.6] text-neutral-600 mb-8 max-w-[44ch]">
-              Tables, bookings, and live orders update in real time. Search reservations, confirm guests, and fire table orders, all from the dashboard.
+            <p className="text-[18px] leading-[1.6] text-neutral-400 mt-5 max-w-[44ch]">
+              Tables, bookings, and live orders update in real time. Confirm
+              guests, fire table orders, and see the kitchen queue from one
+              dashboard.
             </p>
           </Reveal>
           <Reveal delay={140}>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/signup" className="btn-primary text-[15px] font-semibold px-6 py-3">
+            <div className="flex flex-wrap gap-3 mt-9">
+              <Link
+                href="/signup"
+                className="btn-accent text-[16px] font-semibold px-7 py-4 rounded-full btn-press"
+              >
                 Try the console
               </Link>
-              <a href="#restaurants" className="btn-ghost text-[15px] font-semibold px-6 py-3">
+              <a
+                href="#restaurants"
+                className="text-[16px] font-semibold px-6 py-4 rounded-full bg-white/10 hover:bg-white/20 btn-press"
+              >
                 Explore a live demo
               </a>
             </div>
           </Reveal>
         </div>
+
         <Reveal delay={120}>
-          <div className="bg-white border-2 border-neutral-900" data-ui aria-hidden="true">
-            <div className="px-6 pt-6 pb-5">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-display text-xl" style={{ color: INK }}>Malabar Bites&apos;s Dashboard</p>
-                  <p className="text-[13px] text-neutral-500 mt-0.5">Tuesday, September 15, 2026</p>
-                </div>
-                <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-green-700 shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-600" /> Live
-                </span>
+          <div
+            className="rounded-3xl bg-white text-neutral-950 p-5 sm:p-7"
+            data-ui
+            aria-hidden="true"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-display text-[22px] leading-tight">
+                  Malabar Bites · Dashboard
+                </p>
+                <p className="text-[14px] text-neutral-500 mt-1">
+                  Tuesday, September 15, 2026
+                </p>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
-                {stats.map((s) => (
-                  <div key={s.label} className="bg-neutral-100 px-3 py-3">
-                    <p className="text-[13px] text-neutral-500">{s.label}</p>
-                    <p className="font-display mt-0.5 tabular-nums" style={{ color: INK, fontSize: "1.75rem" }}>{s.value}</p>
-                    <p className="text-[13px] text-neutral-500">{s.sub}</p>
-                  </div>
-                ))}
-              </div>
+              <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-green-700 shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-600" /> Live
+              </span>
             </div>
-            <div className="px-6 pb-6 space-y-5">
-              <div>
-                <p className="text-[13px] text-neutral-500 mb-2">Today&apos;s bookings</p>
-                <div className="bg-neutral-100 px-4 py-3.5">
-                  <p className="text-[15px] font-semibold" style={{ color: INK }}>Kaushik</p>
-                  <p className="text-[13px] text-neutral-500 mt-0.5 tabular-nums">Tue, Sep 15 at 4:48 PM · Table 1 · 3 people</p>
-                  <p className="mt-2 text-[13px] font-semibold tracking-wide text-green-700">CONFIRMED</p>
-                </div>
-              </div>
-              <div>
-                <p className="text-[13px] text-neutral-500 mb-2">Order dashboard</p>
-                <div className="bg-neutral-100 px-4 py-3.5">
-                  <p className="text-[15px] font-semibold" style={{ color: INK }}>Table Group · Table 2</p>
-                  <p className="text-[15px] mt-1 text-neutral-600 tabular-nums">
-                    <span className="font-semibold" style={{ color: ACCENT }}>3x</span> CHICKEN ROAST · AED 96
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-6">
+              {stats.map((s) => (
+                <div
+                  key={s.label}
+                  className="rounded-xl bg-neutral-100 px-3.5 py-3.5"
+                >
+                  <p className="text-[13px] text-neutral-500">{s.label}</p>
+                  <p className="font-display mt-1 tabular-nums text-[30px] leading-none">
+                    {s.value}
                   </p>
-                  <p className="mt-2 text-[13px] font-semibold text-amber-700">Pending</p>
+                  <p className="text-[12px] text-neutral-500 mt-1">{s.sub}</p>
                 </div>
+              ))}
+            </div>
+            <div className="grid sm:grid-cols-2 gap-2.5 mt-2.5">
+              <div className="rounded-xl bg-neutral-100 px-4 py-4">
+                <p className="text-[13px] text-neutral-500">
+                  Today&apos;s bookings
+                </p>
+                <p className="text-[16px] font-semibold mt-2">Kaushik</p>
+                <p className="text-[13px] text-neutral-500 mt-0.5 tabular-nums">
+                  4:48 PM · Table 1 · 3 people
+                </p>
+                <p className="mt-3 inline-block rounded-full bg-green-100 px-2.5 py-1 text-[12px] font-semibold text-green-800">
+                  Confirmed
+                </p>
+              </div>
+              <div className="rounded-xl bg-neutral-100 px-4 py-4">
+                <p className="text-[13px] text-neutral-500">Order queue</p>
+                <p className="text-[16px] font-semibold mt-2">Table 2</p>
+                <p className="text-[13px] text-neutral-600 mt-0.5 tabular-nums">
+                  <span className="font-semibold" style={{ color: ACCENT }}>
+                    3×
+                  </span>{" "}
+                  Chicken roast · AED 96
+                </p>
+                <p className="mt-3 inline-block rounded-full bg-amber-100 px-2.5 py-1 text-[12px] font-semibold text-amber-800">
+                  Pending
+                </p>
               </div>
             </div>
           </div>
@@ -792,7 +816,7 @@ function OpsPreviewSection() {
   );
 }
 
-/* ── Proof: plain names in columns ── */
+/* ── Demo restaurants: live sites, no login ── */
 function RestaurantsSection() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
@@ -814,60 +838,80 @@ function RestaurantsSection() {
 
   return (
     <section id="restaurants" className="bg-white scroll-mt-20">
-      <div className="max-w-6xl mx-auto px-6 py-24 lg:py-32 grid lg:grid-cols-[3fr_9fr] gap-10">
+      <div className="max-w-6xl mx-auto px-6 py-24 lg:py-32 grid lg:grid-cols-[4fr_8fr] gap-12">
         <div>
           <Reveal>
-            <h2 className="font-display leading-[1.05]" style={{ color: INK, fontSize: "clamp(1.75rem, 2.4vw, 2.25rem)" }}>
-              Demo<br />restaurants
+            <h2
+              className="font-display leading-[1.02] tracking-[-0.03em]"
+              style={{ color: INK, fontSize: "clamp(2.25rem, 4vw, 3.5rem)" }}
+            >
+              Demo restaurants
             </h2>
           </Reveal>
           <Reveal delay={80}>
-            <p className="text-[15px] text-neutral-500 mt-4 max-w-[24ch]">
+            <p className="text-[17px] leading-[1.6] text-neutral-600 mt-5 max-w-[30ch]">
               Live sites below. Opening one needs no login.
             </p>
           </Reveal>
         </div>
-        <div className="lg:col-span-1">
+        <div>
           {loading ? (
             <p className="text-[17px] text-neutral-500">Loading restaurants…</p>
           ) : orgs.length === 0 ? (
-            <p className="text-[17px] text-neutral-500">No restaurants yet. Be the first.</p>
+            <p className="text-[17px] text-neutral-500">
+              No restaurants yet. Be the first.
+            </p>
           ) : (
-            <div className="grid sm:grid-cols-2 gap-5">
+            <div className="grid sm:grid-cols-2 gap-4">
               {orgs.map((org, i) => {
                 const color = org.theme_color ?? ACCENT;
                 return (
-                  <Reveal key={org.id} delay={Math.min(i, 5) * 50}>
-                    <div className="bg-neutral-100 border-2 border-neutral-900 p-5 h-full">
-                      <div className="flex items-center gap-3 mb-2">
+                  <Reveal key={org.id} delay={Math.min(i, 5) * 60}>
+                    <div className="rounded-2xl bg-neutral-100 p-6 h-full flex flex-col card-lift">
+                      <div className="flex items-center gap-3 mb-3">
                         <div
-                          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shrink-0 overflow-hidden"
+                          className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold shrink-0 overflow-hidden"
                           style={{ backgroundColor: color }}
                         >
                           {org.logo_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={org.logo_url} alt={`${org.name} logo`} className="w-full h-full object-cover" />
+                            <img
+                              src={org.logo_url}
+                              alt={`${org.name} logo`}
+                              className="w-full h-full object-cover"
+                            />
                           ) : (
                             org.name.charAt(0)
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="font-display text-lg leading-tight truncate" style={{ color: INK }}>{org.name}</p>
-                          {org.tagline && <p className="text-[13px] text-neutral-500 truncate">{org.tagline}</p>}
+                          <p
+                            className="font-display text-[20px] leading-tight truncate"
+                            style={{ color: INK }}
+                          >
+                            {org.name}
+                          </p>
+                          {org.tagline && (
+                            <p className="text-[14px] text-neutral-500 truncate">
+                              {org.tagline}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <p className="text-[13px] text-neutral-400 mb-4">/{org.slug}</p>
-                      <div className="flex gap-2">
+                      <p className="text-[14px] text-neutral-400 mb-6">
+                        /{org.slug}
+                      </p>
+                      <div className="mt-auto flex gap-2">
                         <ViewSiteLink
                           href={`/${org.slug}`}
-                          className="flex-1 text-center text-[15px] font-semibold py-2.5 bg-white hover:bg-neutral-200 btn-press"
+                          className="flex-1 text-center text-[15px] font-semibold py-3 rounded-full bg-white text-neutral-950 hover:bg-neutral-200 btn-press"
                           ariaLabel={`Visit ${org.name}`}
                         >
                           Visit site
                         </ViewSiteLink>
                         <a
                           href={`/api/demo/redirect?org=${org.slug}`}
-                          className="flex-1 text-center text-[15px] font-semibold py-2.5 bg-neutral-900 text-white hover:bg-neutral-700 btn-press whitespace-nowrap"
+                          className="flex-1 text-center text-[15px] font-semibold py-3 rounded-full bg-neutral-950 text-white hover:bg-neutral-800 btn-press whitespace-nowrap"
                         >
                           Demo console
                         </a>
@@ -884,12 +928,14 @@ function RestaurantsSection() {
   );
 }
 
-/* ── Pricing: three fields, hard edges, unequal widths ── */
+/* ── Pricing: three tonal panels, annual toggle ── */
 function PricingSection() {
   const [billing, setBilling] = useState<BillingInterval>("monthly");
   const [persisted] = useState(() => {
     try {
-      return (localStorage.getItem("tc-billing") as BillingInterval) || "monthly";
+      return (
+        (localStorage.getItem("tc-billing") as BillingInterval) || "monthly"
+      );
     } catch {
       return "monthly" as BillingInterval;
     }
@@ -901,13 +947,17 @@ function PricingSection() {
     setBilling(v);
     try {
       localStorage.setItem("tc-billing", v);
-    } catch { /* private mode */ }
+    } catch {
+      /* private mode */
+    }
   }
 
   const router = useRouter();
   async function checkout(planKey: "pro" | "max") {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       router.push("/signin?next=/dashboard");
       return;
@@ -922,7 +972,9 @@ function PricingSection() {
       router.push("/restaurants/create");
       return;
     }
-    router.push(`/console/pricing?org=${orgId}&plan=${planKey}&billing=${billing}`);
+    router.push(
+      `/console/pricing?org=${orgId}&plan=${planKey}&billing=${billing}`,
+    );
   }
 
   const isAnnual = billing === "annual";
@@ -939,34 +991,44 @@ function PricingSection() {
       note: !paidKey
         ? p.period
         : isAnnual
-          ? `AED ${equiv} a month, billed annually — saves AED ${savings!.savedAed.toLocaleString()}.`
-          : `Or AED ${annualAed.toLocaleString()} a year — one month free.`,
+          ? `AED ${equiv} a month, billed annually. Saves AED ${savings!.savedAed.toLocaleString()}.`
+          : `Or AED ${annualAed.toLocaleString()} a year. One month free.`,
     };
   });
 
   return (
-    <section id="pricing" className="scroll-mt-20">
-      <div className="max-w-6xl mx-auto px-6 pt-24 lg:pt-32 pb-10">
+    <section id="pricing" className="bg-white scroll-mt-20">
+      <div className="max-w-6xl mx-auto px-6 pt-24 lg:pt-32 pb-12">
         <Reveal>
-          <h2 className="font-display leading-[1.05]" style={{ color: INK, fontSize: "clamp(2rem, 3vw, 2.75rem)" }}>
+          <h2
+            className="font-display leading-[1.02] tracking-[-0.03em]"
+            style={{ color: INK, fontSize: "clamp(2.25rem, 4vw, 3.5rem)" }}
+          >
             Simple, transparent pricing.
           </h2>
         </Reveal>
         <Reveal delay={80}>
-          <p className="text-[17px] leading-[1.6] text-neutral-600 mt-4 max-w-[52ch]">
-            Start free with a mock site. Upgrade when you&apos;re ready to go live. Annual billing takes a month off, remembered next visit.
+          <p className="text-[18px] leading-[1.6] text-neutral-600 mt-5 max-w-[52ch]">
+            Start free with a mock site. Upgrade when you&apos;re ready to go
+            live. Annual billing takes a month off, remembered next visit.
           </p>
         </Reveal>
         <Reveal delay={140}>
-          <div className="inline-flex mt-7 border border-neutral-300" role="group" aria-label="Billing period">
+          <div
+            className="inline-flex mt-8 p-1 rounded-full bg-neutral-100"
+            role="group"
+            aria-label="Billing period"
+          >
             {(["monthly", "annual"] as BillingInterval[]).map((v) => (
               <button
                 key={v}
                 type="button"
                 onClick={() => pick(v)}
                 aria-pressed={billing === v}
-                className={`px-6 py-3 text-[15px] font-semibold capitalize transition-colors ${
-                  billing === v ? "bg-neutral-900 text-white" : "text-neutral-600 hover:text-neutral-900"
+                className={`px-6 py-2.5 text-[15px] font-semibold rounded-full transition-colors btn-press ${
+                  billing === v
+                    ? "bg-neutral-950 text-white"
+                    : "text-neutral-600 hover:text-neutral-950"
                 }`}
               >
                 {v === "annual" ? "Annual · 1 month free" : "Monthly"}
@@ -975,93 +1037,142 @@ function PricingSection() {
           </div>
         </Reveal>
       </div>
-      <div className="grid md:grid-cols-[1fr_1.25fr_1fr]">
+
+      <div className="max-w-6xl mx-auto px-6 pb-8 grid md:grid-cols-3 gap-4">
         {cards.map(({ plan: p, price, unit, note }, i) => {
-          const field = p.name === "Pro" ? "bg-neutral-950 text-white" : p.name === "Max" ? "" : "bg-neutral-100";
-          const ink = p.name === "Pro" ? "text-white" : "";
-          const sub = p.name === "Pro" ? "text-neutral-400" : "text-neutral-600";
+          const isPro = p.name === "Pro";
+          const isMax = p.name === "Max";
+          const dark = isPro || isMax;
+          const panel = isPro
+            ? "bg-neutral-950 text-white"
+            : isMax
+              ? "text-white"
+              : "bg-neutral-100 text-neutral-950";
+          const sub = dark ? "text-neutral-400" : "text-neutral-600";
           return (
-            <div
-              key={p.name}
-              className={`px-8 sm:px-10 pt-12 pb-12 flex flex-col ${field}`}
-              style={p.name === "Max" ? { backgroundColor: ACCENT, color: "#fff" } : undefined}
-            >
-              <Reveal delay={i * 70}>
-                {p.highlighted && (
-                  <p className="text-[15px] font-semibold mb-4" style={{ color: p.name === "Max" ? "#fff" : ACCENT }}>
-                    Most popular
+            <Reveal key={p.name} delay={i * 80}>
+              <div
+                className={`rounded-3xl p-8 sm:p-9 flex flex-col h-full ${panel}`}
+                style={isMax ? { backgroundColor: ACCENT } : undefined}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-display text-[30px] leading-none">
+                    {p.name}
                   </p>
-                )}
-                <p className={`font-display leading-none ${ink}`} style={{ color: p.name === "Free" ? INK : undefined, fontSize: "clamp(2rem, 3vw, 2.75rem)" }}>
-                  {p.name}
-                </p>
-                <p className={`text-[17px] leading-[1.6] mt-3 max-w-[26ch] ${p.name === "Max" ? "" : sub}`} style={{ color: p.name === "Max" ? "#fff" : undefined }}>
+                  {p.highlighted && (
+                    <span
+                      className={`text-[13px] font-semibold px-3 py-1 rounded-full ${isPro ? "bg-white text-neutral-950" : "bg-white/20 text-white"}`}
+                    >
+                      Most popular
+                    </span>
+                  )}
+                </div>
+                <p
+                  className={`text-[16px] leading-[1.6] mt-4 max-w-[30ch] ${sub}`}
+                >
                   {p.description}
                 </p>
                 <p className="mt-8 flex items-baseline gap-2">
-                  <span className={`font-display tabular-nums leading-none ${ink}`} style={{ color: p.name === "Free" ? INK : undefined, fontSize: "clamp(3.5rem, 6vw, 5.5rem)" }}>
+                  <span className="font-display tabular-nums leading-none text-[64px]">
                     {price}
                   </span>
-                  <span className={`text-[18px] ${p.name === "Max" ? "" : sub}`} style={{ color: p.name === "Max" ? "#fff" : undefined }}>{unit}</span>
+                  <span className={`text-[16px] ${sub}`}>{unit}</span>
                 </p>
-                <p className={`text-[15px] mt-2 tabular-nums ${p.name === "Max" ? "" : sub}`} style={{ color: p.name === "Max" ? "#fff" : undefined }}>{note}</p>
-                <p className={`text-[15px] leading-[1.65] mt-6 max-w-[30ch] ${p.name === "Max" ? "" : sub}`} style={{ color: p.name === "Max" ? "#fff" : undefined }}>
-                  {p.features.slice(0, 3).join(" · ")}.
-                </p>
-                <ul className={`mt-4 space-y-1.5 text-[15px] tabular-nums ${p.name === "Max" ? "" : sub}`} style={{ color: p.name === "Max" ? "#fff" : undefined }}>
-                  {p.features.slice(3).map((feat) => (
-                    <li key={feat}>{feat}</li>
+                <p className={`text-[14px] mt-2 tabular-nums ${sub}`}>{note}</p>
+                <ul className={`mt-7 space-y-2.5 text-[15px] ${sub}`}>
+                  {p.features.map((feat) => (
+                    <li key={feat} className="flex gap-2.5">
+                      <svg
+                        className="shrink-0 mt-[5px]"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke={isPro ? "#fff" : isMax ? "#fff" : ACCENT}
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        aria-hidden="true"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      <span>{feat}</span>
+                    </li>
                   ))}
                 </ul>
-                <div className="mt-9">
+                <div className="mt-auto pt-9">
                   {p.planKey ? (
                     <button
+                      type="button"
                       onClick={() => checkout(p.planKey as "pro" | "max")}
-                      className={`text-[15px] font-semibold px-8 py-3.5 btn-press ${
-                        p.name === "Pro" ? "bg-white text-neutral-900 hover:bg-neutral-200" : p.name === "Max" ? "bg-neutral-900 text-white hover:bg-neutral-800" : "bg-neutral-900 text-white hover:bg-neutral-700"
+                      className={`w-full text-[16px] font-semibold px-8 py-4 rounded-full btn-press ${
+                        isPro
+                          ? "bg-white text-neutral-950 hover:bg-neutral-200"
+                          : isMax
+                            ? "bg-neutral-950 text-white hover:bg-neutral-800"
+                            : "bg-neutral-950 text-white hover:bg-neutral-800"
                       }`}
                     >
                       {p.cta}
                     </button>
                   ) : (
-                    <Link href={p.ctaLink} className="inline-block text-[15px] font-semibold px-8 py-3.5 bg-neutral-900 text-white hover:bg-neutral-700 btn-press">
+                    <Link
+                      href={p.ctaLink}
+                      className="block text-center w-full text-[16px] font-semibold px-8 py-4 rounded-full bg-neutral-950 text-white hover:bg-neutral-800 btn-press"
+                    >
                       {p.cta}
                     </Link>
                   )}
                 </div>
-              </Reveal>
-            </div>
+              </div>
+            </Reveal>
           );
         })}
       </div>
-      <p className="text-center text-[13px] text-neutral-500 py-8 bg-white">No credit card to start · Cancel anytime · Email support on paid plans</p>
+      <p className="text-center text-[14px] text-neutral-500 py-8">
+        No credit card to start · Cancel anytime · Email support on paid plans
+      </p>
     </section>
   );
 }
 
-/* ── FAQ: answers as reading text ── */
+/* ── FAQ: answers in a tonal panel ── */
 function FaqSection() {
   return (
     <section id="faq" className="bg-white scroll-mt-20">
-      <div className="max-w-6xl mx-auto px-6 py-24 lg:py-32 grid lg:grid-cols-[3fr_9fr] gap-10">
+      <div className="max-w-6xl mx-auto px-6 py-24 lg:py-32 grid lg:grid-cols-[4fr_8fr] gap-12">
         <div>
           <Reveal>
-            <h2 className="font-display leading-[1.05]" style={{ color: INK, fontSize: "clamp(1.75rem, 2.4vw, 2.25rem)" }}>
-              Questions,<br />answered.
+            <h2
+              className="font-display leading-[1.02] tracking-[-0.03em]"
+              style={{ color: INK, fontSize: "clamp(2.25rem, 4vw, 3.5rem)" }}
+            >
+              Questions, answered.
             </h2>
           </Reveal>
         </div>
         <Reveal delay={80}>
           <div className="space-y-3">
             {FAQS.map((f) => (
-              <details key={f.q} className="bg-neutral-100 border-2 border-neutral-900 px-5 py-4 group">
-                <summary className="cursor-pointer list-none flex items-center justify-between gap-4 text-[16px] font-semibold" style={{ color: INK }}>
+              <details
+                key={f.q}
+                className="faq rounded-2xl bg-neutral-100 border-2 border-neutral-950 px-6 py-5"
+              >
+                <summary
+                  className="cursor-pointer list-none flex items-center justify-between gap-4 text-[17px] font-semibold"
+                  style={{ color: INK }}
+                >
                   {f.q}
-                  <span className="text-xl leading-none font-normal transition-transform duration-200 group-open:rotate-45 shrink-0" style={{ color: ACCENT }}>
+                  <span
+                    className="faq-icon text-2xl leading-none font-normal shrink-0 transition-transform duration-300"
+                    style={{ color: ACCENT }}
+                    aria-hidden="true"
+                  >
                     +
                   </span>
                 </summary>
-                <p className="text-[16px] text-neutral-600 leading-[1.6] mt-3 max-w-[62ch]">{f.a}</p>
+                <p className="text-[16px] text-neutral-600 leading-[1.65] mt-3 max-w-[62ch]">
+                  {f.a}
+                </p>
               </details>
             ))}
           </div>
@@ -1071,7 +1182,7 @@ function FaqSection() {
   );
 }
 
-/* ── Contact: one prompt, stacked fields, arrow submit ── */
+/* ── Contact: one prompt, stacked fields ── */
 function ContactSection() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -1092,7 +1203,11 @@ function ContactSection() {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), email: email.trim(), message: message.trim() }),
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          message: message.trim(),
+        }),
       });
       if (!res.ok) throw new Error("Failed");
       setSubmitted(true);
@@ -1103,93 +1218,134 @@ function ContactSection() {
     }
   }
 
+  const fieldClass =
+    "w-full bg-neutral-100 text-[16px] px-4 py-3.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-950 placeholder:text-neutral-400";
+
   return (
     <section id="contact" className="bg-neutral-100 scroll-mt-20">
-      <div className="max-w-[560px] mx-auto px-6 py-24 lg:py-32">
-        <Reveal>
-          <p className="font-display font-medium leading-[1.25]" style={{ color: INK, fontSize: "clamp(1.5rem, 2.2vw, 1.75rem)" }}>
-            <span className="block text-neutral-500">Questions? Ideas?</span>
-            <span className="block">Tell us about your restaurant.</span>
-          </p>
-        </Reveal>
-        <Reveal delay={80}>
-          {submitted ? (
-            <div className="mt-10">
-              <p className="font-display leading-tight" style={{ color: INK, fontSize: "clamp(1.5rem, 2.2vw, 2rem)" }}>
-                Thank you, {name}.
-              </p>
-              <p className="text-[17px] text-neutral-600 mt-3">We received your note and reply within one business day.</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSubmitted(false);
-                  setName("");
-                  setEmail("");
-                  setMessage("");
-                }}
-                className="mt-6 text-[15px] font-semibold underline underline-offset-4"
-                style={{ color: INK }}
-              >
-                Send another message
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="mt-10 space-y-5">
-              <div>
-                <label htmlFor="m-name" className="block text-[15px] text-neutral-600 mb-1.5">Your name</label>
-                <input
-                  id="m-name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Chef or restaurant owner"
-                  required
-                  className="w-full bg-white text-[17px] px-4 py-3.5 border border-neutral-300 focus:outline-none focus:border-neutral-900 placeholder:text-neutral-400"
+      <div className="max-w-[640px] mx-auto px-6 py-24 lg:py-32">
+        <div className="rounded-3xl bg-white border-2 border-neutral-950 p-6 sm:p-10">
+          <Reveal>
+            <h2
+              className="font-display leading-[1.05] tracking-[-0.02em]"
+              style={{ color: INK, fontSize: "clamp(2rem, 3.4vw, 2.75rem)" }}
+            >
+              Questions? Ideas?
+            </h2>
+            <p className="text-[18px] text-neutral-600 mt-3">
+              Tell us about your restaurant.
+            </p>
+          </Reveal>
+          <Reveal delay={80}>
+            {submitted ? (
+              <div className="mt-10 rounded-2xl bg-neutral-100 p-8">
+                <p
+                  className="font-display text-[28px] leading-tight"
                   style={{ color: INK }}
-                />
-              </div>
-              <div>
-                <label htmlFor="m-email" className="block text-[15px] text-neutral-600 mb-1.5">Email address</label>
-                <input
-                  id="m-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@restaurant.com"
-                  required
-                  className="w-full bg-white text-[17px] px-4 py-3.5 border border-neutral-300 focus:outline-none focus:border-neutral-900 placeholder:text-neutral-400"
-                  style={{ color: INK }}
-                />
-              </div>
-              <div>
-                <label htmlFor="m-message" className="block text-[15px] text-neutral-600 mb-1.5">Message</label>
-                <textarea
-                  id="m-message"
-                  rows={4}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Tell us about your restaurant or any questions…"
-                  required
-                  className="w-full bg-white text-[17px] px-4 py-3.5 border border-neutral-300 focus:outline-none focus:border-neutral-900 resize-none placeholder:text-neutral-400"
-                  style={{ color: INK }}
-                />
-              </div>
-              {error && (
-                <p className="text-[15px] text-red-700 bg-red-50 px-4 py-3" role="alert">
-                  {error}
+                >
+                  Thank you, {name}.
                 </p>
-              )}
-              <button
-                type="submit"
-                disabled={submitting}
-                className="btn-primary w-full text-[17px] font-semibold py-4 flex items-center justify-center gap-3 disabled:opacity-50"
-              >
-                {submitting ? "Sending…" : <>Send message <span aria-hidden="true">→</span></>}
-              </button>
-              <p className="text-[13px] text-neutral-500">We reply within one business day.</p>
-            </form>
-          )}
-        </Reveal>
+                <p className="text-[17px] text-neutral-600 mt-3">
+                  We received your note and reply within one business day.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubmitted(false);
+                    setName("");
+                    setEmail("");
+                    setMessage("");
+                  }}
+                  className="mt-6 text-[15px] font-semibold underline underline-offset-4"
+                  style={{ color: INK }}
+                >
+                  Send another message
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="mt-10 space-y-4">
+                <div>
+                  <label
+                    htmlFor="m-name"
+                    className="block text-[14px] font-medium text-neutral-700 mb-2"
+                  >
+                    Your name
+                  </label>
+                  <input
+                    id="m-name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Chef or restaurant owner"
+                    required
+                    className={fieldClass}
+                    style={{ color: INK }}
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="m-email"
+                    className="block text-[14px] font-medium text-neutral-700 mb-2"
+                  >
+                    Email address
+                  </label>
+                  <input
+                    id="m-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@restaurant.com"
+                    required
+                    className={fieldClass}
+                    style={{ color: INK }}
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="m-message"
+                    className="block text-[14px] font-medium text-neutral-700 mb-2"
+                  >
+                    Message
+                  </label>
+                  <textarea
+                    id="m-message"
+                    rows={4}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Tell us about your restaurant or any questions…"
+                    required
+                    className={`${fieldClass} resize-none`}
+                    style={{ color: INK }}
+                  />
+                </div>
+                {error && (
+                  <p
+                    className="text-[15px] text-red-700 bg-red-50 px-4 py-3 rounded-xl"
+                    role="alert"
+                  >
+                    {error}
+                  </p>
+                )}
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="btn-accent w-full text-[16px] font-semibold py-4 rounded-full flex items-center justify-center gap-2 disabled:opacity-50 btn-press"
+                >
+                  {submitting ? (
+                    "Sending…"
+                  ) : (
+                    <>
+                      Send message <span aria-hidden="true">→</span>
+                    </>
+                  )}
+                </button>
+                <p className="text-[14px] text-neutral-500">
+                  We reply within one business day.
+                </p>
+              </form>
+            )}
+          </Reveal>
+        </div>
       </div>
     </section>
   );
@@ -1201,21 +1357,31 @@ function CTASection() {
     <section aria-label="Get started" style={{ backgroundColor: ACCENT }}>
       <div className="max-w-6xl mx-auto px-6 py-24 lg:py-32">
         <Reveal>
-          <h2 className="font-display text-white leading-[0.95]" style={{ fontSize: "clamp(3.5rem, 7vw, 7rem)" }}>
-            Open your<br />doors online.
+          <h2
+            className="font-display text-white leading-[0.98] tracking-[-0.03em] max-w-[14ch]"
+            style={{ fontSize: "clamp(3rem, 7vw, 6rem)" }}
+          >
+            Open your doors online.
           </h2>
         </Reveal>
         <Reveal delay={100}>
-          <p className="text-white/90 text-[17px] leading-[1.6] mt-6 max-w-[44ch]">
-            Create your restaurant site in minutes. No credit card required to start.
+          <p className="text-white/90 text-[18px] leading-[1.6] mt-6 max-w-[44ch]">
+            Create your restaurant site in minutes. No credit card required to
+            start.
           </p>
         </Reveal>
         <Reveal delay={160}>
-          <div className="flex flex-wrap gap-4 mt-9">
-            <Link href="/signup" className="inline-block bg-neutral-900 text-white text-[16px] font-semibold px-9 py-4 hover:bg-neutral-800 btn-press">
+          <div className="flex flex-wrap gap-3 mt-10">
+            <Link
+              href="/signup"
+              className="inline-block bg-neutral-950 text-white text-[16px] font-semibold px-8 py-4 rounded-full hover:bg-neutral-800 btn-press"
+            >
               Sign up free
             </Link>
-            <a href="#pricing" className="inline-block border-2 border-white/70 text-white text-[16px] font-semibold px-9 py-4 hover:bg-white/10 btn-press">
+            <a
+              href="#pricing"
+              className="inline-block bg-white/15 text-white text-[16px] font-semibold px-8 py-4 rounded-full hover:bg-white/25 btn-press"
+            >
               View pricing
             </a>
           </div>
@@ -1225,13 +1391,18 @@ function CTASection() {
   );
 }
 
-/* ── Footer: a single quiet line ── */
+/* ── Footer: a quiet, complete close ── */
 function Footer() {
   return (
     <footer className="bg-white">
-      <div className="max-w-6xl mx-auto px-6 pt-24 pb-8 grid md:grid-cols-[1fr_auto_1fr] gap-3 items-baseline text-[15px]">
-        <p className="text-neutral-500">Tablecraft — sites for restaurants</p>
-        <nav className="flex flex-wrap gap-x-6 gap-y-2 md:justify-center" aria-label="Footer">
+      <div className="max-w-6xl mx-auto px-6 py-14 grid md:grid-cols-[1fr_auto_1fr] gap-6 items-center text-[15px]">
+        <p className="font-display text-[22px] tracking-tight" style={{ color: INK }}>
+          Tablecraft
+        </p>
+        <nav
+          className="flex flex-wrap gap-x-6 gap-y-2 md:justify-center"
+          aria-label="Footer"
+        >
           {[
             { label: "Features", href: "#features" },
             { label: "Pricing", href: "#pricing" },
@@ -1240,12 +1411,18 @@ function Footer() {
             { label: "Privacy", href: "/privacy" },
             { label: "Terms", href: "/terms" },
           ].map((l) => (
-            <a key={l.label} href={l.href} className="hover-accent" style={{ color: INK }}>
+            <a
+              key={l.label}
+              href={l.href}
+              className="text-neutral-600 hover:text-neutral-950 transition-colors"
+            >
               {l.label}
             </a>
           ))}
         </nav>
-        <p className="text-neutral-500 md:text-right tabular-nums">© {new Date().getFullYear()}</p>
+        <p className="text-neutral-500 md:text-right tabular-nums">
+          © {new Date().getFullYear()} Tablecraft · Built for Restaurants
+        </p>
       </div>
     </footer>
   );
@@ -1256,34 +1433,31 @@ export default function MarketingHomePage() {
   return (
     <div className="min-h-svh bg-white antialiased" style={{ color: INK }}>
       <style>{`
-        .font-display { font-family: 'Playfair Display', Georgia, serif; }
+        .font-display { font-family: 'Playfair Display', Georgia, 'Times New Roman', serif; font-weight: 500; }
         .btn-accent { background: ${ACCENT}; color: #fff; }
-        .btn-accent:hover { background: #b54600; }
-        .btn-primary { background: #16130f; color: #fff; }
-        .btn-primary:hover { background: #2b251d; }
-        .btn-ghost { background: #f5f5f4; color: #16130f; }
-        .btn-ghost:hover { background: #e7e5e4; }
-        .navlink { position: relative; }
-        .navlink::after { content: ""; position: absolute; left: 0; bottom: -3px; height: 2px; width: 100%; background: ${ACCENT}; transform: scaleX(0); transform-origin: left; transition: transform 220ms ease; }
-        .navlink:hover::after { transform: scaleX(1); }
-        .hover-accent:hover { color: ${ACCENT}; }
-        .btn-press { transition: transform 120ms ease, background-color 160ms ease; }
-        .btn-press:active { transform: scale(0.98); }
-        @keyframes hero-rise { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: translateY(0); } }
+        .btn-accent:hover { background: ${ACCENT_DARK}; }
+        .btn-press { transition: transform 120ms ease, background-color 160ms ease, color 160ms ease; }
+        .btn-press:active { transform: scale(0.97); }
+        .card-lift { transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1), background-color 260ms ease; }
+        .card-lift:hover { transform: translateY(-4px); background-color: #e9e9e9; }
+        .faq[open] .faq-icon { transform: rotate(45deg); }
+        @keyframes hero-rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
         .hero-line { opacity: 0; animation: hero-rise 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-        .rv { opacity: 0; transform: translateY(24px); transition: opacity 600ms ease, transform 600ms cubic-bezier(0.22, 1, 0.36, 1); transition-delay: var(--rvd, 0ms); }
+        .rv { opacity: 0; transform: translateY(20px); transition: opacity 600ms ease, transform 600ms cubic-bezier(0.22, 1, 0.36, 1); transition-delay: var(--rvd, 0ms); }
         .rv-in { opacity: 1; transform: translateY(0); }
-        @keyframes xfade-in { from { opacity: 0; } to { opacity: 1; } }
-        .xfade { animation: xfade-in 500ms ease; }
-        @keyframes drift { from { transform: scale(1); } to { transform: scale(1.06); } }
-        .drift { animation: drift 24s ease-in-out infinite alternate; }
+        @keyframes xfade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .xfade { animation: xfade-in 450ms cubic-bezier(0.22, 1, 0.36, 1); }
+        @keyframes float-slow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        .float-slow { animation: float-slow 7s ease-in-out infinite; }
+        @keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.7; } 100% { transform: scale(2.6); opacity: 0; } }
+        .pulse-ring { animation: pulse-ring 1.8s ease-out infinite; }
         @media (prefers-reduced-motion: reduce) {
-          .hero-line, .rv, .xfade, .drift { opacity: 1 !important; transform: none !important; animation: none !important; transition: none !important; }
+          .hero-line, .rv, .xfade, .float-slow, .pulse-ring, .card-lift { opacity: 1 !important; transform: none !important; animation: none !important; transition: none !important; }
         }
       `}</style>
       <a
         href="#features"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-1/2 focus:-translate-x-1/2 focus:z-[60] focus:px-4 focus:py-2 focus:bg-neutral-900 focus:text-white focus:text-sm"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-1/2 focus:-translate-x-1/2 focus:z-[60] focus:px-4 focus:py-2 focus:bg-neutral-950 focus:text-white focus:text-sm"
       >
         Skip to content
       </a>
@@ -1292,7 +1466,6 @@ export default function MarketingHomePage() {
         <Hero />
         <FeaturesSection />
         <HowItWorksSection />
-        <AmbianceSection />
         <OpsPreviewSection />
         <RestaurantsSection />
         <PricingSection />
