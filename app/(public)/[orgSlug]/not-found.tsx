@@ -10,11 +10,11 @@ export default function OrgNotFound() {
       </p>
       <div className="flex gap-2 justify-center">
         <Link
-          href="/restaurants"
+          href="/#restaurants"
           className="py-2.5 px-5 rounded-full text-white font-medium"
           style={{ backgroundColor: "#f97316" }}
         >
-          Browse restaurants
+          See live demos
         </Link>
         <Link href="/" className="py-2.5 px-5 rounded-full border font-medium">
           Back home

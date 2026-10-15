@@ -6,8 +6,8 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://tablecraft-beige.vercel.app/restaurants</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
+    <loc>https://tablecraft-beige.vercel.app/privacy</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
   </url>
 </urlset>

@@ -2,14 +2,13 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOwnerForSlug } from "@/lib/api-auth";
+import { applySubscriptionToOwnerOrgs, getOwnerOrgIds } from "@/lib/billing";
 
 /**
  * POST /api/subscription/cancel
  *
- * Cancels the active subscription for an org immediately.
- * The plan switches to Free right away (no grace period): the Stripe
- * subscription is canceled at once and the org row is reset to
- * subscription_plan='free' so every surface shows Free.
+ * Owner-wide: cancels the active subscription and drops EVERY restaurant
+ * owned by the caller to Free immediately (no grace period).
  */
 export async function POST(request: Request) {
   let body: unknown;
@@ -30,17 +29,39 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient();
 
-    const { data: org, error: orgError } = await supabase
+    const ownerOrgIds = await getOwnerOrgIds(supabase, auth.user.id).catch(() => [] as string[]);
+    const targetIds = ownerOrgIds.length > 0 ? ownerOrgIds : [auth.orgId];
+
+    const { data: ownedOrgs, error: orgError } = await supabase
       .from("organizations")
       .select("id, stripe_customer_id, stripe_subscription_id, subscription_status")
-      .eq("slug", orgSlug)
-      .single();
+      .in("id", targetIds);
 
-    if (orgError || !org) {
+    if (orgError || !ownedOrgs || ownedOrgs.length === 0) {
       return NextResponse.json({ error: "Organization not found" }, { status: 404 });
     }
 
-    if (!org.stripe_subscription_id) {
+    const rows = ownedOrgs as Array<{
+      id: string;
+      stripe_customer_id?: string | null;
+      stripe_subscription_id?: string | null;
+    }>;
+
+    // Prefer a stored subscription id; fall back to Stripe lookup by customer.
+    let subscriptionId = rows.map((r) => r.stripe_subscription_id).find((s): s is string => !!s) ?? null;
+    if (!subscriptionId) {
+      const customerId = rows.map((r) => r.stripe_customer_id).find((c): c is string => !!c);
+      if (customerId) {
+        try {
+          const subs = await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 });
+          subscriptionId = subs.data[0]?.id ?? null;
+        } catch {
+          subscriptionId = null;
+        }
+      }
+    }
+
+    if (!subscriptionId) {
       return NextResponse.json(
         { error: "No active subscription found" },
         { status: 400 },
@@ -49,9 +70,9 @@ export async function POST(request: Request) {
 
     // Cancel immediately in Stripe (no grace period — plan becomes Free at once).
     try {
-      await stripe.subscriptions.cancel(org.stripe_subscription_id);
+      await stripe.subscriptions.cancel(subscriptionId);
     } catch (stripeErr: any) {
-      // If Stripe says the sub is already gone, still reset the local row below.
+      // If Stripe says the sub is already gone, still reset the local rows below.
       const msg = String(stripeErr?.message ?? "");
       if (!/no such subscription|canceled|deleted/i.test(msg)) throw stripeErr;
     }
@@ -59,7 +80,7 @@ export async function POST(request: Request) {
     // Fetch period end for reference before writing to DB
     let periodEnd: string | null = null;
     try {
-      const stripeSub = (await stripe.subscriptions.retrieve(org.stripe_subscription_id)) as any;
+      const stripeSub = (await stripe.subscriptions.retrieve(subscriptionId)) as any;
       periodEnd = stripeSub.current_period_end
         ? new Date(stripeSub.current_period_end * 1000).toISOString()
         : null;
@@ -67,22 +88,20 @@ export async function POST(request: Request) {
       // Subscription is gone — no period end to record.
     }
 
-    const { error: updateError } = await supabase
-      .from("organizations")
-      .update({
-        subscription_plan: "free",
-        subscription_status: "canceled",
-        stripe_subscription_id: null,
-        subscription_current_period_end: periodEnd,
-      })
-      .eq("slug", orgSlug);
+    const { error: updateError } = await applySubscriptionToOwnerOrgs(supabase, targetIds, {
+      plan: "free",
+      status: "canceled",
+      subscriptionId: null,
+      customerId: null,
+      periodEnd,
+    });
 
     if (updateError) {
       console.error("cancel: db update failed", updateError);
       return NextResponse.json({ error: "Subscription will cancel, but we could not update your dashboard. Please refresh." }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, periodEnd });
+    return NextResponse.json({ success: true, periodEnd, ownerOrgCount: targetIds.length });
   } catch (err) {
     console.error("Cancel subscription failed:", err);
     return NextResponse.json(

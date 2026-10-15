@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveOrgId } from "@/lib/org";
 import { displayPlan } from "@/lib/pricing";
+import { resolveOwnerPlan } from "@/lib/owner-quotas";
 import { PricingClient, type OrgMetricData } from "./pricing-client";
 export const dynamic = "force-dynamic";
 
@@ -122,6 +123,12 @@ export default async function ConsolePricingPage({
       userEmail={user.email ?? ""}
       orgs={orgMetrics}
       accessDeniedOrgName={accessDeniedOrgName}
+      ownerPlan={resolveOwnerPlan(
+        orgs
+          .filter((o) => o.staffRole === "owner")
+          .map((o) => displayPlan(o.subscription_plan, o.subscription_status)),
+      )}
+      ownerOrgCount={orgs.filter((o) => o.staffRole === "owner").length || orgs.length}
     />
   );
 }

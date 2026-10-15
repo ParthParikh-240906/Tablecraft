@@ -6,19 +6,30 @@
  * checkout route silently updated it in place ({ upgraded: true }) instead of
  * opening Stripe Checkout. The console pricing page now sends `forceNew: true`
  * so a deliberate purchase always returns a Checkout Session URL.
+ *
+ * Owner-wide billing: one plan covers all owned orgs. Checkout fans the
+ * Stripe customer ID out to every owned org and stamps
+ * subscription_data.metadata so the webhook can resolve the owner.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const mocks = vi.hoisted(() => {
-  const builder: Record<string, any> = {};
-  builder.select = vi.fn(() => builder);
-  builder.eq = vi.fn(() => builder);
-  builder.single = vi.fn(async () => ({
-    data: { stripe_customer_id: "cus_123" },
-    error: null,
-  }));
-  builder.update = vi.fn(() => builder);
+const ORG_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 
+function makeQuery(result: { data: unknown; error?: unknown }) {
+  const q: Record<string, any> = {};
+  q.select = vi.fn(() => q);
+  q.eq = vi.fn(() => q);
+  q.in = vi.fn(() => q);
+  q.limit = vi.fn(() => q);
+  q.single = vi.fn(async () => result);
+  q.maybeSingle = vi.fn(async () => result);
+  q.update = vi.fn(() => q);
+  // Supabase builders are thenable: `await from().select().eq()` resolves.
+  q.then = (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve);
+  return q;
+}
+
+const mocks = vi.hoisted(() => {
   const stripe = {
     customers: {
       retrieve: vi.fn(async () => ({ id: "cus_123" })),
@@ -36,7 +47,7 @@ const mocks = vi.hoisted(() => {
       list: vi.fn(async () => ({
         data: [{ id: "sub_existing", items: { data: [{ id: "si_existing" }] } }],
       })),
-      update: vi.fn(async () => ({ id: "sub_existing" })),
+      update: vi.fn(async () => ({ id: "sub_existing", current_period_end: 9999999999 })),
     },
     checkout: {
       sessions: {
@@ -45,15 +56,25 @@ const mocks = vi.hoisted(() => {
     },
   };
 
-  return { builder, stripe };
+  return { stripe };
 });
 
 vi.mock("@/lib/api-auth", () => ({
-  requireOwnerForSlug: vi.fn(async () => ({ user: { id: "user-1" }, orgId: "org-1" })),
+  requireOwnerForSlug: vi.fn(async () => ({ user: { id: "user-1" }, orgId: ORG_ID })),
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: vi.fn(() => ({ from: () => mocks.builder })),
+  createAdminClient: vi.fn(() => ({
+    from: (table: string) => {
+      if (table === "staff_users") {
+        return makeQuery({ data: [{ org_id: ORG_ID }], error: null });
+      }
+      if (table === "organizations") {
+        return makeQuery({ data: [{ id: ORG_ID, stripe_customer_id: "cus_123" }], error: null });
+      }
+      return makeQuery({ data: null, error: null });
+    },
+  })),
 }));
 
 vi.mock("@/lib/stripe", () => ({
@@ -62,8 +83,6 @@ vi.mock("@/lib/stripe", () => ({
 }));
 
 import { POST as checkout } from "@/app/api/subscription/checkout/route";
-
-const ORG_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 
 const req = (body: unknown) =>
   new Request("http://localhost/api/subscription/checkout", {
@@ -103,5 +122,14 @@ describe("POST /api/subscription/checkout forceNew", () => {
     expect(mocks.stripe.subscriptions.list).not.toHaveBeenCalled();
     expect(mocks.stripe.subscriptions.update).not.toHaveBeenCalled();
     expect(mocks.stripe.checkout.sessions.create).toHaveBeenCalledOnce();
+  });
+
+  it("stamps subscription_data.metadata so the webhook can fan-out owner-wide", async () => {
+    const res = await checkout(req({ ...baseBody, forceNew: true }));
+    expect(res.status).toBe(200);
+    const createArg = (mocks.stripe.checkout.sessions.create as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    expect(createArg.subscription_data?.metadata?.plan).toBe("pro");
+    expect(createArg.subscription_data?.metadata?.ownerId).toBe("user-1");
+    expect(createArg.metadata?.type).toBe("subscription");
   });
 });

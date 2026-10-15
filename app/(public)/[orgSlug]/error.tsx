@@ -26,8 +26,8 @@ export default function OrgError({
         >
           Try again
         </button>
-        <a href="/restaurants" className="py-2.5 px-5 rounded-full border font-medium">
-          Browse restaurants
+        <a href="/#restaurants" className="py-2.5 px-5 rounded-full border font-medium">
+          See live demos
         </a>
       </div>
     </div>

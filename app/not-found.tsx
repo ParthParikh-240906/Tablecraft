@@ -13,8 +13,8 @@ export default function NotFound() {
           <Link href="/" className="btn btn-accent text-sm">
             Back home
           </Link>
-          <Link href="/restaurants" className="btn btn-outline text-sm">
-            Browse restaurants
+          <Link href="/#restaurants" className="btn btn-outline text-sm">
+            See live demos
           </Link>
         </div>
       </div>

@@ -2,32 +2,144 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Stripe from "stripe";
+import {
+  applySubscriptionToOwnerOrgs,
+  computeOwnerPlan,
+  getOwnerIdForOrg,
+  getOwnerOrgIds,
+  inferPlanFromSubscription,
+  toDbPlan,
+  toDbStatus,
+} from "@/lib/billing";
+
+type SupabaseAdmin = ReturnType<typeof createAdminClient>;
+type Meta = Record<string, string | undefined> | null | undefined;
 
 /**
- * Resolves the organization slug from subscription metadata.
- * Prefers orgId (UUID, unchanging) over orgSlug (can be changed).
+ * Resolve the full owner-wide org set from subscription/session metadata.
+ * Priority: ownerId -> orgId -> orgSlug -> stripe customer lookup.
  */
-async function resolveOrgSlug(
-  supabase: ReturnType<typeof createAdminClient>,
-  metadata: Record<string, string> | null | undefined,
-): Promise<string | null> {
-  const orgId = metadata?.orgId;
-  const orgSlug = metadata?.orgSlug;
-
-  // Try orgId first (most reliable)
-  if (orgId) {
-    const { data: org } = await supabase
-      .from("organizations")
-      .select("slug")
-      .eq("id", orgId)
-      .single();
-    if (org?.slug) return org.slug;
+async function resolveOwnerOrgIds(
+  supabase: SupabaseAdmin,
+  metadata: Meta,
+  customerId?: string | null,
+): Promise<{ orgIds: string[]; ownerId: string | null }> {
+  const ownerIdMeta = metadata?.ownerId;
+  if (ownerIdMeta) {
+    const ids = await getOwnerOrgIds(supabase, ownerIdMeta).catch(() => [] as string[]);
+    if (ids.length > 0) return { orgIds: ids, ownerId: ownerIdMeta };
   }
 
-  // Fallback to orgSlug directly
-  if (orgSlug) return orgSlug;
+  const orgIdMeta = metadata?.orgId;
+  if (orgIdMeta) {
+    const ownerId = await getOwnerIdForOrg(supabase, orgIdMeta).catch(() => null);
+    if (ownerId) {
+      const ids = await getOwnerOrgIds(supabase, ownerId).catch(() => [] as string[]);
+      if (ids.length > 0) return { orgIds: ids, ownerId };
+    }
+    return { orgIds: [orgIdMeta], ownerId };
+  }
 
-  return null;
+  const orgSlugMeta = metadata?.orgSlug;
+  if (orgSlugMeta) {
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("id")
+      .eq("slug", orgSlugMeta)
+      .maybeSingle();
+    const orgId = (org as { id?: string } | null)?.id;
+    if (orgId) {
+      const ownerId = await getOwnerIdForOrg(supabase, orgId).catch(() => null);
+      if (ownerId) {
+        const ids = await getOwnerOrgIds(supabase, ownerId).catch(() => [] as string[]);
+        if (ids.length > 0) return { orgIds: ids, ownerId };
+      }
+      return { orgIds: [orgId], ownerId: null };
+    }
+  }
+
+  // Fallback: every org sharing this Stripe customer (owner-wide customer).
+  if (customerId) {
+    const { data: orgs } = await supabase
+      .from("organizations")
+      .select("id")
+      .eq("stripe_customer_id", customerId);
+    const ids = ((orgs as Array<{ id?: string }> | null) ?? [])
+      .map((o) => o.id)
+      .filter((id): id is string => !!id);
+    if (ids.length > 0) {
+      const ownerId = await getOwnerIdForOrg(supabase, ids[0]).catch(() => null);
+      if (ownerId) {
+        const full = await getOwnerOrgIds(supabase, ownerId).catch(() => ids);
+        return { orgIds: full.length > 0 ? full : ids, ownerId };
+      }
+      return { orgIds: ids, ownerId: null };
+    }
+  }
+
+  return { orgIds: [], ownerId: ownerIdMeta ?? null };
+}
+
+function periodEndIso(currentPeriodEnd: unknown): string | null {
+  return typeof currentPeriodEnd === "number"
+    ? new Date(currentPeriodEnd * 1000).toISOString()
+    : null;
+}
+
+/** Owner-wide persist for created/updated subscriptions. */
+async function applySubscriptionEvent(
+  supabase: SupabaseAdmin,
+  sub: Stripe.Subscription & { current_period_end?: number },
+  fallbackMetadata?: Meta,
+) {
+  const mergedMeta: Record<string, string | undefined> = {
+    ...(fallbackMetadata ?? {}),
+    ...(sub.metadata ?? {}),
+  };
+  // Prefer subscription metadata when it carries owner/org info.
+  const effectiveMeta: Meta =
+    sub.metadata?.ownerId || sub.metadata?.orgId || sub.metadata?.orgSlug
+      ? sub.metadata
+      : mergedMeta;
+
+  const customerId =
+    typeof sub.customer === "string" ? sub.customer : (sub.customer as Stripe.Customer)?.id ?? null;
+
+  const { orgIds } = await resolveOwnerOrgIds(supabase, effectiveMeta, customerId);
+  if (orgIds.length === 0) {
+    console.error(`Webhook ${sub.id}: could not resolve org from metadata`);
+    return NextResponse.json({ error: "Could not resolve organization" }, { status: 500 });
+  }
+
+  const dbStatus = toDbStatus(sub.status, (sub as any).cancel_at_period_end === true);
+  let inferred = inferPlanFromSubscription(sub);
+  if (!inferred && dbStatus === "active") {
+    // Old subscriptions without metadata/price info: keep the current owner plan
+    // instead of dropping to Free.
+    const { data: rows } = await supabase
+      .from("organizations")
+      .select("subscription_plan, subscription_status")
+      .in("id", orgIds);
+    const current = computeOwnerPlan((rows as Array<{ subscription_plan?: unknown; subscription_status?: unknown }> | null) ?? []);
+    inferred = current === "free" ? null : current;
+  }
+  const plan = toDbPlan(inferred, dbStatus);
+
+  const { error: updateError } = await applySubscriptionToOwnerOrgs(supabase, orgIds, {
+    plan,
+    status: dbStatus,
+    subscriptionId: sub.id,
+    customerId,
+    periodEnd: periodEndIso((sub as { current_period_end?: unknown }).current_period_end),
+  });
+
+  if (updateError) {
+    console.error(`Webhook ${sub.id}: db update failed`, updateError);
+    return NextResponse.json({ error: "Failed to persist subscription" }, { status: 500 });
+  }
+
+  console.log(`Subscription ${sub.id} for ${orgIds.length} org(s): ${dbStatus} (${plan})`);
+  return NextResponse.json({ received: true });
 }
 
 export async function POST(request: Request) {
@@ -57,74 +169,37 @@ export async function POST(request: Request) {
   try {
     const supabase = createAdminClient();
 
-  // ─── Subscription lifecycle events ────────────────────────────────────────
+  // ─── Subscription lifecycle events (owner-wide fan-out) ───────────────────
   if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
     const sub = event.data.object as Stripe.Subscription & { current_period_end?: number };
-    const orgSlug = await resolveOrgSlug(supabase, sub.metadata);
-
-    if (!orgSlug) {
-      console.error(`Webhook ${sub.id}: could not resolve org from metadata`);
-      return NextResponse.json({ error: "Could not resolve organization" }, { status: 500 });
-    }
-      const shouldCancel = (sub as any).cancel_at_period_end === true && sub.status === "active";
-      const status = shouldCancel
-        ? "canceled"
-        : sub.status === "active"
-          ? "active"
-          : sub.status === "past_due"
-            ? "past_due"
-            : "canceled";
-      // Canceling is immediate: a canceled subscription always drops to Free,
-      // never keeps its paid plan for a grace period.
-      const plan = status === "canceled" ? "free" : ((sub.metadata?.plan as "pro" | "max") || "free");
-      const periodEnd = sub.current_period_end
-        ? new Date(sub.current_period_end * 1000).toISOString()
-        : null;
-
-      const { error: updateError } = await supabase
-        .from("organizations")
-        .update({
-          stripe_subscription_id: sub.id,
-          stripe_customer_id: sub.customer as string,
-          subscription_status: status,
-          subscription_plan: plan,
-          subscription_current_period_end: periodEnd,
-        })
-        .eq("slug", orgSlug);
-
-      if (updateError) {
-        console.error(`Webhook ${sub.id}: db update failed`, updateError);
-        return NextResponse.json({ error: "Failed to persist subscription" }, { status: 500 });
-      }
-
-      console.log(`Subscription ${sub.id} for org ${orgSlug}: ${status} (${plan})`);
+    return await applySubscriptionEvent(supabase, sub);
   }
 
   else if (event.type === "customer.subscription.deleted") {
     const sub = event.data.object as Stripe.Subscription;
-    const orgSlug = await resolveOrgSlug(supabase, sub.metadata);
+    const customerId =
+      typeof sub.customer === "string" ? sub.customer : (sub.customer as Stripe.Customer)?.id ?? null;
+    const { orgIds } = await resolveOwnerOrgIds(supabase, sub.metadata as Meta, customerId);
 
-    if (orgSlug) {
-      const { error: updateError } = await supabase
-        .from("organizations")
-        .update({
-          subscription_status: "canceled",
-          subscription_plan: "free",
-          stripe_subscription_id: null,
-          // preserve current_period_end — don't null it out
-        })
-        .eq("slug", orgSlug);
+    if (orgIds.length > 0) {
+      const { error: updateError } = await applySubscriptionToOwnerOrgs(supabase, orgIds, {
+        plan: "free",
+        status: "canceled",
+        subscriptionId: null,
+        customerId,
+        periodEnd: null,
+      });
 
       if (updateError) {
         console.error(`Webhook ${sub.id}: db update failed`, updateError);
         return NextResponse.json({ error: "Failed to persist cancellation" }, { status: 500 });
       }
 
-      console.log(`Subscription ${sub.id} for org ${orgSlug} canceled`);
+      console.log(`Subscription ${sub.id} canceled for ${orgIds.length} org(s)`);
     }
   }
 
-  // ─── Guest cart checkout: mark the order paid so it hits the kitchen queue ─
+  // ─── Checkout completed ───────────────────────────────────────────────────
   else if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     if (session.metadata?.type === "guest_order" && session.metadata?.orderId) {
@@ -138,6 +213,45 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Failed to persist order payment" }, { status: 500 });
       }
       console.log(`Guest order ${session.metadata.orderId} paid`);
+    } else if (
+      session.metadata?.type === "subscription" ||
+      session.mode === "subscription" ||
+      session.subscription
+    ) {
+      // Owner-wide subscription purchase: the Subscription object is created
+      // asynchronously, so reconcile here from session metadata.
+      const subId =
+        typeof session.subscription === "string"
+          ? session.subscription
+          : (session.subscription as Stripe.Subscription | null)?.id ?? null;
+      if (subId) {
+        try {
+          const sub = (await stripe.subscriptions.retrieve(subId)) as Stripe.Subscription & {
+            current_period_end?: number;
+          };
+          return await applySubscriptionEvent(supabase, sub, session.metadata as Meta);
+        } catch (err) {
+          console.error(`Webhook ${session.id}: subscription retrieve failed`, err);
+          return NextResponse.json({ error: "Failed to persist subscription" }, { status: 500 });
+        }
+      }
+      // No subscription id yet (edge): fall back to customer mapping so a
+      // later subscription.created event can still resolve.
+      const customerId =
+        typeof session.customer === "string" ? session.customer : null;
+      if (customerId && (session.metadata?.ownerId || session.metadata?.orgId || session.metadata?.orgSlug)) {
+        const { orgIds } = await resolveOwnerOrgIds(
+          supabase,
+          session.metadata as Meta,
+          customerId,
+        );
+        if (orgIds.length > 0) {
+          await supabase
+            .from("organizations")
+            .update({ stripe_customer_id: customerId })
+            .in("id", orgIds);
+        }
+      }
     }
   }
 

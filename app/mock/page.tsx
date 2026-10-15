@@ -635,12 +635,12 @@ function RestaurantsSection() {
             See live restaurant portals powered by our platform across Dubai, Abu Dhabi, and beyond.
           </p>
         </div>
-        <Link href="/restaurants" className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-orange-400 hover:text-orange-300 transition-colors">
+        <a href="/#restaurants" className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-orange-400 hover:text-orange-300 transition-colors">
           <span>View Full Directory</span>
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
           </svg>
-        </Link>
+        </a>
       </div>
 
       {loading ? (

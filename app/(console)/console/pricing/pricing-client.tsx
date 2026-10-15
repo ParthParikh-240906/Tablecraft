@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PLAN_ANNUAL_AED, PLAN_MONTHLY_AED, getAnnualMonthlyEquivalent, getAnnualSavings, type BillingInterval, type PaidPlanKey } from "@/lib/pricing";
 import { OWNER_QUOTAS } from "@/lib/owner-quotas";
@@ -32,13 +31,17 @@ export function PricingClient({
   userEmail,
   orgs,
   accessDeniedOrgName,
+  ownerPlan,
+  ownerOrgCount,
 }: {
   activeOrgId: string;
   userEmail: string;
   orgs: OrgMetricData[];
   accessDeniedOrgName?: string | null;
+  /** Owner-wide plan: ONE plan covers ALL restaurants. */
+  ownerPlan: "free" | "pro" | "max";
+  ownerOrgCount: number;
 }) {
-  const [selectedOrgId, setSelectedOrgId] = useState<string>(activeOrgId || orgs[0]?.id || "");
   const [loadingPlan, setLoadingPlan] = useState<PaidPlanKey | "cancel" | "sync" | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [hasCanceled, setHasCanceled] = useState(false);
@@ -67,11 +70,21 @@ export function PricingClient({
         await new Promise((r) => setTimeout(r, 2000));
         router.refresh();
       }
+      // Done polling: drop ?checkout=done so a revisit doesn't look "stuck".
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("checkout");
+        window.history.replaceState(null, "", url.toString());
+      } catch {
+        // non-fatal
+      }
     };
     void poll();
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const selectedOrg = orgs.find((o) => o.id === selectedOrgId) || orgs[0];
+  // Billing anchor: one org is used for the Stripe anchor + success URL,
+  // but the purchased plan covers EVERY owned restaurant (owner-wide).
+  const anchorOrg = orgs.find((o) => o.id === activeOrgId) || orgs[0];
   const noOrgs = !orgs || orgs.length === 0;
 
   if (noOrgs) {
@@ -91,7 +104,7 @@ export function PricingClient({
   const totalCombinedTables = orgs.reduce((acc, o) => acc + o.totalTablesCount, 0);
 
   const handleUpgrade = async (plan: PaidPlanKey) => {
-    if (!selectedOrg) return;
+    if (!anchorOrg) return;
     setErrorMsg(null);
     setLoadingPlan(plan);
 
@@ -101,8 +114,8 @@ export function PricingClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           plan,
-          orgId: selectedOrg.id,
-          orgSlug: selectedOrg.slug,
+          orgId: anchorOrg.id,
+          orgSlug: anchorOrg.slug,
           email: userEmail,
           billing,
           // Deliberate purchase from the pricing page: always open Stripe
@@ -133,14 +146,14 @@ export function PricingClient({
   };
 
   const handleSyncPlan = async () => {
-    if (!selectedOrg) { setErrorMsg("No restaurant selected."); return; }
+    if (!anchorOrg) { setErrorMsg("No restaurant found."); return; }
     setErrorMsg(null);
     setLoadingPlan("sync");
     try {
       const res = await fetch("/api/subscription/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgSlug: selectedOrg.slug }),
+        body: JSON.stringify({ orgSlug: anchorOrg.slug }),
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || "Sync failed");
@@ -154,14 +167,14 @@ export function PricingClient({
   };
 
   const handleCancel = async () => {
-    if (!selectedOrg) return;
-    if (!window.confirm(`Cancel your ${selectedOrg.plan.toUpperCase()} plan? Your plan will switch to Free immediately.`)) return;
+    if (!anchorOrg) return;
+    if (!window.confirm(`Cancel your ${ownerPlan.toUpperCase()} plan? All ${ownerOrgCount} restaurant(s) will switch to Free immediately.`)) return;
     setLoadingPlan("cancel");
     try {
       const res = await fetch("/api/subscription/cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgSlug: selectedOrg.slug }),
+        body: JSON.stringify({ orgSlug: anchorOrg.slug }),
       });
       const data = await res.json();
       if (!res.ok || data.error) {
@@ -186,7 +199,7 @@ export function PricingClient({
             Pricing, Upgrades & Earnings
           </h1>
           <p className="text-xs text-[var(--ink-soft)] mt-1">
-            Review performance and aggregate revenue across all your restaurants, and upgrade subscription tiers.
+            One plan covers all your restaurants. Review performance and aggregate revenue, then upgrade once.
           </p>
         </div>
       </div>
@@ -261,23 +274,19 @@ export function PricingClient({
               <thead>
                 <tr className="border-b border-[var(--rule)] text-[var(--ink-faint)] font-mono text-[10px] uppercase tracking-wider bg-[var(--paper)]/50">
                   <th className="py-2.5 px-4">Restaurant</th>
-                  <th className="py-2.5 px-4">Plan Tier</th>
+                  <th className="py-2.5 px-4">Coverage</th>
                   <th className="py-2.5 px-4 text-right">Revenue (AED)</th>
                   <th className="py-2.5 px-4 text-right">Paid Orders</th>
                   <th className="py-2.5 px-4 text-right">Bookings</th>
                   <th className="py-2.5 px-4 text-right">Tables</th>
-                  <th className="py-2.5 px-4 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--rule)]">
                 {orgs.map((org) => {
-                  const isSelected = org.id === selectedOrg?.id;
                   return (
                     <tr
                       key={org.id}
-                      className={`hover:bg-[var(--paper)]/60 transition-colors ${
-                        isSelected ? "bg-[var(--accent)]/5" : ""
-                      }`}
+                      className="hover:bg-[var(--paper)]/60 transition-colors"
                     >
                       <td className="py-3 px-4 font-medium text-[var(--ink)]">
                         <div className="flex items-center gap-2.5">
@@ -301,14 +310,14 @@ export function PricingClient({
                       <td className="py-3 px-4">
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                            org.plan === "max"
+                            ownerPlan === "max"
                               ? "bg-purple-500/15 text-purple-400 border-purple-500/30"
-                              : org.plan === "pro"
+                              : ownerPlan === "pro"
                               ? "bg-[var(--accent)]/15 text-[var(--accent)] border-[var(--accent)]/30"
                               : "bg-stone-500/15 text-stone-400 border-stone-500/30"
                           }`}
                         >
-                          {org.plan}
+                          {ownerPlan} · covered
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-semibold text-[var(--ink)]">
@@ -323,19 +332,6 @@ export function PricingClient({
                       <td className="py-3 px-4 text-right font-mono text-[var(--ink-soft)]">
                         {org.totalTablesCount}
                       </td>
-                      <td className="py-3 px-4 text-center">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedOrgId(org.id)}
-                          className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all ${
-                            isSelected
-                              ? "bg-[var(--accent)] text-white font-semibold"
-                              : "border border-[var(--rule)] text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--paper)]"
-                          }`}
-                        >
-                          {isSelected ? "Selected" : "Select"}
-                        </button>
-                      </td>
                     </tr>
                   );
                 })}
@@ -345,54 +341,38 @@ export function PricingClient({
         </div>
       </section>
 
-      {/* ── Section 2: Plan Upgrade & Tier Selector ─────────────────── */}
+      {/* ── Section 2: Plan Upgrade (owner-wide) ────────────────────── */}
       <section className="space-y-6 pt-4 border-t border-[var(--rule)]">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="font-display text-lg font-semibold text-[var(--ink)] flex items-center gap-2">
-              <span>💳</span> Upgrade Plan for: <span className="text-[var(--accent)]">{selectedOrg?.name}</span>
+              <span>💳</span> Your Plan — covers all {ownerOrgCount} restaurant{ownerOrgCount === 1 ? "" : "s"}
             </h2>
             <p className="text-xs text-[var(--ink-soft)] mt-1">
-              Select a restaurant to upgrade, unlock AI features, automated table combining, and high-capacity ordering.
+              One upgrade unlocks AI features, automated table combining, and high-capacity ordering everywhere.
             </p>
-          </div>
-
-          {/* Restaurant Selector Dropdown */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-[var(--ink-soft)]">Target Restaurant:</span>
-            <select
-              value={selectedOrgId}
-              onChange={(e) => setSelectedOrgId(e.target.value)}
-              className="input text-xs py-1.5 px-3 border border-[var(--rule)] bg-[var(--paper)] text-[var(--ink)] rounded"
-            >
-              {orgs.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name} ({o.plan.toUpperCase()})
-                </option>
-              ))}
-            </select>
           </div>
         </div>
 
         {/* Active Plan Notification Bar */}
-        {selectedOrg && (
+        {anchorOrg && (
           <div className="ticket p-4 border border-[var(--rule)] bg-[var(--paper)] flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="text-lg">✨</span>
               <div>
                 <p className="text-xs font-semibold text-[var(--ink)]">
-                  {selectedOrg.name} is currently on the{" "}
-                  <span className="uppercase text-[var(--accent)] font-bold">{selectedOrg.plan}</span> Plan
+                  Your account is currently on the{" "}
+                  <span className="uppercase text-[var(--accent)] font-bold">{ownerPlan}</span> Plan
                 </p>
                 <p className="text-[11px] text-[var(--ink-faint)]">
-                  Subscription Status: <span className="font-mono">{selectedOrg.subscription_status}</span>
+                  Covers {ownerOrgCount} restaurant{ownerOrgCount === 1 ? "" : "s"} · Status: <span className="font-mono">{anchorOrg.subscription_status}</span>
                 </p>
               </div>
             </div>
 
-            {(selectedOrg.stripe_customer_id || selectedOrg.subscription_status === "active") && selectedOrg.subscription_status !== "free" && (
+            {(anchorOrg.stripe_customer_id || anchorOrg.subscription_status === "active") && anchorOrg.subscription_status !== "free" && (
               <>
-                {!selectedOrg.stripe_subscription_id && (
+                {!anchorOrg.stripe_subscription_id && (
                   <button
                     type="button"
                     onClick={handleSyncPlan}
@@ -402,7 +382,7 @@ export function PricingClient({
                     {loadingPlan === "sync" ? "Syncing…" : "Sync Plan Status"}
                   </button>
                 )}
-                {selectedOrg.stripe_subscription_id && selectedOrg.subscription_status !== "canceled" && (
+                {anchorOrg.stripe_subscription_id && anchorOrg.subscription_status !== "canceled" && (
                   <button
                     type="button"
                     onClick={handleCancel}
@@ -421,7 +401,7 @@ export function PricingClient({
           <div className="p-4 rounded bg-amber-500/10 border border-amber-500/30 text-amber-700 text-xs">
             <p className="font-semibold mb-1">Subscription Canceled</p>
             <p>
-              Your subscription has been canceled. {selectedOrg?.name ?? "Your restaurant"} is now on the Free plan.
+              Your subscription has been canceled. All your restaurants are now on the Free plan.
             </p>
           </div>
         )}
@@ -439,7 +419,7 @@ export function PricingClient({
           {/* Pro Tier Card */}
           <div
             className={`ticket p-6 border rounded-lg flex flex-col justify-between transition-all bg-[var(--paper-raised)] ${
-              selectedOrg?.plan === "pro"
+              ownerPlan === "pro"
                 ? "border-[var(--accent)] ring-2 ring-[var(--accent)]/20 shadow-md"
                 : "border-[var(--rule)] hover:border-stone-500"
             }`}
@@ -515,12 +495,12 @@ export function PricingClient({
             </div>
 
             <div className="pt-6 mt-6 border-t border-[var(--rule)]">
-              {selectedOrg?.plan === "pro" ? (
+              {ownerPlan === "pro" ? (
                 <button
                   disabled
                   className="w-full py-2.5 px-4 rounded text-xs font-semibold bg-[var(--paper)] text-[var(--ink-faint)] border border-[var(--rule)] cursor-default"
                 >
-                  ✓ Current Plan
+                  ✓ Current Plan — covers all restaurants
                 </button>
               ) : (
                 <button
@@ -529,7 +509,7 @@ export function PricingClient({
                   disabled={Boolean(loadingPlan)}
                   className="w-full py-2.5 px-4 rounded text-xs font-semibold bg-[var(--accent)] text-white hover:opacity-95 transition-all shadow-xs disabled:opacity-50"
                 >
-                  {loadingPlan === "pro" ? "Redirecting to Stripe…" : `${selectedOrg?.plan === "max" ? "Switch" : "Upgrade"} ${selectedOrg?.name ?? "Restaurant"} to Pro →`}
+                  {loadingPlan === "pro" ? "Redirecting to Stripe…" : `${ownerPlan === "max" ? "Switch" : "Upgrade"} to Pro — covers all restaurants →`}
                 </button>
               )}
             </div>
@@ -538,7 +518,7 @@ export function PricingClient({
           {/* Max Tier Card */}
           <div
             className={`ticket p-6 border rounded-lg flex flex-col justify-between transition-all bg-[var(--paper-raised)] ${
-              selectedOrg?.plan === "max"
+              ownerPlan === "max"
                 ? "border-purple-500 ring-2 ring-purple-500/20 shadow-md"
                 : "border-[var(--rule)] hover:border-purple-400"
             }`}
@@ -614,12 +594,12 @@ export function PricingClient({
             </div>
 
             <div className="pt-6 mt-6 border-t border-[var(--rule)]">
-              {selectedOrg?.plan === "max" ? (
+              {ownerPlan === "max" ? (
                 <button
                   disabled
                   className="w-full py-2.5 px-4 rounded text-xs font-semibold bg-[var(--paper)] text-[var(--ink-faint)] border border-[var(--rule)] cursor-default"
                 >
-                  ✓ Current Plan
+                  ✓ Current Plan — covers all restaurants
                 </button>
               ) : (
                 <button
@@ -628,7 +608,7 @@ export function PricingClient({
                   disabled={Boolean(loadingPlan)}
                   className="w-full py-2.5 px-4 rounded text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white transition-all shadow-xs disabled:opacity-50"
                 >
-                  {loadingPlan === "max" ? "Redirecting to Stripe…" : `${selectedOrg?.plan === "pro" ? "Upgrade" : "Switch"} ${selectedOrg?.name ?? "Restaurant"} to Max →`}
+                  {loadingPlan === "max" ? "Redirecting to Stripe…" : `${ownerPlan === "pro" ? "Upgrade" : "Switch"} to Max — covers all restaurants →`}
                 </button>
               )}
             </div>

@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { computeOwnerPlan } from "@/lib/billing";
 
 /**
  * GET /api/subscription/status?orgSlug=...
  *
- * Returns the current subscription plan and status for an organization.
- * Used by the console to gate features based on plan tier.
+ * Returns the current subscription plan and status for an organization,
+ * plus the owner-wide plan covering all restaurants the owner holds.
  * Requires a signed-in staff member of the org (billing data is sensitive).
  */
 export async function GET(request: Request) {
@@ -45,7 +46,7 @@ export async function GET(request: Request) {
     const { data: staffRows } = await admin
       .from("staff_users")
       .select("org_id")
-      .eq("org_id", orgIdRow.id)
+      .eq("org_id", (orgIdRow as { id: string }).id)
       .eq("auth_user_id", user.id);
     if (!staffRows || staffRows.length === 0) {
       return NextResponse.json({ error: "You do not have access to this restaurant" }, { status: 403 });
@@ -65,10 +66,54 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Organization not found" }, { status: 404 });
     }
 
+    const typed = org as {
+      subscription_plan?: string | null;
+      subscription_status?: string | null;
+      subscription_current_period_end?: string | null;
+    };
+
+    // Owner-wide plan: highest tier across every org this owner holds.
+    let ownerPlan: "free" | "pro" | "max" = (typed.subscription_plan as "free" | "pro" | "max" | null) ?? "free";
+    let ownerOrgCount = 1;
+    try {
+      const { data: ownerRow } = await admin
+        .from("staff_users")
+        .select("auth_user_id")
+        .eq("org_id", (orgIdRow as { id: string }).id)
+        .eq("role", "owner")
+        .limit(1)
+        .maybeSingle();
+      const ownerId = (ownerRow as { auth_user_id?: string } | null)?.auth_user_id;
+      if (ownerId) {
+        const { data: ownedLinks } = await admin
+          .from("staff_users")
+          .select("org_id")
+          .eq("auth_user_id", ownerId)
+          .eq("role", "owner");
+        const ids = ((ownedLinks as Array<{ org_id?: string }> | null) ?? [])
+          .map((r) => r.org_id)
+          .filter((id): id is string => !!id);
+        if (ids.length > 0) {
+          ownerOrgCount = ids.length;
+          const { data: ownedOrgs } = await admin
+            .from("organizations")
+            .select("subscription_plan, subscription_status")
+            .in("id", ids);
+          ownerPlan = computeOwnerPlan(
+            (ownedOrgs as Array<{ subscription_plan?: unknown; subscription_status?: unknown }> | null) ?? [],
+          );
+        }
+      }
+    } catch {
+      // Fall back to the single-org plan.
+    }
+
     return NextResponse.json({
-      plan: org.subscription_plan ?? "free",
-      status: org.subscription_status ?? "free",
-      periodEnd: org.subscription_current_period_end ?? null,
+      plan: typed.subscription_plan ?? "free",
+      status: typed.subscription_status ?? "free",
+      periodEnd: typed.subscription_current_period_end ?? null,
+      ownerPlan,
+      ownerOrgCount,
     });
   } catch (err) {
     console.error("subscription/status: unhandled", err);
