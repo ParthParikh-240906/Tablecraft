@@ -71,7 +71,8 @@ export function PreviewShell({
 
   // Scale the fixed-width frame down to fit the pane (never upscale — a wider
   // pane just centers the design frame with themed margins). Uses transform
-  // (not CSS `zoom`, which is unreliable in Safari after backgrounding).
+  // scale: sticky/fixed elements and tab-switch remeasure stay correct, and
+  // anchor scrolling is browser-native (see the nav guard), so no paint tears.
   useEffect(() => {
     const el = paneRef.current;
     if (!el) return;
@@ -118,9 +119,10 @@ export function PreviewShell({
   // the pane with the page background (unchanged).
   const staged = device !== "desktop";
   const safeScale = scale > 0 ? scale : 1;
-  // Transform (not zoom): layout size stays frameWidth × previewHeight/scale,
-  // rendered size exactly fills the pane. The iframe owns ALL scrolling, so
-  // sticky headers inside the built site stick exactly like the live site.
+  // Transform scale (not CSS zoom): zoom breaks inner position:fixed/sticky
+  // whenever the scale is not exactly 1 (desktop-only symptom), while the
+  // guard's native fragment navigation avoids scripted-scroll paint tears.
+  // Rendered size always fills the pane exactly: (previewHeight/scale)*scale.
   const frameStyle: CSSProperties = {
     width: `${frameWidth}px`,
     height: `${previewHeight / safeScale}px`,

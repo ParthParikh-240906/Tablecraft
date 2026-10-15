@@ -29,11 +29,13 @@ describe("withBuiltSiteGuards", () => {
     expect(out).toContain("scrollIntoView");
   });
 
-  it("guard scrolls instantly inside the scaled preview, smoothly on live", () => {
+  it("guard navigates natively in preview, smooth-scrolls on live", () => {
     const out = withBuiltSiteGuards("<html><body></body></html>");
-    // Preview marker gates a single synchronous scroll (no torn paint tiles).
+    // Preview branch: browser-native fragment navigation repaints like a
+    // manual scroll under the scaled frame; live keeps smooth scrollIntoView.
     expect(out).toContain("data-tc-preview-chrome");
-    expect(out).toContain('preview?"auto":"smooth"');
+    expect(out).toContain("location.replace(href)");
+    expect(out).toContain('"smooth"');
   });
 });
 

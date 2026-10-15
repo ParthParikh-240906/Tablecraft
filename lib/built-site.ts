@@ -12,13 +12,16 @@
  * that keeps fragment navigation in-document:
  *  - href="#/cart" (or any "#/...") → preventDefault + set location.hash
  *    directly (fires hashchange, no navigation) so the cart router runs.
- *  - href="#<id>" → preventDefault + scroll the matching element into view.
+ *  - href="#<id>" in the console preview → native fragment navigation via
+ *    location.replace (repaints like a manual scroll under the scaled frame,
+ *    no history spam; missing targets do nothing instead of navigating away).
+ *  - href="#<id>" on the live site → preventDefault + smooth scrollIntoView.
  *  - everything else (http(s), /paths) → untouched.
  */
 
 const NAV_GUARD_MARKER = "data-tc-nav-guard";
 
-const NAV_GUARD_SCRIPT = `<script ${NAV_GUARD_MARKER}>(function(){var preview=false;try{preview=!!document.querySelector('[data-tc-preview-chrome]');}catch(_){}document.addEventListener("click",function(e){var t=e.target;if(!t||!t.closest)return;var a=t.closest('a[href^="#"]');if(!a)return;var href=a.getAttribute("href");if(!href||href.length<2)return;if(href.charAt(1)==="/"){e.preventDefault();try{location.hash=href.slice(1);}catch(_){}return;}var id=decodeURIComponent(href.slice(1));var el=id&&document.getElementById(id);if(el){e.preventDefault();try{el.scrollIntoView({behavior:preview?"auto":"smooth",block:"start"});}catch(_){el.scrollIntoView();}try{history.replaceState(null,"","#"+id);}catch(_){}}},true);})();</script>`;
+const NAV_GUARD_SCRIPT = `<script ${NAV_GUARD_MARKER}>(function(){document.addEventListener("click",function(e){var t=e.target;if(!t||!t.closest)return;var a=t.closest('a[href^="#"]');if(!a)return;var href=a.getAttribute("href");if(!href||href.length<2)return;if(href.charAt(1)==="/"){e.preventDefault();try{location.hash=href.slice(1);}catch(_){}return;}var id=decodeURIComponent(href.slice(1));var el=id&&document.getElementById(id);var pv=false;try{pv=!!document.querySelector('[data-tc-preview-chrome]');}catch(_){}if(pv){e.preventDefault();if(!el)return;try{location.replace(href);}catch(_){}return;}if(el){e.preventDefault();try{el.scrollIntoView({behavior:"smooth",block:"start"});}catch(_){el.scrollIntoView();}try{history.replaceState(null,"","#"+id);}catch(_){}}},true);})();</script>`;
 
 /** Inject the nav guard before </body> (or append). Idempotent. */
 export function withBuiltSiteGuards(html: string): string {

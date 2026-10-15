@@ -263,6 +263,8 @@ export async function POST(request: NextRequest) {  const rl = rateLimit(`chat-b
     orgId?: string;
     /** Built-site bots send true: create the booking server-side once complete. */
     autoBook?: boolean;
+    /** Echo of the last offered combo tables (lets "yes" book exact ids). */
+    pendingTables?: unknown;
   };
   try {
     body = await request.json();
@@ -309,6 +311,149 @@ export async function POST(request: NextRequest) {  const rl = rateLimit(`chat-b
   const dubaiTomorrow = addDaysYMD(dubaiToday, 1);
 
   // ===================================================================
+  // Combo fast-path: reply to a pending multi-table offer.
+  // Typed confirmations ("yes", "Table 1 + Table 2") must book with the
+  // offered tableIds — the normal extraction path would re-run autoBook
+  // WITHOUT tableIds and loop the offer forever (or corrupt the name slot
+  // with table text). Deterministic: no LLM calls on these turns, so a
+  // model outage can never break the confirmation step.
+  // ===================================================================
+  const {
+    sanitizeComboTables,
+    lastAssistantText,
+    classifyComboReply,
+    matchComboTables,
+    comboLabels,
+    COMBO_OFFER_MARKER,
+  } = await import("@/lib/chat-combo");
+  const echoTables = sanitizeComboTables((body as { pendingTables?: unknown })?.pendingTables);
+  const lastBot = lastAssistantText(safeHistory);
+  // History marker covers unpatched clients (the offer suffix is appended
+  // only to combo replies, so its presence proves an offer is pending).
+  const comboOffered = echoTables.length > 0 || lastBot.includes(COMBO_OFFER_MARKER);
+  const comboSlotsReady =
+    !!currentSlots.name &&
+    typeof currentSlots.party_size === "number" &&
+    !!currentSlots.date &&
+    !!currentSlots.time;
+
+  async function postBookings(payload: Record<string, unknown>): Promise<{ ok: boolean; data: any }> {
+    const res = await fetch(`${new URL(request.url).origin}/api/bookings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    return { ok: res.ok, data: await res.json().catch(() => null) };
+  }
+  function comboDateTime(): string {
+    const local = new Date(`${currentSlots.date}T${currentSlots.time}:00+04:00`);
+    return isNaN(local.getTime()) ? `${currentSlots.date}T${currentSlots.time}` : local.toISOString();
+  }
+  async function findExistingComboBooking(): Promise<string | null> {
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const admin = createAdminClient();
+      let resolvedId: string | null = orgId;
+      if (!resolvedId && orgSlug) {
+        const { data } = await admin.from("organizations").select("id").eq("slug", orgSlug).maybeSingle();
+        resolvedId = (data as { id?: string } | null)?.id ?? null;
+      }
+      if (!resolvedId) return null;
+      const { data: existing } = await admin
+        .from("bookings")
+        .select("id")
+        .eq("org_id", resolvedId)
+        .eq("customer_name", currentSlots.name)
+        .eq("datetime", comboDateTime())
+        .in("status", ["confirmed", "pending"])
+        .limit(1)
+        .maybeSingle();
+      return (existing as { id: string } | null)?.id ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (comboOffered && comboSlotsReady) {
+    const verdict = classifyComboReply(message);
+    if (verdict === "deny") {
+      return NextResponse.json({
+        slots: currentSlots,
+        response:
+          "No problem — I won't book those tables. Want to try a different time or party size, or use the booking form on this page?",
+        complete: true,
+        comboCleared: true,
+      });
+    }
+    if (verdict === "affirm" || typeof verdict === "object") {
+      // Fresh offer when the client sent none (unpatched) — same slots, so
+      // the same combo comes back unless availability changed.
+      let tables = echoTables;
+      if (tables.length === 0) {
+        const fresh = await postBookings({
+          ...(orgSlug ? { orgSlug } : { orgId }),
+          customerName: currentSlots.name,
+          partySize: currentSlots.party_size,
+          datetime: comboDateTime(),
+        });
+        if (fresh.ok && fresh.data?.needsConfirmation && Array.isArray(fresh.data.tables)) {
+          tables = sanitizeComboTables(fresh.data.tables);
+        }
+      }
+      const target = verdict === "affirm" ? tables : matchComboTables(verdict.pick, tables);
+      if (target.length > 0) {
+        const dup = await findExistingComboBooking();
+        if (dup) {
+          return NextResponse.json({
+            slots: currentSlots,
+            response: `You're already booked, ${currentSlots.name} — table for ${currentSlots.party_size} on ${currentSlots.date} at ${currentSlots.time}. Show this confirmation at the restaurant.`,
+            complete: true,
+            bookingId: dup,
+            comboCleared: true,
+          });
+        }
+        const booked = await postBookings({
+          ...(orgSlug ? { orgSlug } : { orgId }),
+          customerName: currentSlots.name,
+          partySize: currentSlots.party_size,
+          datetime: comboDateTime(),
+          tableIds: target.map((t) => t.id),
+        });
+        const id = booked.data?.booking?.id ?? booked.data?.id;
+        if (booked.ok && typeof id === "string") {
+          return NextResponse.json({
+            slots: currentSlots,
+            response:
+              `Done, ${currentSlots.name} — I've reserved ${comboLabels(target)} for ${currentSlots.party_size} ` +
+              `on ${currentSlots.date} at ${currentSlots.time}. Show this confirmation at the restaurant — we look forward to seeing you.`,
+            complete: true,
+            bookingId: id,
+            comboCleared: true,
+          });
+        }
+        return NextResponse.json({
+          slots: currentSlots,
+          response:
+            `I couldn't lock ${comboLabels(target)} just now (${(booked.data?.error as string) ?? "unavailable"}). ` +
+            `Nothing is booked — reply "yes" to try again or use the booking form on this page.`,
+          complete: true,
+        });
+      }
+      if (typeof verdict === "object") {
+        // Named tables we couldn't match — ask for a clean yes/no instead of
+        // running extraction on table text (which corrupts the name slot).
+        return NextResponse.json({
+          slots: currentSlots,
+          response: `Just to confirm — reply "yes" to book ${comboLabels(tables)}, "no" to skip, or tap Confirm above.`,
+          complete: true,
+        });
+      }
+      // Affirm with no tables to book: fall through to the normal path.
+    }
+    // 'other' falls through to normal extraction below.
+  }
+
+  // ===================================================================
   // Call 1: Extract slots from user message
   // ===================================================================
   const messages1 = [
@@ -330,9 +475,12 @@ export async function POST(request: NextRequest) {  const rl = rateLimit(`chat-b
     return NextResponse.json({ error: "AI service unavailable" }, { status: 503 });
   }
 
-  // Merge slots
+  // Merge slots. Guard: in combo context a table reference ("Table 1 + Table 2")
+  // is a pick, never a customer name — it must not overwrite the real name.
+  const rawName = typeof extracted.name === "string" ? extracted.name : null;
+  const nameIsTableRef = comboOffered && !!rawName && /table\s*#?\s*\d/i.test(rawName);
   const updatedSlots: SlotState = {
-    name: typeof extracted.name === "string" ? extracted.name : currentSlots.name,
+    name: !nameIsTableRef && typeof extracted.name === "string" ? extracted.name : currentSlots.name,
     party_size: typeof extracted.party_size === "number" ? extracted.party_size : currentSlots.party_size,
     date: typeof extracted.date === "string" ? extracted.date : currentSlots.date,
     time: typeof extracted.time === "string" ? normalizeTime(extracted.time) : currentSlots.time,
