@@ -278,45 +278,43 @@ export default function CreateRestaurantPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12 bg-[var(--paper)] text-[var(--ink)]">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12 bg-white text-neutral-950">
       {submitting && buildStage && (
         <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center px-6"
           role="status"
           aria-live="polite"
           aria-label="Creating your restaurant"
-          style={{ backgroundColor: "color-mix(in srgb, var(--paper) 92%, transparent)" }}
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center px-6 bg-white/95 text-neutral-950"
         >
           <style>{`@keyframes tc-load-slide { 0% { transform: translateX(-110%); } 100% { transform: translateX(320%); } }`}</style>
-          <p className="font-display text-xl tracking-tight">Tablecraft</p>
+          <div className="flex flex-col items-center rounded-3xl bg-neutral-100 border border-black px-10 py-10 w-full max-w-sm">
+          <p className="font-display text-[22px] tracking-tight">Tablecraft</p>
           <div
-            className="mt-4 h-10 w-10 rounded-full border-2 border-t-transparent animate-spin"
-            style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }}
+            className="mt-4 h-10 w-10 rounded-full border-2 border-[#d45200] border-t-transparent animate-spin"
             aria-hidden="true"
           />
-          <p className="mt-4 text-sm font-medium">
+          <p className="mt-4 text-[15px] font-medium">
             {buildStage === "creating" && "Creating your restaurant…"}
             {buildStage === "building" && "Building your website with AI…"}
             {buildStage === "finalizing" && "Connecting to console…"}
           </p>
-          <p className="mt-1 text-xs" style={{ color: "var(--ink-faint)" }}>
+          <p className="mt-1 text-xs text-neutral-500 text-center">
             {buildStage === "building"
               ? "Building your site and connecting it to the console — usually a few minutes. Hang tight."
               : "This only takes a moment."}
           </p>
           {/* Indeterminate progress bar */}
           <div
-            className="mt-5 h-1.5 w-64 max-w-full overflow-hidden rounded-full"
-            style={{ backgroundColor: "color-mix(in srgb, var(--ink) 12%, transparent)" }}
+            className="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-neutral-200"
             aria-hidden="true"
           >
             <div
-              className="h-full w-1/3 rounded-full"
-              style={{ backgroundColor: "var(--accent)", animation: "tc-load-slide 1.4s ease-in-out infinite" }}
+              className="h-full w-1/3 rounded-full bg-[#d45200]"
+              style={{ animation: "tc-load-slide 1.4s ease-in-out infinite" }}
             />
           </div>
           {/* Stage checklist */}
-          <ul className="mt-6 space-y-1.5 text-xs" style={{ color: "var(--ink-soft)" }} aria-hidden="true">
+          <ul className="mt-6 space-y-1.5 text-xs text-neutral-600" aria-hidden="true">
             {(
               [
                 ["creating", "Creating restaurant"],
@@ -329,20 +327,21 @@ export default function CreateRestaurantPage() {
               const active = buildStage === stage;
               return (
                 <li key={stage} className="flex items-center gap-2">
-                  <span style={{ color: done ? "var(--accent)" : active ? "var(--ink)" : "var(--ink-faint)" }}>
+                  <span className={done ? "text-[#d45200]" : active ? "text-neutral-950" : "text-neutral-400"}>
                     {done ? "✓" : active ? "●" : "○"}
                   </span>
-                  <span style={active ? { color: "var(--ink)", fontWeight: 600 } : undefined}>{label}</span>
+                  <span className={active ? "text-neutral-950 font-semibold" : undefined}>{label}</span>
                 </li>
               );
             })}
           </ul>
+          </div>
         </div>
       )}
       <div className="w-full max-w-md mb-6">
         <Link
           href="/dashboard"
-          className="inline-flex items-center text-xs font-sans tracking-widest uppercase font-medium text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors"
+          className="inline-flex items-center text-xs font-sans tracking-widest uppercase font-medium text-neutral-500 hover:text-neutral-950 transition-colors"
         >
           ← Back to Dashboard
         </Link>
@@ -352,19 +351,19 @@ export default function CreateRestaurantPage() {
         {!createdOrg && (
         <>
         <div className="text-center mb-8">
-          <p className="label-caps text-[color:var(--accent)] mb-1">Tablecraft</p>
-          <h1 className="font-display text-3xl text-[var(--ink)]">Create your restaurant</h1>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#d45200] mb-1">Tablecraft</p>
+          <h1 className="font-display text-3xl text-neutral-950">Create your restaurant</h1>
           {selectedPlan && (
-            <p className="text-sm text-[var(--ink-soft)] mt-2">
-              You&apos;re signing up for the <span className="font-semibold text-[var(--accent)]">{selectedPlan === "pro" ? "Pro" : "Max"}</span> plan — payment required to activate.
+            <p className="text-sm text-neutral-600 mt-2">
+              You&apos;re signing up for the <span className="font-semibold text-[#d45200]">{selectedPlan === "pro" ? "Pro" : "Max"}</span> plan — payment required to activate.
             </p>
           )}
-          <p className="text-sm text-[var(--ink-soft)] mt-2">
+          <p className="text-sm text-neutral-600 mt-2">
             Get a public menu, reservations, and online ordering.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="ticket p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="rounded-3xl bg-neutral-100 border border-black p-6 space-y-5">
           <div>
             <label htmlFor="orgName" className="block text-sm font-medium mb-1.5">
               Restaurant name
@@ -377,13 +376,13 @@ export default function CreateRestaurantPage() {
               required
               minLength={2}
               placeholder="Bella Napoli"
-              className="input placeholder:text-[var(--ink-faint)]"
+              className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors placeholder:text-neutral-400"
             />
           </div>
 
           <div>
             <label htmlFor="tagline" className="block text-sm font-medium mb-1.5">
-              Tagline <span className="text-[var(--ink-faint)]">(optional)</span>
+              Tagline <span className="text-neutral-500">(optional)</span>
             </label>
             <input
               id="tagline"
@@ -392,9 +391,9 @@ export default function CreateRestaurantPage() {
               onChange={(e) => setTagline(e.target.value)}
               maxLength={120}
               placeholder="Fresh food, warm welcome."
-              className="input placeholder:text-[var(--ink-faint)]"
+              className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors placeholder:text-neutral-400"
             />
-            <p className="text-xs text-[var(--ink-faint)] mt-1">
+            <p className="text-xs text-neutral-500 mt-1">
               A short one-line tagline displayed on your landing page.
             </p>
           </div>
@@ -403,8 +402,8 @@ export default function CreateRestaurantPage() {
             <label htmlFor="slug" className="block text-sm font-medium mb-1.5">
               Your public URL
             </label>
-            <div className="flex items-center input">
-              <span className="text-[var(--ink-faint)] select-none mr-1">/</span>
+            <div className="w-full flex items-center rounded-2xl border border-neutral-300 bg-white px-4 py-3 focus-within:border-black transition-colors">
+              <span className="text-neutral-500 select-none mr-1">/</span>
               <input
                 id="slug"
                 type="text"
@@ -416,10 +415,10 @@ export default function CreateRestaurantPage() {
                 required
                 pattern="[a-z0-9-]{2,40}"
                 placeholder="bella-napoli"
-                className="flex-1 bg-transparent text-[var(--ink)] placeholder:text-[var(--ink-faint)] outline-none"
+                className="flex-1 bg-transparent text-neutral-950 placeholder:text-neutral-400 outline-none"
               />
             </div>
-            <p className="text-xs text-[var(--ink-faint)] mt-1">
+            <p className="text-xs text-neutral-500 mt-1">
               Lowercase letters, numbers, and hyphens.
             </p>
           </div>
@@ -434,16 +433,16 @@ export default function CreateRestaurantPage() {
               value={email}
               readOnly
               placeholder="you@restaurant.com"
-              className="input opacity-70 cursor-not-allowed bg-[var(--paper-raised)]"
+              className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors opacity-70 cursor-not-allowed bg-neutral-100"
             />
-            <p className="text-xs text-[var(--ink-faint)] mt-1">
+            <p className="text-xs text-neutral-500 mt-1">
               Locked to your signed-in account.
             </p>
           </div>
 
           <div>
             <label htmlFor="consolePassword" className="block text-sm font-medium mb-1.5">
-              Console Password <span className="text-[var(--ink-faint)] font-normal">(optional)</span>
+              Console Password <span className="text-neutral-500 font-normal">(optional)</span>
             </label>
             <input
               id="consolePassword"
@@ -452,19 +451,19 @@ export default function CreateRestaurantPage() {
               onChange={(e) => setConsolePassword(e.target.value)}
               minLength={8}
               placeholder="••••••••"
-              className="input placeholder:text-[var(--ink-faint)]"
+              className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors placeholder:text-neutral-400"
             />
-            <p className="text-xs text-[var(--ink-faint)] mt-1">
+            <p className="text-xs text-neutral-500 mt-1">
               Optional separate password for the console. If set, you can log into the console with this password independently.
             </p>
           </div>
 
           {/* ── Staff Account Section ── */}
-          <div className="border-t border-[var(--rule)] pt-5 mt-2">
+          <div className="border-t border-neutral-200 pt-5 mt-2">
             <p className="text-sm font-medium mb-3">
-              Staff Account <span className="text-[var(--accent)]">*</span>
+              Staff Account <span className="text-[#d45200]">*</span>
             </p>
-            <p className="text-xs text-[var(--ink-faint)] mb-4">
+            <p className="text-xs text-neutral-500 mb-4">
               A staff account is required for your restaurant team to access the console.
             </p>
 
@@ -479,7 +478,7 @@ export default function CreateRestaurantPage() {
                 onChange={(e) => setStaffEmail(e.target.value)}
                 required
                 placeholder="staff@restaurant.com"
-                className="input placeholder:text-[var(--ink-faint)]"
+                className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors placeholder:text-neutral-400"
               />
             </div>
 
@@ -495,9 +494,9 @@ export default function CreateRestaurantPage() {
                 required
                 minLength={8}
                 placeholder="••••••••"
-                className="input placeholder:text-[var(--ink-faint)]"
+                className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors placeholder:text-neutral-400"
               />
-              <p className="text-xs text-[var(--ink-faint)] mt-1">
+              <p className="text-xs text-neutral-500 mt-1">
                 At least 8 characters. Used by staff to sign in to the console.
               </p>
             </div>
@@ -505,7 +504,7 @@ export default function CreateRestaurantPage() {
 
           <div>
             <label htmlFor="vibe" className="block text-sm font-medium mb-1.5">
-              Vibe / aesthetic <span className="text-[var(--accent)]">*</span>
+              Vibe / aesthetic <span className="text-[#d45200]">*</span>
             </label>
             <input
               id="vibe"
@@ -515,22 +514,22 @@ export default function CreateRestaurantPage() {
               required
               maxLength={200}
               placeholder="Cozy Italian trattoria, warm lights, rustic wood"
-              className="input placeholder:text-[var(--ink-faint)]"
+              className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors placeholder:text-neutral-400"
             />
-            <p className="text-xs text-[var(--ink-faint)] mt-1">
+            <p className="text-xs text-neutral-500 mt-1">
               Required — the build model applies this first.
             </p>
           </div>
 
           {/* Optional details dropdown */}
-          <details className="border-t border-[var(--rule)] pt-4">
-            <summary className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wide hover:text-[var(--ink)] transition-colors py-1 select-none">
+          <details className="border-t border-neutral-200 pt-4">
+            <summary className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-neutral-600 uppercase tracking-wide hover:text-neutral-950 transition-colors py-1 select-none">
               Optional Details
             </summary>
             <div className="space-y-4 pt-4">
               <div>
                 <label htmlFor="aboutText" className="block text-sm font-medium mb-1.5">
-                  About / story <span className="text-[var(--ink-faint)]">(optional — owner paragraph)</span>
+                  About / story <span className="text-neutral-500">(optional — owner paragraph)</span>
                 </label>
                 <textarea
                   id="aboutText"
@@ -539,9 +538,9 @@ export default function CreateRestaurantPage() {
                   rows={4}
                   maxLength={2000}
                   placeholder="Your story, cuisine, and atmosphere — used as the owner paragraph on the site..."
-                  className="input placeholder:text-[var(--ink-faint)]"
+                  className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors placeholder:text-neutral-400"
                 />
-                <p className="text-xs text-[var(--ink-faint)] mt-1">
+                <p className="text-xs text-neutral-500 mt-1">
                   If filled, the build model must use it. If empty, it writes one for you.
                 </p>
               </div>
@@ -557,13 +556,13 @@ export default function CreateRestaurantPage() {
                       value={branch}
                       onChange={(e) => handleBranchChange(index, e.target.value)}
                       placeholder="Abu Dhabi"
-                      className="input flex-1 placeholder:text-[var(--ink-faint)]"
+                      className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors flex-1 placeholder:text-neutral-400"
                     />
                     {branches.length > 1 && (
                       <button
                         type="button"
                         onClick={() => removeBranch(index)}
-                        className="px-2 py-1 text-xs text-red-400 hover:text-red-300"
+                        className="px-2 py-1 text-xs text-red-600 hover:text-red-700"
                       >
                         Remove
                       </button>
@@ -573,7 +572,7 @@ export default function CreateRestaurantPage() {
                 <button
                   type="button"
                   onClick={addBranch}
-                  className="text-xs text-[var(--accent)] hover:underline"
+                  className="text-xs text-[#d45200] hover:underline"
                 >
                   + Add another location
                 </button>
@@ -591,7 +590,7 @@ export default function CreateRestaurantPage() {
                     value={contactPhone}
                     onChange={(e) => setContactPhone(e.target.value)}
                     placeholder="+971 2 123 4567"
-                    className="input placeholder:text-[var(--ink-faint)]"
+                    className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors placeholder:text-neutral-400"
                   />
                 </div>
                 <div>
@@ -604,7 +603,7 @@ export default function CreateRestaurantPage() {
                     value={contactEmail}
                     onChange={(e) => setContactEmail(e.target.value)}
                     placeholder="info@restaurant.com"
-                    className="input placeholder:text-[var(--ink-faint)]"
+                    className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors placeholder:text-neutral-400"
                   />
                 </div>
                 <div>
@@ -617,7 +616,7 @@ export default function CreateRestaurantPage() {
                     value={contactAddress}
                     onChange={(e) => setContactAddress(e.target.value)}
                     placeholder="123 Main St, Dubai"
-                    className="input placeholder:text-[var(--ink-faint)]"
+                    className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors placeholder:text-neutral-400"
                   />
                 </div>
               </div>
@@ -633,7 +632,7 @@ export default function CreateRestaurantPage() {
                     type="file"
                     accept="image/*"
                     onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
-                    className="input"
+                    className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors"
                   />
                 </div>
                 <div>
@@ -645,9 +644,9 @@ export default function CreateRestaurantPage() {
                     type="file"
                     accept="image/*"
                     onChange={(e) => setHeroFile(e.target.files?.[0] || null)}
-                    className="input"
+                    className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors"
                   />
-                  <p className="text-xs text-[var(--ink-faint)] mt-1">
+                  <p className="text-xs text-neutral-500 mt-1">
                     Shown in the website hero section. Gallery photos are never reused for the hero.
                   </p>
                 </div>
@@ -661,9 +660,9 @@ export default function CreateRestaurantPage() {
                     accept="image/*"
                     multiple
                     onChange={(e) => setRestaurantImages(Array.from(e.target.files ?? []))}
-                    className="input"
+                    className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors"
                   />
-                  <p className="text-xs text-[var(--ink-faint)] mt-1">
+                  <p className="text-xs text-neutral-500 mt-1">
                     Upload one or more photos. They will be displayed as an auto-advancing carousel on your landing page.
                   </p>
                 </div>
@@ -672,7 +671,7 @@ export default function CreateRestaurantPage() {
           </details>
 
           {error && (
-            <p className="text-sm text-red-400 rounded-sm bg-red-900/40 px-3 py-2" role="alert">
+            <p className="text-sm text-red-600 rounded-2xl bg-red-50 px-3 py-2" role="alert">
               {error}
             </p>
           )}
@@ -680,7 +679,7 @@ export default function CreateRestaurantPage() {
           <button
             type="submit"
             disabled={submitting || redirecting || uploading}
-            className="btn btn-accent w-full"
+            className="w-full rounded-full bg-[#d45200] text-white text-[16px] font-semibold px-7 py-4 hover:bg-[#b54600] transition-colors disabled:opacity-50"
           >
             {submitting
               ? "Creating restaurant…"
@@ -693,42 +692,42 @@ export default function CreateRestaurantPage() {
         )}
 
         {createdOrg && (
-          <div className="ticket p-6 space-y-4 mt-6">
+          <div className="rounded-3xl bg-neutral-100 border border-black p-6 space-y-4 mt-6">
             <h2 className="font-display text-xl">Accept online payments</h2>
             {buildFailed && (
-              <p className="text-xs rounded-sm border border-amber-500/30 bg-amber-500/10 p-2.5 text-amber-300">
+              <p className="text-xs rounded-sm border border-[#d45200]/30 bg-orange-50 rounded-2xl p-3 text-[#b54600]">
                 The AI website build hit a snag — your restaurant was still created. Our team will finish the website setup, or contact support if it is still missing after a few minutes.
               </p>
             )}
-            <p className="text-sm text-[var(--ink-soft)]">
+            <p className="text-sm text-neutral-600">
               {createdOrg.slug} is created. Connect Stripe to take guest cart payments — a popup opens where you create a new Stripe account or sign into your existing one.
             </p>
             {connectStatus === "active" ? (
-              <p className="text-sm text-green-400">✓ Stripe connected — cart checkout is live.</p>
+              <p className="text-sm text-green-700">✓ Stripe connected — cart checkout is live.</p>
             ) : (
               <button
                 type="button"
                 onClick={connectStripe}
                 disabled={connecting}
-                className="btn btn-accent w-full disabled:opacity-50"
+                className="w-full rounded-full bg-[#d45200] text-white text-[16px] font-semibold px-7 py-4 hover:bg-[#b54600] transition-colors disabled:opacity-50"
               >
                 {connecting ? "Waiting for Stripe…" : "Connect Stripe"}
               </button>
             )}
-            {connectError && <p className="text-xs text-red-400">{connectError}</p>}
+            {connectError && <p className="text-xs text-red-600">{connectError}</p>}
             <button
               type="button"
               onClick={continueAfterCreate}
               disabled={redirecting}
-              className="btn btn-outline w-full"
+              className="w-full rounded-full border border-black bg-white text-neutral-950 text-[16px] font-semibold px-7 py-4 hover:bg-neutral-100 transition-colors disabled:opacity-50"
             >
               {connectStatus === "active" ? "Continue" : "Skip for now"}
             </button>
           </div>
         )}
 
-        <p className="text-xs text-center text-[var(--ink-faint)] mt-4">
-          <Link href="/" className="hover:text-[var(--ink)] transition-colors">
+        <p className="text-xs text-center text-neutral-500 mt-4">
+          <Link href="/" className="hover:text-neutral-950 transition-colors">
             ← Back to Tablecraft
           </Link>
         </p>

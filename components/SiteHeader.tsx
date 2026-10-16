@@ -117,8 +117,8 @@ export function SiteHeader({
           alt={`${org.name} logo`}
           className="rounded-full object-cover"
           style={{
-            width: logoSize,
-            height: logoSize,
+            width: fS(logoSize),
+            height: fS(logoSize),
             border: h.logo_border_width
               ? `${h.logo_border_width}px solid ${h.logo_border_color}`
               : undefined,
@@ -129,9 +129,9 @@ export function SiteHeader({
           key="logo"
           className="rounded-full flex items-center justify-center font-bold"
           style={{
-            width: logoSize,
-            height: logoSize,
-            fontSize: Math.round((logoSize * 14) / 32),
+            width: fS(logoSize),
+            height: fS(logoSize),
+            fontSize: fS(Math.round((logoSize * 14) / 32)),
             backgroundColor: h.cta_design.bgColor,
             color: h.logo_color,
             border: h.logo_border_width

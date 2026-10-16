@@ -29,11 +29,14 @@ describe("withBuiltSiteGuards", () => {
     expect(out).toContain("scrollIntoView");
   });
 
-  it("scrolls in-document in preview (instant) and smooth-scrolls on live", () => {
+  it("clamps preview anchor scroll and smooth-scrolls on live", () => {
     const out = withBuiltSiteGuards("<html><body></body></html>");
-    // Preview branch uses instant scrollIntoView (no native fragment jump that overshoots in the fixed-height pane).
+    // Preview branch uses clamped window.scrollTo with measured header height
+    // (never overshoots into letterbox at max-scroll); live keeps smooth scrollIntoView.
     expect(out).toContain("data-tc-preview-chrome");
     expect(out).not.toContain("location.replace(href)");
+    expect(out).toContain("window.scrollTo");
+    expect(out).toContain("scrollHeight");
     expect(out).toContain('"smooth"');
   });
 });
@@ -80,6 +83,18 @@ describe("withPreviewChrome", () => {
     expect(out).toContain("width=device-width");
     expect(withPreviewChrome(out)).toBe(out);
   });
+
+  it("injects a per-device viewport width when given (preview frame truth)", () => {
+    const out = withPreviewChrome("<html><head></head><body></body></html>", 390);
+    expect(out).toContain("width=390");
+    expect(out).not.toContain("width=device-width");
+  });
+
+  it("zeroes body margin instead of global scroll-margin (JS clamps instead)", () => {
+    const out = withPreviewChrome("<html><head></head><body></body></html>");
+    expect(out).toContain("margin:0");
+    expect(out).not.toContain("scroll-margin-top");
+  });
 });
 
 describe("withLiveHero", () => {
@@ -92,6 +107,13 @@ describe("withLiveHero", () => {
   it("is a no-op when hero is empty or declaration absent", () => {
     expect(withLiveHero(`<script>const HERO_IMAGE_URL = "";</script>`, "")).toContain("HERO_IMAGE_URL");
     expect(withLiveHero("<p>no hero here</p>", "https://x/hero.jpg")).toBe("<p>no hero here</p>");
+  });
+
+  it("leaves HERO_IMAGE_URL_MOBILE untouched (mobile override is edit-owned)", () => {
+    const html = `<script>const HERO_IMAGE_URL = "";const HERO_IMAGE_URL_MOBILE = "https://x/mobile.jpg";</script>`;
+    const out = withLiveHero(html, "https://x/desktop.jpg");
+    expect(out).toContain("https://x/desktop.jpg");
+    expect(out).toContain('const HERO_IMAGE_URL_MOBILE = "https://x/mobile.jpg";');
   });
 });
 

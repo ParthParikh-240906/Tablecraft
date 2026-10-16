@@ -13,7 +13,7 @@
  *  - href="#/cart" (or any "#/...") → preventDefault + set location.hash
  *    directly (fires hashchange, no navigation) so the cart router runs.
  *  - href="#<id>" in the console preview → native fragment navigation via
- *    scrollIntoView({behavior:"auto"}) (same in-document scroll as live, but instant to avoid Safari tile tears under the scaled frame;
+ *    clamped window.scrollTo with measured header height (same in-document scroll as live, but instant to avoid Safari tile tears under the scaled frame; clamped to max-scroll so last anchors never overshoot into letterbox;
  *    no history spam; missing targets do nothing instead of navigating away).
  *  - href="#<id>" on the live site → preventDefault + smooth scrollIntoView.
  *  - everything else (http(s), /paths) → untouched.
@@ -21,7 +21,7 @@
 
 const NAV_GUARD_MARKER = "data-tc-nav-guard";
 
-const NAV_GUARD_SCRIPT = `<script ${NAV_GUARD_MARKER}>(function(){document.addEventListener("click",function(e){var t=e.target;if(!t||!t.closest)return;var a=t.closest('a[href^="#"]');if(!a)return;var href=a.getAttribute("href");if(!href||href.length<2)return;if(href.charAt(1)==="/"){e.preventDefault();try{location.hash=href.slice(1);}catch(_){}return;}var id=decodeURIComponent(href.slice(1));var el=id&&document.getElementById(id);var pv=false;try{pv=!!document.querySelector('[data-tc-preview-chrome]');}catch(_){}if(pv){e.preventDefault();if(!el)return;try{el.scrollIntoView({behavior:"auto",block:"start"});}catch(_){}return;}if(el){e.preventDefault();try{el.scrollIntoView({behavior:"smooth",block:"start"});}catch(_){el.scrollIntoView();}try{history.replaceState(null,"","#"+id);}catch(_){}}},true);})();</script>`;
+const NAV_GUARD_SCRIPT = `<script ${NAV_GUARD_MARKER}>(function(){document.addEventListener("click",function(e){var t=e.target;if(!t||!t.closest)return;var a=t.closest('a[href^="#"]');if(!a)return;var href=a.getAttribute("href");if(!href||href.length<2)return;if(href.charAt(1)==="/"){e.preventDefault();try{location.hash=href.slice(1);}catch(_){}return;}var id=decodeURIComponent(href.slice(1));var el=id&&document.getElementById(id);var pv=false;try{pv=!!document.querySelector('[data-tc-preview-chrome]');}catch(_){}if(pv){e.preventDefault();if(!el)return;try{var hdr=document.querySelector("header");var off=hdr?hdr.getBoundingClientRect().height+12:84;var y=el.getBoundingClientRect().top+window.scrollY-off;var max=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);window.scrollTo({top:Math.min(Math.max(0,y),max),behavior:"auto"});}catch(_){try{el.scrollIntoView({block:"start"});}catch(_){}}return;}if(el){e.preventDefault();try{el.scrollIntoView({behavior:"smooth",block:"start"});}catch(_){el.scrollIntoView();}try{history.replaceState(null,"","#"+id);}catch(_){}}},true);})();</script>`;
 
 /** Inject the nav guard before </body> (or append). Idempotent. */
 export function withBuiltSiteGuards(html: string): string {
@@ -99,19 +99,24 @@ export function withLiveHero(html: string, heroUrl: string | null | undefined): 
 /** Preview-only chrome: hide scrollbars + force instant anchor scrolling inside
  * the preview frame (a smooth programmatic scroll under the scaled preview
  * ancestor tears unpainted tiles in Safari; live sites keep smooth scroll). */
-const PREVIEW_VIEWPORT_META = '<meta name="viewport" content="width=device-width, initial-scale=1">';
-const PREVIEW_SCROLLBAR_CSS = `<style data-tc-preview-chrome>html{scrollbar-width:none!important;scroll-behavior:auto!important}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}[id]{scroll-margin-top:84px!important}</style>`;
+function previewViewportMeta(deviceWidth?: number): string {
+  const w = typeof deviceWidth === "number" && Number.isFinite(deviceWidth) && deviceWidth > 0 ? Math.round(deviceWidth) : 0;
+  const content = w > 0 ? `width=${w}, initial-scale=1` : "width=device-width, initial-scale=1";
+  return `<meta name="viewport" content="${content}">`;
+}
+const PREVIEW_SCROLLBAR_CSS = `<style data-tc-preview-chrome>html{scrollbar-width:none!important;scroll-behavior:auto!important}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}html,body{margin:0!important;padding:0!important}body{min-height:100%}</style>`;
 
-export function withPreviewChrome(html: string): string {
+export function withPreviewChrome(html: string, deviceWidth?: number): string {
   if (!html) return html;
+  const viewportMeta = previewViewportMeta(deviceWidth);
   let next = html;
   if (!/name=["\']viewport["\']/i.test(next)) {
     if (/<head[^>]*>/i.test(next)) {
-      next = next.replace(/<head[^>]*>/i, (m) => `${m}${PREVIEW_VIEWPORT_META}`);
+      next = next.replace(/<head[^>]*>/i, (m) => `${m}${viewportMeta}`);
     } else if (/<html[^>]*>/i.test(next)) {
-      next = next.replace(/<html[^>]*>/i, (m) => `${m}<head>${PREVIEW_VIEWPORT_META}</head>`);
+      next = next.replace(/<html[^>]*>/i, (m) => `${m}<head>${viewportMeta}</head>`);
     } else {
-      next = `${PREVIEW_VIEWPORT_META}${next}`;
+      next = `${viewportMeta}${next}`;
     }
   }
   if (next.includes("data-tc-preview-chrome")) return next;

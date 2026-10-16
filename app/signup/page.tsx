@@ -44,21 +44,21 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-[var(--paper)] text-[var(--ink)]">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-white text-neutral-950">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center mb-2">
-          <Link href="/" className="font-display text-2xl tracking-tight text-[var(--ink)]">
+          <Link href="/" className="font-display text-2xl tracking-tight text-neutral-950">
             Tablecraft
           </Link>
         </div>
 
         {/* Mini rectangle with leaf background texture */}
-        <div className="layer2-bg border border-white rounded-sm overflow-hidden">
+        <div>
           <div className="relative">
-            <div className="ticket ticket--dark p-8 space-y-6">
+            <div className="rounded-3xl bg-neutral-100 border border-black p-8 space-y-6">
               <div className="text-center">
                 <h1 className="font-display text-xl mb-1">Create your Tablecraft account</h1>
-                <p className="text-sm text-[var(--ink-soft)]">
+                <p className="text-sm text-neutral-600">
                   You&apos;ll set up your restaurant after signing in.
                 </p>
               </div>
@@ -75,7 +75,7 @@ export default function SignupPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     placeholder="you@restaurant.com"
-                    className="input placeholder:text-[var(--ink-faint)]"
+                    className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors placeholder:text-neutral-400"
                   />
                 </div>
                 <div>
@@ -90,15 +90,15 @@ export default function SignupPage() {
                     required
                     minLength={8}
                     placeholder="••••••••"
-                    className="input placeholder:text-[var(--ink-faint)]"
+                    className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors placeholder:text-neutral-400"
                   />
-                  <p className="text-xs text-[var(--ink-faint)] mt-1">
+                  <p className="text-xs text-neutral-500 mt-1">
                     At least 8 characters.
                   </p>
                 </div>
 
                 {error && (
-                  <p className="text-sm text-red-400 rounded-sm bg-red-900/40 px-3 py-2" role="alert">
+                  <p className="text-sm text-red-600 rounded-2xl bg-red-50 px-3 py-2" role="alert">
                     {error}
                   </p>
                 )}
@@ -106,7 +106,7 @@ export default function SignupPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="btn btn-accent w-full"
+                  className="w-full rounded-full bg-[#d45200] text-white text-[16px] font-semibold px-7 py-4 hover:bg-[#b54600] transition-colors disabled:opacity-50"
                 >
                   {submitting ? "Creating account…" : "Create account"}
                 </button>
@@ -115,12 +115,12 @@ export default function SignupPage() {
           </div>
         </div>
 
-        <p className="text-xs text-center text-[var(--ink-faint)] space-x-2">
-          <Link href="/" className="hover:text-[var(--ink)] transition-colors">
+        <p className="text-xs text-center text-neutral-500 space-x-2">
+          <Link href="/" className="hover:text-neutral-950 transition-colors">
             ← Back to Tablecraft
           </Link>
-          <span className="text-[var(--ink-faint)]">·</span>
-          <Link href="/signin" className="hover:text-[var(--ink)] transition-colors">
+          <span className="text-neutral-500">·</span>
+          <Link href="/signin" className="hover:text-neutral-950 transition-colors">
             Sign in instead
           </Link>
         </p>
