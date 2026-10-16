@@ -12,16 +12,33 @@
  * that keeps fragment navigation in-document:
  *  - href="#/cart" (or any "#/...") → preventDefault + set location.hash
  *    directly (fires hashchange, no navigation) so the cart router runs.
- *  - href="#<id>" in the console preview → native fragment navigation via
- *    clamped window.scrollTo with measured header height (same in-document scroll as live, but instant to avoid Safari tile tears under the scaled frame; clamped to max-scroll so last anchors never overshoot into letterbox;
+ *  - href="#<id>" in the console preview → preventDefault + clamped
+ *    window.scrollTo with measured header height (same in-document scroll as
+ *    live, but instant to avoid Safari tile tears under the scaled frame;
+ *    clamped to max-scroll so last anchors never overshoot into letterbox;
  *    no history spam; missing targets do nothing instead of navigating away).
  *  - href="#<id>" on the live site → preventDefault + smooth scrollIntoView.
  *  - everything else (http(s), /paths) → untouched.
+ *
+ * Preview scroll containment: Element.prototype.scrollIntoView() called inside
+ * an iframe ALSO scrolls every scrollable ancestor up through the embedder
+ * document — so the site's own smooth-scroll handlers (and even the guard's
+ * fallback) used to shove the whole console page up/down on every header-nav
+ * click, and the preview frame was left showing its background under the
+ * jump. In preview documents (detected via the data-tc-preview-chrome style)
+ * the guard therefore also installs idempotent wrappers that keep scrolling
+ * inside the frame: scrollIntoView is re-issued with instant behavior and the
+ * embedder's scroll position is snapshotted + restored (sync + rAF, so async
+ * browser scrolls can't leak out either), and focus() is forced to
+ * preventScroll with an iframe-local reveal. The live site is untouched.
  */
 
 const NAV_GUARD_MARKER = "data-tc-nav-guard";
 
-const NAV_GUARD_SCRIPT = `<script ${NAV_GUARD_MARKER}>(function(){document.addEventListener("click",function(e){var t=e.target;if(!t||!t.closest)return;var a=t.closest('a[href^="#"]');if(!a)return;var href=a.getAttribute("href");if(!href||href.length<2)return;if(href.charAt(1)==="/"){e.preventDefault();try{location.hash=href.slice(1);}catch(_){}return;}var id=decodeURIComponent(href.slice(1));var el=id&&document.getElementById(id);var pv=false;try{pv=!!document.querySelector('[data-tc-preview-chrome]');}catch(_){}if(pv){e.preventDefault();if(!el)return;try{var hdr=document.querySelector("header");var off=hdr?hdr.getBoundingClientRect().height+12:84;var y=el.getBoundingClientRect().top+window.scrollY-off;var max=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);window.scrollTo({top:Math.min(Math.max(0,y),max),behavior:"auto"});}catch(_){try{el.scrollIntoView({block:"start"});}catch(_){}}return;}if(el){e.preventDefault();try{el.scrollIntoView({behavior:"smooth",block:"start"});}catch(_){el.scrollIntoView();}try{history.replaceState(null,"","#"+id);}catch(_){}}},true);})();</script>`;
+// Flag left on the iframe window so the preview API patches install once.
+const PREVIEW_PATCH_FLAG = "__tcPreviewScrollPatched__";
+
+const NAV_GUARD_SCRIPT = `<script ${NAV_GUARD_MARKER}>(function(){var PF='${PREVIEW_PATCH_FLAG}';function isPreview(){try{return !!document.querySelector('[data-tc-preview-chrome]');}catch(_){return false;}}function headerOffset(){try{var h=document.querySelector("header");return h?h.getBoundingClientRect().height+12:84;}catch(_){return 84;}}function maxScroll(){try{var d=document.documentElement,b=document.body;var h=Math.max(d?d.scrollHeight:0,b?b.scrollHeight:0);return Math.max(0,h-window.innerHeight);}catch(_){return 0;}}function snapParent(){try{if(window.parent&&window.parent!==window){return {x:window.parent.scrollX||0,y:window.parent.scrollY||0};}}catch(_){}return null;}function restoreParent(s){if(!s)return;try{if(window.parent&&window.parent!==window){window.parent.scrollTo(s.x,s.y);}}catch(_){}}function containedTo(y){var m=maxScroll();var t=Math.min(Math.max(0,y),m);try{window.scrollTo({top:t,behavior:"auto"});}catch(_){try{window.scrollTo(0,t);}catch(_){}}try{void document.body.offsetHeight;}catch(_){}}function containedToEl(el){try{containedTo(el.getBoundingClientRect().top+window.scrollY-headerOffset());}catch(_){}}function patchPreviewAPIs(){if(window[PF])return;window[PF]=true;try{if(window.Element&&Element.prototype&&Element.prototype.scrollIntoView){var nS=Element.prototype.scrollIntoView;Element.prototype.scrollIntoView=function(){if(!isPreview())return nS.apply(this,arguments);var a=arguments.length>0?arguments[0]:undefined;var o;if(a===true)o={block:"start"};else if(a===false)o={block:"end"};else if(a&&typeof a==="object"){o={};for(var k in a){if(Object.prototype.hasOwnProperty.call(a,k))o[k]=a[k];}}else o={block:"start"};o.behavior="auto";var ps=snapParent();var r;try{r=nS.call(this,o);}catch(_){try{containedToEl(this);}catch(_){}}restoreParent(ps);try{requestAnimationFrame(function(){restoreParent(ps);});}catch(_){}return r;};}}catch(_){}try{if(window.HTMLElement&&HTMLElement.prototype&&HTMLElement.prototype.focus){var nF=HTMLElement.prototype.focus;HTMLElement.prototype.focus=function(){if(!isPreview())return nF.apply(this,arguments);var a=arguments.length>0?arguments[0]:undefined;var ps=snapParent();try{nF.call(this,{preventScroll:true});}catch(_){try{nF.call(this);}catch(_){}}try{if(!(a&&typeof a==="object"&&a.preventScroll===true)&&this instanceof Element){this.scrollIntoView({block:"nearest"});}}catch(_){}restoreParent(ps);};}}catch(_){}}try{if(isPreview())patchPreviewAPIs();}catch(_){}document.addEventListener("click",function(e){var t=e.target;if(!t||!t.closest)return;var a=t.closest('a[href^="#"]');if(!a)return;var href=a.getAttribute("href");if(!href||href.length<2)return;if(href.charAt(1)==="/"){e.preventDefault();try{location.hash=href.slice(1);}catch(_){}return;}var id=null;try{id=decodeURIComponent(href.slice(1));}catch(_){id=href.slice(1);}var el=id&&document.getElementById(id);if(isPreview()){e.preventDefault();try{patchPreviewAPIs();}catch(_){}if(!el)return;containedToEl(el);return;}if(el){e.preventDefault();try{el.scrollIntoView({behavior:"smooth",block:"start"});}catch(_){try{el.scrollIntoView();}catch(_){}}try{history.replaceState(null,"","#"+id);}catch(_){}}},true);})();</script>`;
 
 /** Inject the nav guard before </body> (or append). Idempotent. */
 export function withBuiltSiteGuards(html: string): string {
@@ -119,7 +136,13 @@ export function withPreviewChrome(html: string, deviceWidth?: number): string {
       next = `${viewportMeta}${next}`;
     }
   }
-  if (next.includes("data-tc-preview-chrome")) return next;
+  // Match the style ELEMENT, not the bare marker string. The nav-guard script
+  // contains "data-tc-preview-chrome" inside its own
+  // querySelector('[data-tc-preview-chrome]') preview check, so a bare
+  // substring match false-positives on guarded HTML and skips the injection —
+  // leaving preview detection permanently off (every preview anchor click
+  // then takes the live smooth-scroll path and shoves the console page).
+  if (next.includes("<style data-tc-preview-chrome")) return next;
   if (/<\/head\s*>/i.test(next)) {
     return next.replace(/<\/head\s*>/i, `${PREVIEW_SCROLLBAR_CSS}</head>`);
   }
