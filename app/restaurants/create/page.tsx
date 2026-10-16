@@ -21,6 +21,7 @@ export default function CreateRestaurantPage() {
   const [contactEmail, setContactEmail] = useState("");
   const [contactAddress, setContactAddress] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [heroFile, setHeroFile] = useState<File | null>(null);
   const [restaurantImages, setRestaurantImages] = useState<File[]>([]);
   const [vibe, setVibe] = useState("");
   const [createdOrg, setCreatedOrg] = useState<{ id: string; slug: string } | null>(null);
@@ -121,6 +122,7 @@ export default function CreateRestaurantPage() {
       if (contactEmail) formData.append('contactEmail', contactEmail);
       if (contactAddress) formData.append('contactAddress', contactAddress);
       if (logoFile) formData.append('logoFile', logoFile);
+      if (heroFile) formData.append('heroFile', heroFile);
       if (restaurantImages.length > 0) restaurantImages.forEach((f) => formData.append('restaurantImageFiles', f));
 
       const res = await fetch("/api/signup", {
@@ -151,6 +153,13 @@ export default function CreateRestaurantPage() {
             orgSlug: data?.org?.slug ?? slug,
             vibe,
             paragraph: aboutText,
+            branches: validBranches,
+            contactPhone,
+            contactEmail,
+            contactAddress,
+            logoUrl: data?.org?.logo_url ?? undefined,
+            heroUrl: data?.org?.hero_url ?? data?.org?.background_image_url ?? undefined,
+            imageUrls: data?.org?.restaurant_photos ?? undefined,
           }),
         });
         if (!buildRes.ok) {
@@ -160,10 +169,14 @@ export default function CreateRestaurantPage() {
           if (typeof buildData?.html !== "string" || buildData.html.length === 0) setBuildFailed(true);
         }
       } catch {
-        // Build failures are surfaced in console Website tab; don't block signup.
+        // Build failures do not block signup; don't block signup.
         setBuildFailed(true);
       }
+      // "Connecting" runs inside /api/ai/build (verifyAndFixSiteHtml), so hold
+      // the finalizing stage for a visible beat — otherwise React batches
+      // setBuildStage("finalizing") + setBuildStage(null) and it never paints.
       setBuildStage("finalizing");
+      await new Promise((r) => setTimeout(r, 1500));
 
       // Restaurant exists — move to the payments step (Connect is optional).
       setCreatedOrg({ id: data?.org?.id, slug: data?.org?.slug ?? slug });
@@ -624,6 +637,21 @@ export default function CreateRestaurantPage() {
                   />
                 </div>
                 <div>
+                  <label htmlFor="heroFile" className="block text-sm font-medium mb-1.5">
+                    Hero image (optional)
+                  </label>
+                  <input
+                    id="heroFile"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setHeroFile(e.target.files?.[0] || null)}
+                    className="input"
+                  />
+                  <p className="text-xs text-[var(--ink-faint)] mt-1">
+                    Shown in the website hero section. Gallery photos are never reused for the hero.
+                  </p>
+                </div>
+                <div>
                   <label htmlFor="restaurantImages" className="block text-sm font-medium mb-1.5">
                     Restaurant photos (optional)
                   </label>
@@ -669,7 +697,7 @@ export default function CreateRestaurantPage() {
             <h2 className="font-display text-xl">Accept online payments</h2>
             {buildFailed && (
               <p className="text-xs rounded-sm border border-amber-500/30 bg-amber-500/10 p-2.5 text-amber-300">
-                The AI website build hit a snag — your restaurant was still created. You can retry the build from the console Website tab.
+                The AI website build hit a snag — your restaurant was still created. Our team will finish the website setup, or contact support if it is still missing after a few minutes.
               </p>
             )}
             <p className="text-sm text-[var(--ink-soft)]">

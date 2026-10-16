@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { type DesignSettingsV2, type DeviceKind } from "@/lib/design";
-import { withBuiltSiteGuards, withLiveMenu, withPreviewChrome, type LiveMenuItem } from "@/lib/built-site";
+import { withBuiltSiteGuards, withLiveGallery, withLiveHero, withLiveMenu, withPreviewChrome, type LiveMenuItem } from "@/lib/built-site";
 import { OrgPageView, type OrgView } from "@/components/OrgPageView";
 import { useDesignDevice } from "./design-device";
 
@@ -188,7 +188,17 @@ export function PreviewShell({
               <iframe
                 key={device}
                 title={`${orgName} built-site preview`}
-                srcDoc={withPreviewChrome(withBuiltSiteGuards(withLiveMenu(srcDocOverride ?? settings.built_html, menuItems)))}
+                srcDoc={withPreviewChrome(
+                  withBuiltSiteGuards(
+                    withLiveGallery(
+                      withLiveHero(
+                        withLiveMenu(srcDocOverride ?? settings.built_html, menuItems),
+                        org?.background_image_url ?? null,
+                      ),
+                      org?.restaurant_photos ?? [],
+                    ),
+                  ),
+                )}
                 sandbox="allow-scripts allow-forms allow-same-origin"
                 style={{ display: "block", width: "100%", height: "100%", border: 0, backgroundColor: siteBg }}
               />

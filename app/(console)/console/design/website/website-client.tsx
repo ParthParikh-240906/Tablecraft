@@ -38,12 +38,6 @@ export function WebsiteClient({  orgId,
   const [applyStatus, setApplyStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
-  const [vibe, setVibe] = useState("");
-  const [rebuilding, setRebuilding] = useState(false);
-  const [rebuildError, setRebuildError] = useState<string | null>(null);
-  const [reconnecting, setReconnecting] = useState(false);
-  const [reconnectError, setReconnectError] = useState<string | null>(null);
-  const [reconnectDone, setReconnectDone] = useState(false);
   const router = useRouter();
 
   // Gallery images for edits (same source as the AI panel gallery, by name).
@@ -72,7 +66,12 @@ export function WebsiteClient({  orgId,
   };
 
   async function runEdit(extra?: string) {
-    if (!prompt.trim() || loading) return;
+    const base = prompt.trim();
+    const extraTrim = typeof extra === "string" ? extra.trim() : "";
+    // Improvise is usable standalone: when the main prompt is empty, promote
+    // the improvise text to the edit request so it isn't a silent no-op.
+    const effectivePrompt = base || extraTrim;
+    if (!effectivePrompt || loading) return;
     setLoading(true);
     setError(null);
     setApplyStatus(null);
@@ -80,7 +79,11 @@ export function WebsiteClient({  orgId,
       const res = await fetch("/api/ai/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgId, prompt: prompt.trim(), ...(extra ? { improvise: extra } : {}) }),
+        body: JSON.stringify({
+          orgId,
+          prompt: effectivePrompt,
+          ...(base && extraTrim ? { improvise: extraTrim } : {}),
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -142,54 +145,6 @@ export function WebsiteClient({  orgId,
     }
   }
 
-  async function runReconnect() {
-    if (reconnecting) return;
-    setReconnecting(true);
-    setReconnectError(null);
-    setReconnectDone(false);
-    try {
-      const res = await fetch("/api/ai/combine", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgId, orgSlug }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setReconnectError(data?.error ?? "Reconnect failed");
-        return;
-      }
-      setReconnectDone(true);
-      router.refresh();
-    } catch {
-      setReconnectError("Network error — please try again");
-    } finally {
-      setReconnecting(false);
-    }
-  }
-
-  async function runRebuild() {
-    if (!vibe.trim() || rebuilding) return;
-    setRebuilding(true);
-    setRebuildError(null);
-    try {
-      const res = await fetch("/api/ai/build", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgId, name: orgName, orgSlug, vibe: vibe.trim() }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setRebuildError(data?.error ?? "Rebuild failed");
-        return;
-      }
-      router.refresh();
-    } catch {
-      setRebuildError("Network error — please try again");
-    } finally {
-      setRebuilding(false);
-    }
-  }
-
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-[var(--rule)] bg-[var(--paper-raised)] p-4 space-y-3">
@@ -246,7 +201,12 @@ export function WebsiteClient({  orgId,
           </div>
         )}
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => runEdit()} disabled={loading || !prompt.trim()} className="btn btn-accent text-xs">
+          <button
+            type="button"
+            onClick={() => runEdit(showImprovise ? improvise : undefined)}
+            disabled={loading || !(prompt.trim() || (showImprovise && improvise.trim()))}
+            className="btn btn-accent text-xs"
+          >
             {loading ? "Working..." : "Preview edit"}
           </button>
           <button
@@ -280,7 +240,7 @@ export function WebsiteClient({  orgId,
             <button
               type="button"
               onClick={() => runEdit(improvise)}
-              disabled={loading || !prompt.trim()}
+              disabled={loading || !(prompt.trim() || improvise.trim())}
               className="btn btn-outline text-xs"
             >
               Run improvise
@@ -349,55 +309,6 @@ export function WebsiteClient({  orgId,
           </ul>
           </>
         )}
-      </div>
-
-      <div className="rounded-lg border border-[var(--rule)] bg-[var(--paper-raised)] p-4 space-y-3">
-        <label htmlFor="website-rebuild-vibe" className="block text-sm font-medium">
-          Rebuild site
-        </label>
-        <p className="text-xs text-[var(--ink-soft)]">
-          Regenerates the full site from your org name, tagline, photos and this vibe. Takes 1–2 minutes and replaces the current built site.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <input
-            id="website-rebuild-vibe"
-            value={vibe}
-            onChange={(e) => setVibe(e.target.value)}
-            placeholder="e.g. warm coastal trattoria…"
-            className="input flex-1 min-w-52"
-          />
-          <button
-            type="button"
-            onClick={runRebuild}
-            disabled={rebuilding || !vibe.trim()}
-            className="btn btn-outline text-xs disabled:opacity-50"
-          >
-            {rebuilding ? "Rebuilding…" : "Rebuild site"}
-          </button>
-        </div>
-        {rebuildError && <p className="text-xs text-red-400">{rebuildError}</p>}
-      </div>
-
-      <div className="rounded-lg border border-[var(--rule)] bg-[var(--paper-raised)] p-4 space-y-3">
-        <label className="block text-sm font-medium">
-          Reconnect site
-        </label>
-        <p className="text-xs text-[var(--ink-soft)]">
-          Re-checks endpoint wiring, wires any unwired chatbot stub, and imports the site&apos;s menu items into the
-          console — without rebuilding the design. Cheap and fast.
-        </p>
-        <div className="flex flex-wrap gap-2 items-center">
-          <button
-            type="button"
-            onClick={runReconnect}
-            disabled={reconnecting}
-            className="btn btn-outline text-xs disabled:opacity-50"
-          >
-            {reconnecting ? "Reconnecting…" : "Reconnect + import menu"}
-          </button>
-          {reconnectDone && <p className="text-xs text-green-400">✓ Connected — preview refreshed.</p>}
-          {reconnectError && <p className="text-xs text-red-400">{reconnectError}</p>}
-        </div>
       </div>
 
       <PreviewShell

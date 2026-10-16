@@ -191,7 +191,9 @@ export default async function DashboardPage() {
                             )}
                             <div className="min-w-0">
                               <p className="font-display text-[20px] leading-tight truncate">{org.name}</p>
-                              <p className="text-[14px] text-neutral-500 truncate">{org.tagline || org.id}</p>
+                              {org.tagline ? (
+                                <p className="text-[14px] text-neutral-500 truncate">{org.tagline}</p>
+                              ) : null}
                             </div>
                           </div>
                         </td>

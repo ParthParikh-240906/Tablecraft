@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org";
 import { hydrateSettings } from "@/lib/design";
-import { withBuiltSiteGuards, withLiveMenu, type LiveMenuItem } from "@/lib/built-site";
+import { withBuiltSiteGuards, withLiveGallery, withLiveHero, withLiveMenu, type LiveMenuItem } from "@/lib/built-site";
 import { BookingChatbot } from "@/components/BookingChatbot";
 import { PublicSiteFrame } from "@/components/PublicSiteFrame";
 
@@ -53,6 +53,22 @@ export default async function PublicLayout({
     } catch {
       // Fall back to the baked-in const.
     }
+    // Hero stays live (creation hero upload); gallery stays live without a rebuild.
+    // Hero and gallery are strictly separate sources.
+    liveHtml = withLiveHero(
+      liveHtml,
+      typeof (org as { background_image_url?: unknown }).background_image_url === "string"
+        ? ((org as { background_image_url: string }).background_image_url as string)
+        : null,
+    );
+    liveHtml = withLiveGallery(
+      liveHtml,
+      Array.isArray((org as { restaurant_photos?: unknown }).restaurant_photos)
+        ? ((org as { restaurant_photos: unknown[] }).restaurant_photos.filter(
+            (u): u is string => typeof u === "string",
+          ) as string[])
+        : [],
+    );
     return (
       <div className="min-h-screen bg-black">
         <iframe

@@ -13,7 +13,7 @@
  *  - href="#/cart" (or any "#/...") → preventDefault + set location.hash
  *    directly (fires hashchange, no navigation) so the cart router runs.
  *  - href="#<id>" in the console preview → native fragment navigation via
- *    location.replace (repaints like a manual scroll under the scaled frame,
+ *    scrollIntoView({behavior:"auto"}) (same in-document scroll as live, but instant to avoid Safari tile tears under the scaled frame;
  *    no history spam; missing targets do nothing instead of navigating away).
  *  - href="#<id>" on the live site → preventDefault + smooth scrollIntoView.
  *  - everything else (http(s), /paths) → untouched.
@@ -21,7 +21,7 @@
 
 const NAV_GUARD_MARKER = "data-tc-nav-guard";
 
-const NAV_GUARD_SCRIPT = `<script ${NAV_GUARD_MARKER}>(function(){document.addEventListener("click",function(e){var t=e.target;if(!t||!t.closest)return;var a=t.closest('a[href^="#"]');if(!a)return;var href=a.getAttribute("href");if(!href||href.length<2)return;if(href.charAt(1)==="/"){e.preventDefault();try{location.hash=href.slice(1);}catch(_){}return;}var id=decodeURIComponent(href.slice(1));var el=id&&document.getElementById(id);var pv=false;try{pv=!!document.querySelector('[data-tc-preview-chrome]');}catch(_){}if(pv){e.preventDefault();if(!el)return;try{location.replace(href);}catch(_){}return;}if(el){e.preventDefault();try{el.scrollIntoView({behavior:"smooth",block:"start"});}catch(_){el.scrollIntoView();}try{history.replaceState(null,"","#"+id);}catch(_){}}},true);})();</script>`;
+const NAV_GUARD_SCRIPT = `<script ${NAV_GUARD_MARKER}>(function(){document.addEventListener("click",function(e){var t=e.target;if(!t||!t.closest)return;var a=t.closest('a[href^="#"]');if(!a)return;var href=a.getAttribute("href");if(!href||href.length<2)return;if(href.charAt(1)==="/"){e.preventDefault();try{location.hash=href.slice(1);}catch(_){}return;}var id=decodeURIComponent(href.slice(1));var el=id&&document.getElementById(id);var pv=false;try{pv=!!document.querySelector('[data-tc-preview-chrome]');}catch(_){}if(pv){e.preventDefault();if(!el)return;try{el.scrollIntoView({behavior:"auto",block:"start"});}catch(_){}return;}if(el){e.preventDefault();try{el.scrollIntoView({behavior:"smooth",block:"start"});}catch(_){el.scrollIntoView();}try{history.replaceState(null,"","#"+id);}catch(_){}}},true);})();</script>`;
 
 /** Inject the nav guard before </body> (or append). Idempotent. */
 export function withBuiltSiteGuards(html: string): string {
@@ -63,17 +63,62 @@ export function withLiveMenu(html: string, items: LiveMenuItem[]): string {
   return next === html ? html : next;
 }
 
+/**
+ * Replace the built GALLERY_IMAGES declaration with live photo URLs so
+ * creation uploads (organizations.restaurant_photos) and later console photo
+ * edits reflect on the site instantly — no rebuild.
+ * No-op when the declaration is absent or the live list is empty (keeps the
+ * baked placeholders rather than blanking the gallery grid).
+ */
+export function withLiveGallery(html: string, imageUrls: string[]): string {
+  if (!html || !html.includes("GALLERY_IMAGES")) return html;
+  const live = (imageUrls ?? []).filter((u) => typeof u === "string" && u.length > 0).slice(0, 10);
+  if (live.length === 0) return html;
+  const replacement =
+    `const GALLERY_IMAGES = ${JSON.stringify(live.map((src, i) => ({ src, caption: `Photo ${i + 1}` })))};`;
+  const next = html.replace(/(?:const|let|var)\s+GALLERY_IMAGES\s*=\s*\[[\s\S]*?\]\s*;/, replacement);
+  return next === html ? html : next;
+}
+
+/**
+ * Replace the built HERO_IMAGE_URL const with the live hero photo
+ * (organizations.background_image_url from the creation hero upload) so the
+ * hero stays live without a rebuild. Gallery images are never used here.
+ * No-op when the declaration is absent or heroUrl is empty (keeps the baked
+ * CSS-art placeholder rather than injecting a broken src).
+ */
+export function withLiveHero(html: string, heroUrl: string | null | undefined): string {
+  if (!html || !html.includes("HERO_IMAGE_URL")) return html;
+  if (typeof heroUrl !== "string" || heroUrl.length === 0) return html;
+  const replacement = `const HERO_IMAGE_URL = ${JSON.stringify(heroUrl)};`;
+  const next = html.replace(/(?:const|let|var)\s+HERO_IMAGE_URL\s*=\s*(?:"[^"]*"|'[^']*')\s*;/, replacement);
+  return next === html ? html : next;
+}
+
+
 /** Preview-only chrome: hide scrollbars + force instant anchor scrolling inside
  * the preview frame (a smooth programmatic scroll under the scaled preview
  * ancestor tears unpainted tiles in Safari; live sites keep smooth scroll). */
-const PREVIEW_SCROLLBAR_CSS = `<style data-tc-preview-chrome>html{scrollbar-width:none!important;scroll-behavior:auto!important}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}</style>`;
+const PREVIEW_VIEWPORT_META = '<meta name="viewport" content="width=device-width, initial-scale=1">';
+const PREVIEW_SCROLLBAR_CSS = `<style data-tc-preview-chrome>html{scrollbar-width:none!important;scroll-behavior:auto!important}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}[id]{scroll-margin-top:84px!important}</style>`;
 
 export function withPreviewChrome(html: string): string {
-  if (!html || html.includes("data-tc-preview-chrome")) return html;
-  if (/<\/head\s*>/i.test(html)) {
-    return html.replace(/<\/head\s*>/i, `${PREVIEW_SCROLLBAR_CSS}</head>`);
+  if (!html) return html;
+  let next = html;
+  if (!/name=["\']viewport["\']/i.test(next)) {
+    if (/<head[^>]*>/i.test(next)) {
+      next = next.replace(/<head[^>]*>/i, (m) => `${m}${PREVIEW_VIEWPORT_META}`);
+    } else if (/<html[^>]*>/i.test(next)) {
+      next = next.replace(/<html[^>]*>/i, (m) => `${m}<head>${PREVIEW_VIEWPORT_META}</head>`);
+    } else {
+      next = `${PREVIEW_VIEWPORT_META}${next}`;
+    }
   }
-  return `${PREVIEW_SCROLLBAR_CSS}${html}`;
+  if (next.includes("data-tc-preview-chrome")) return next;
+  if (/<\/head\s*>/i.test(next)) {
+    return next.replace(/<\/head\s*>/i, `${PREVIEW_SCROLLBAR_CSS}</head>`);
+  }
+  return `${PREVIEW_SCROLLBAR_CSS}${next}`;
 }
 
 /**

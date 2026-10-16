@@ -21,6 +21,7 @@ Hard rules:
 - MENU RULE: menu content changes (add/remove/rename/reprice/recategorize/reorder dishes) must be done ONLY by editing entries of the MENU_ITEMS const — never bake dish names, descriptions, or prices into static HTML, and never change the declaration shape (it must stay matchable as the const assignment the console swaps for live DB rows). The menu grid container stays empty in static markup; cards are rendered from the const via JS.
 - LOGO RULE: when the request asks to add/set/use a logo (e.g. 'use "logo" image as the logo'), swap the header/brand logo <img> src to that gallery URL AND return its exact URL in the top-level "logo_url" field so the console also saves it as the restaurant logo. Omit "logo_url" for non-logo requests.
 - NEVER touch <script> contents, endpoint URLs (/api/bookings, /api/cart/checkout, /api/chat/bookings), ORG_SLUG, the MENU_ITEMS data array, or /* CONSOLE HOOK */ markers unless the request explicitly demands it.
+- When additional creative direction is provided alongside the edit request, apply BOTH (the direction refines how the request is carried out, not an optional hint).
 - If a request cannot be done with anchored replacements, return {"edits": []}.`;
 
 /** Classify each edit's anchor against the stored HTML (preserves summary). */
@@ -135,9 +136,17 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
+    const applyPromptText = [
+      typeof (body as { prompt?: unknown }).prompt === "string" ? (body as { prompt: string }).prompt : prompt,
+      typeof (body as { improvise?: unknown }).improvise === "string"
+        ? (body as { improvise: string }).improvise
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
     const logoUrl = resolveLogoUrl(
       (body as { logo_url?: unknown }).logo_url ?? (body as { logoUrl?: unknown }).logoUrl,
-      typeof (body as { prompt?: unknown }).prompt === "string" ? (body as { prompt: string }).prompt : prompt,
+      applyPromptText,
     );
     const update: Record<string, unknown> = { design_settings: { ...settings, built_html: next } };
     if (logoUrl) update.logo_url = logoUrl;
@@ -168,7 +177,7 @@ export async function POST(request: Request) {
       ? `Gallery images (name -> URL, use ONLY these URLs for any image request):\n${gallery.map((g, i) => `${i + 1}. "${g.name}" -> ${g.url}`).join("\n")}`
       : `Gallery images: none yet — if the request needs a brand-new image rather than an existing URL, return {"edits": []}.`,
     `Edit request: ${prompt.slice(0, 2000)}`,
-    improvise ? `Improvisation hint (apply creatively): ${improvise.slice(0, 2000)}` : ``,
+    improvise ? `Additional creative direction (must also apply alongside the request): ${improvise.slice(0, 2000)}` : ``,
     `Current site HTML:`,
     builtHtml.slice(0, 100000),
   ]
@@ -199,7 +208,8 @@ export async function POST(request: Request) {
     } catch {
       edits = [];
     }
-    const logoUrl = modelLogoUrl ?? resolveLogoUrl(null, prompt);
+    const logoText = [prompt, improvise].filter(Boolean).join("\n");
+    const logoUrl = modelLogoUrl ?? resolveLogoUrl(null, logoText);
     const checked = checkAnchors(builtHtml, edits);
     // Exact post-apply bytes, so the console preview toggle shows precisely
     // what Apply would write. Computed locally — zero model cost.

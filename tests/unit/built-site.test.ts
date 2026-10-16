@@ -3,7 +3,7 @@
  * Covers lib/built-site.ts — nav-guard injection for srcDoc-served AI sites.
  */
 import { describe, it, expect } from "vitest";
-import { withBuiltSiteGuards, withLiveMenu, withPreviewChrome, extractChatbotAccent } from "@/lib/built-site";
+import { withBuiltSiteGuards, withLiveHero, withLiveMenu, withPreviewChrome, extractChatbotAccent } from "@/lib/built-site";
 
 describe("withBuiltSiteGuards", () => {
   it("injects the guard before </body>", () => {
@@ -29,12 +29,11 @@ describe("withBuiltSiteGuards", () => {
     expect(out).toContain("scrollIntoView");
   });
 
-  it("guard navigates natively in preview, smooth-scrolls on live", () => {
+  it("scrolls in-document in preview (instant) and smooth-scrolls on live", () => {
     const out = withBuiltSiteGuards("<html><body></body></html>");
-    // Preview branch: browser-native fragment navigation repaints like a
-    // manual scroll under the scaled frame; live keeps smooth scrollIntoView.
+    // Preview branch uses instant scrollIntoView (no native fragment jump that overshoots in the fixed-height pane).
     expect(out).toContain("data-tc-preview-chrome");
-    expect(out).toContain("location.replace(href)");
+    expect(out).not.toContain("location.replace(href)");
     expect(out).toContain('"smooth"');
   });
 });
@@ -73,6 +72,26 @@ describe("withPreviewChrome", () => {
     const out = withPreviewChrome("<html><head></head><body></body></html>");
     expect(out).toContain("data-tc-preview-chrome");
     expect(withPreviewChrome(out)).toBe(out);
+  });
+
+  it("injects a viewport meta so tablet/mobile widths trigger media queries", () => {
+    const out = withPreviewChrome("<html><head></head><body></body></html>");
+    expect(out).toContain('name="viewport"');
+    expect(out).toContain("width=device-width");
+    expect(withPreviewChrome(out)).toBe(out);
+  });
+});
+
+describe("withLiveHero", () => {
+  it("replaces HERO_IMAGE_URL with the live hero URL", () => {
+    const html = `<script>const HERO_IMAGE_URL = "";</script>`;
+    const out = withLiveHero(html, "https://x/hero.jpg");
+    expect(out).toContain("https://x/hero.jpg");
+  });
+
+  it("is a no-op when hero is empty or declaration absent", () => {
+    expect(withLiveHero(`<script>const HERO_IMAGE_URL = "";</script>`, "")).toContain("HERO_IMAGE_URL");
+    expect(withLiveHero("<p>no hero here</p>", "https://x/hero.jpg")).toBe("<p>no hero here</p>");
   });
 });
 

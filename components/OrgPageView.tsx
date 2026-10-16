@@ -37,6 +37,7 @@ export interface OrgView {
   contact_email: string | null;
   contact_address: string | null;
   restaurant_photos: string[] | null;
+  background_image_url?: string | null;
 }
 
 // Design canvas is 800w x 640h: heights are `pct * 0.8` cqw (= % world width at

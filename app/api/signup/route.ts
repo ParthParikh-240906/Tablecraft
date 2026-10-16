@@ -47,10 +47,12 @@ export async function POST(request: Request) {
   const contactAddress = formData.get('contactAddress') as string;
   const aboutText = formData.get('aboutText') as string;
   const logoFile = formData.get('logoFile') as File;
+  const heroFileRaw = formData.get('heroFile');
+  const heroFile = heroFileRaw instanceof File ? heroFileRaw : null;
   const restaurantImageFiles = formData.getAll('restaurantImageFiles') as File[];
 
   if (process.env.NODE_ENV === "development") {
-    console.log("[SIGNUP] Incoming request:", { orgName_len: orgName?.length ?? 0, slug, hasTagline: !!tagline, hasLogo: !!logoFile, hasRestaurantImages: restaurantImageFiles.length > 0 });
+    console.log("[SIGNUP] Incoming request:", { orgName_len: orgName?.length ?? 0, slug, hasTagline: !!tagline, hasLogo: !!logoFile, hasHero: !!heroFile, hasRestaurantImages: restaurantImageFiles.length > 0 });
   }
 
   // --- Validate inputs ---
@@ -203,9 +205,10 @@ export async function POST(request: Request) {
 
    // --- File uploads (if provided) ---
    let logoUrl: string | null = null;
+   let heroUrl: string | null = null;
    let restaurantImageUrls: string[] = [];
 
-   if (logoFile || restaurantImageFiles.length > 0) {
+   if (logoFile || heroFile || restaurantImageFiles.length > 0) {
      console.log("[SIGNUP] Processing file uploads...");
      const uploadAdmin = createAdminClient();
 
@@ -254,6 +257,25 @@ export async function POST(request: Request) {
          restaurantImageUrls = imageUrls;
          console.log("[SIGNUP] Restaurant images uploaded:", restaurantImageUrls.length);
        }
+
+       // Upload hero image (separate from gallery - never reused for GALLERY_IMAGES)
+       if (heroFile && typeof heroFile.size === "number" && heroFile.size > 0) {
+         const heroExt = heroFile.name.split('.').pop();
+         const heroFileName = `hero-${Date.now()}.${heroExt}`;
+         const heroPath = `${slug}/${heroFileName}`;
+         const { data: heroData, error: heroError } = await uploadAdmin.storage
+           .from('org-backgrounds')
+           .upload(heroPath, heroFile);
+         if (heroError) {
+           console.error('[SIGNUP] Hero upload failed:', heroError);
+         } else {
+           const { data: { publicUrl: heroPublicUrl } } = uploadAdmin.storage
+             .from('org-backgrounds')
+             .getPublicUrl(heroData.path);
+           heroUrl = heroPublicUrl;
+           console.log('[SIGNUP] Hero uploaded:', heroUrl);
+         }
+       }
      } catch (uploadErr) {
        console.error("[SIGNUP] Upload error:", uploadErr);
        // Continue — uploads are non-fatal
@@ -275,6 +297,7 @@ export async function POST(request: Request) {
   if (contactAddress && typeof contactAddress === "string") orgData.contact_address = contactAddress.slice(0, 500);
   if (aboutText && aboutText.trim().length >= 10) orgData.about_text = aboutText.slice(0, 2000);
   if (logoUrl) orgData.logo_url = logoUrl;
+  if (heroUrl) orgData.background_image_url = heroUrl;
   if (restaurantImageUrls.length > 0) orgData.restaurant_photos = restaurantImageUrls;
 
   const { data: org, error: orgError } = await admin
@@ -384,8 +407,36 @@ export async function POST(request: Request) {
     }
   }
 
+  // --- Mirror creation photos into the console AI gallery ---
+  // The console gallery reads design_settings.ai_gallery; without this the
+  // uploads are invisible there ("No images yet"). Non-fatal.
+  if (restaurantImageUrls.length > 0) {
+    try {
+      const gallerySeed = restaurantImageUrls.slice(0, 20).map((url, i) => ({
+        url,
+        name: `photo-${i + 1}`,
+      }));
+      await admin
+        .from("organizations")
+        .update({ design_settings: { ai_gallery: gallerySeed } })
+        .eq("id", org.id);
+    } catch (e) {
+      console.error("[SIGNUP] ai_gallery seed failed:", e instanceof Error ? e.message.slice(0, 200) : e);
+    }
+  }
+
   return NextResponse.json(
-    { org: { id: org.id, name: org.name, slug: org.slug } },
+    {
+      org: {
+        id: org.id,
+        name: org.name,
+        slug: org.slug,
+        logo_url: logoUrl,
+        hero_url: heroUrl,
+        background_image_url: heroUrl,
+        restaurant_photos: restaurantImageUrls,
+      },
+    },
     { status: 201 },
   );
   } catch (err) {
