@@ -66,7 +66,7 @@ function PricingCard({ plan, billing }: { plan: typeof MARKETING_PLANS[0]; billi
     ? plan.period
     : isAnnual
       ? `AED ${annualEquivalent} a month, billed annually. Saves AED ${savings!.savedAed.toLocaleString()}.`
-      : `Or AED ${annualAed.toLocaleString()} a year. One month free.`;
+      : `Or AED ${annualAed.toLocaleString()} a year. Two months free.`;
 
   const isPro = plan.name === "Pro";
   const isMax = plan.name === "Max";
@@ -144,7 +144,7 @@ export function DashboardPricingSection() {
         Simple, transparent pricing.
       </h2>
       <p className="text-[17px] leading-[1.6] text-neutral-600 mt-3 max-w-[52ch]">
-        Start free with a mock site. Upgrade when you&apos;re ready to go live. Annual billing takes a month off.
+        Start free with a mock site. Upgrade when you&apos;re ready to go live. Annual billing takes two months off.
       </p>
 
       <div className="inline-flex mt-7 p-1 rounded-full bg-neutral-100" role="group" aria-label="Billing period">
@@ -158,7 +158,7 @@ export function DashboardPricingSection() {
               billing === v ? "bg-neutral-950 text-white" : "text-neutral-600 hover:text-neutral-950"
             }`}
           >
-            {v === "annual" ? "Annual · 1 month free" : "Monthly"}
+            {v === "annual" ? "Annual · 2 months free" : "Monthly"}
           </button>
         ))}
       </div>

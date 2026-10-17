@@ -10,14 +10,20 @@ import Stripe from "stripe";
  */
 
 export const PLAN_MONTHLY_AED: Record<"pro" | "max", number> = {
-  pro: 150,
-  max: 350,
+  pro: 149,
+  max: 899,
 };
 
-/** Annual (yearly) prices in AED — 1 month free (11× monthly). */
+/** Annual (yearly) prices in AED — 2 months free (10× monthly). */
 export const PLAN_ANNUAL_AED: Record<"pro" | "max", number> = {
-  pro: 1650,
-  max: 3850,
+  pro: 1490,
+  max: 8990,
+};
+
+/** Prices charged before the current plan change; kept so existing subscriptions still map to their plan. */
+export const LEGACY_PLAN_AED: Record<"pro" | "max", number[]> = {
+  pro: [150, 1650],
+  max: [350, 3850],
 };
 
 /** Human-readable plan labels. */

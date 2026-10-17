@@ -1,4 +1,4 @@
-import { PLAN_ANNUAL_AED, PLAN_MONTHLY_AED, displayPlan } from "@/lib/pricing";
+import { LEGACY_PLAN_AED, PLAN_ANNUAL_AED, PLAN_MONTHLY_AED, displayPlan } from "@/lib/pricing";
 import { resolveOwnerPlan } from "@/lib/owner-quotas";
 
 /** Minimal admin-client shape we use (keeps unit tests simple). */
@@ -76,8 +76,8 @@ export function inferPlanFromUnitAmount(
   // Only AED prices are ours; ignore anything else.
   if (currency && currency.toLowerCase() !== "aed") return null;
   const aed = Math.round(unitAmount / 100);
-  if (aed === PLAN_MONTHLY_AED.pro || aed === PLAN_ANNUAL_AED.pro) return "pro";
-  if (aed === PLAN_MONTHLY_AED.max || aed === PLAN_ANNUAL_AED.max) return "max";
+  if (aed === PLAN_MONTHLY_AED.pro || aed === PLAN_ANNUAL_AED.pro || LEGACY_PLAN_AED.pro.includes(aed)) return "pro";
+  if (aed === PLAN_MONTHLY_AED.max || aed === PLAN_ANNUAL_AED.max || LEGACY_PLAN_AED.max.includes(aed)) return "max";
   return null;
 }
 

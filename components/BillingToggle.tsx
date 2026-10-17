@@ -47,7 +47,7 @@ export function BillingToggle({
               : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
           }`}
         >
-          1 month free
+          2 months free
         </span>
       </button>
     </div>

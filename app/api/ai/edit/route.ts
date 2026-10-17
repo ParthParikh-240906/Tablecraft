@@ -9,6 +9,7 @@ export type AnchorEditStatus = AnchorEdit & {
 };
 
 const MAX_EDITS = 10;
+const MAX_PENDING_EDITS = 40;
 
 const EDIT_SYSTEM = `You are Tablecraft's editing model (GPT 6.1 Sol, medium effort).
 You receive a restaurant's complete built website HTML plus its named image gallery.
@@ -43,6 +44,21 @@ export function checkAnchors(html: string, edits: AnchorEdit[]): AnchorEditStatu
     }
     return out;
   });
+}
+
+/**
+ * Apply anchored edits in order. Each anchor is checked against the page as
+ * already changed by the earlier edits, so a chain of previews (edit, then
+ * improvise, then improvise again) stacks instead of replacing each other.
+ */
+export function resolveAnchorSequence(html: string, edits: AnchorEdit[]): { statuses: AnchorEditStatus[]; html: string } {
+  let current = html;
+  const statuses = edits.slice(0, MAX_PENDING_EDITS).map((edit) => {
+    const [status] = checkAnchors(current, [edit]);
+    if (status.status === "matched-once") current = current.replace(edit.find, () => edit.replace);
+    return status;
+  });
+  return { statuses, html: current };
 }
 
 /** sha256 of a page, hex — binds a preview to its apply (exact bytes). */
@@ -119,18 +135,16 @@ export async function POST(request: Request) {
     if (!Array.isArray(body.edits) || body.edits.length === 0) {
       return NextResponse.json({ error: "edits must be a non-empty array" }, { status: 400 });
     }
-    const checked = checkAnchors(builtHtml, body.edits as AnchorEdit[]);
-    const bad = checked.filter((e) => e.status !== "matched-once");
+    const sequence = resolveAnchorSequence(builtHtml, body.edits as AnchorEdit[]);
+    const bad = sequence.statuses.filter((e) => e.status !== "matched-once");
     if (bad.length > 0) {
       return NextResponse.json(
         { error: "Some anchors no longer match the current site — re-run Preview edit", details: bad.map((e) => e.status) },
         { status: 409 },
       );
     }
-    let next = builtHtml;
-    for (const edit of checked) {
-      next = next.replace(edit.find, edit.replace);
-    }
+    const checked = sequence.statuses;
+    const next = sequence.html;
     if (typeof body.previewHash === "string" && body.previewHash.length > 0 && hashPage(next) !== body.previewHash) {
       return NextResponse.json(
         { error: "Site changed since preview — re-run Preview edit to see the current result" },
@@ -171,6 +185,18 @@ export async function POST(request: Request) {
     if (!q.allowed) return ownerQuotaExceededResponse(q.used, q.limit, "edit");
   }
 
+  // Edits still pending from earlier previews. The model works on the page as
+  // those edits would leave it, and the response keeps them in front.
+  const pendingRaw = Array.isArray(body.pendingEdits) ? (body.pendingEdits as unknown[]) : [];
+  const pendingEdits: AnchorEdit[] = pendingRaw
+    .filter((e): e is AnchorEdit => !!e && typeof e === "object" && typeof (e as AnchorEdit).find === "string")
+    .map((e) => ({
+      find: e.find,
+      replace: typeof e.replace === "string" ? e.replace : "",
+      ...(typeof e.summary === "string" ? { summary: e.summary } : {}),
+    }));
+  const pageForModel = resolveAnchorSequence(builtHtml, pendingEdits).html;
+
   const orgName = (orgRow as { name?: unknown }).name;
   const modelInput = [
     `Restaurant: ${typeof orgName === "string" ? orgName : orgId}`,
@@ -179,8 +205,8 @@ export async function POST(request: Request) {
       : `Gallery images: none yet — if the request needs a brand-new image rather than an existing URL, return {"edits": []}.`,
     `Edit request: ${prompt.slice(0, 2000)}`,
     improvise ? `Additional creative direction (must also apply alongside the request): ${improvise.slice(0, 2000)}` : ``,
-    `Current site HTML:`,
-    builtHtml.slice(0, 100000),
+    `Current site HTML${pendingEdits.length > 0 ? " (already includes earlier previewed edits that are not applied yet — anchor new edits against this exact text)" : ""}:`,
+    pageForModel.slice(0, 100000),
   ]
     .filter(Boolean)
     .join("\n");
@@ -211,20 +237,16 @@ export async function POST(request: Request) {
     }
     const logoText = [prompt, improvise].filter(Boolean).join("\n");
     const logoUrl = modelLogoUrl ?? resolveLogoUrl(null, logoText);
-    const checked = checkAnchors(builtHtml, edits);
     // Exact post-apply bytes, so the console preview toggle shows precisely
     // what Apply would write. Computed locally — zero model cost.
-    let patchedHtml = builtHtml;
-    for (const edit of checked) {
-      if (edit.status === "matched-once") patchedHtml = patchedHtml.replace(edit.find, edit.replace);
-    }
+    const combined = resolveAnchorSequence(builtHtml, [...pendingEdits, ...edits]);
     return NextResponse.json({
       model: "gpt-6.1-sol",
       effort: "medium",
       preview: true,
-      edits: checked,
-      patchedHtml,
-      previewHash: hashPage(patchedHtml),
+      edits: combined.statuses,
+      patchedHtml: combined.html,
+      previewHash: hashPage(combined.html),
       logo_url: logoUrl,
     });
   } catch (err) {

@@ -83,12 +83,15 @@ export function WebsiteClient({  orgId,
           orgId,
           prompt: effectivePrompt,
           ...(base && extraTrim ? { improvise: extraTrim } : {}),
+          // Previewed edits stay pending until Apply or Reject, so a new run stacks on them.
+          pendingEdits: (resultEdits ?? [])
+            .filter((e) => e.status === "matched-once")
+            .map((e) => ({ find: e.find, replace: e.replace, ...(e.summary ? { summary: e.summary } : {}) })),
         }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         setError(data?.error ?? "Edit failed");
-        setResultEdits(null);
         return;
       }
       const edits = Array.isArray(data?.edits) ? data.edits : [];
@@ -96,7 +99,7 @@ export function WebsiteClient({  orgId,
       const hasPatched = typeof data?.patchedHtml === "string" && data.patchedHtml.length > 0;
       setPatchedHtml(hasPatched ? data.patchedHtml : null);
       setPreviewHash(typeof data?.previewHash === "string" ? data.previewHash : null);
-      setPreviewLogoUrl(typeof data?.logo_url === "string" && data.logo_url.length > 0 ? data.logo_url : null);
+      setPreviewLogoUrl((prev) => (typeof data?.logo_url === "string" && data.logo_url.length > 0 ? data.logo_url : prev));
       // Show the result immediately — no hunting for the toggle.
       setShowPatched(hasPatched);
       if (edits.length === 0) {
@@ -222,6 +225,7 @@ export function WebsiteClient({  orgId,
             type="button"
             onClick={() => {
               setResultEdits(null);
+              setPreviewLogoUrl(null);
               setError(null);
               setApplyStatus(null);
             }}

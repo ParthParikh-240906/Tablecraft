@@ -139,18 +139,11 @@ export default async function ConsoleLayout({
               fallbackSlug={org?.slug ?? ""}
             />
             <div className="flex items-center gap-3 border-l border-[var(--rule)] pl-4">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-[var(--ink-faint)] hidden sm:inline">{staffRow.email}</span>
-                <span className={`px-2 py-0.5 rounded-sm border text-[10px] font-medium uppercase tracking-wider ${
-                  isDemoOrg
-                    ? 'border-yellow-500/40 text-yellow-600 bg-yellow-50'
-                    : staffRow.role === 'owner'
-                    ? 'border-[var(--accent-border)] text-[var(--accent)] bg-[var(--accent-subtle)]'
-                    : 'border-[var(--rule)] text-[var(--ink-soft)]'
-                }`}>
-                  {isDemoOrg ? 'DEMO' : staffRow.role}
+              {isDemoOrg && (
+                <span className="px-2 py-0.5 rounded-sm border text-[10px] font-medium uppercase tracking-wider border-yellow-500/40 text-yellow-600 bg-yellow-50">
+                  DEMO
                 </span>
-              </div>
+              )}
               <LogoutButton isDemo={isDemoOrg} orgId={activeOrgId} />
             </div>
           </div>

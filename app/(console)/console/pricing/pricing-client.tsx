@@ -42,7 +42,7 @@ export function PricingClient({
   ownerPlan: "free" | "pro" | "max";
   ownerOrgCount: number;
 }) {
-  const [loadingPlan, setLoadingPlan] = useState<PaidPlanKey | "cancel" | "sync" | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<PaidPlanKey | "cancel" | "sync" | "manage" | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [hasCanceled, setHasCanceled] = useState(false);
   const router = useRouter();
@@ -86,6 +86,16 @@ export function PricingClient({
   // but the purchased plan covers EVERY owned restaurant (owner-wide).
   const anchorOrg = orgs.find((o) => o.id === activeOrgId) || orgs[0];
   const noOrgs = !orgs || orgs.length === 0;
+  // The row that actually carries the paid subscription. The active restaurant
+  // can hold a stale "free" status while the owner-wide plan is paid.
+  const billingOrg = orgs.find((o) => o.plan === ownerPlan && o.stripe_subscription_id)
+    ?? orgs.find((o) => o.plan === ownerPlan)
+    ?? anchorOrg;
+  const billingStatus = ownerPlan === "free"
+    ? "free"
+    : billingOrg && ["active", "past_due"].includes(billingOrg.subscription_status)
+      ? billingOrg.subscription_status
+      : "active";
 
   if (noOrgs) {
     return (
@@ -162,6 +172,26 @@ export function PricingClient({
       console.error("Sync error:", err);
       setErrorMsg(err.message || "Could not sync plan status.");
     } finally {
+      setLoadingPlan(null);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    if (!anchorOrg) return;
+    setErrorMsg(null);
+    setLoadingPlan("manage");
+    try {
+      const res = await fetch("/api/subscription/manage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgSlug: anchorOrg.slug }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error || !data.url) throw new Error(data.error || "Could not open billing portal");
+      window.location.href = data.url;
+    } catch (err: any) {
+      console.error("Manage subscription error:", err);
+      setErrorMsg(err.message || "Could not open subscription management.");
       setLoadingPlan(null);
     }
   };
@@ -365,13 +395,13 @@ export function PricingClient({
                   <span className="uppercase text-[var(--accent)] font-bold">{ownerPlan}</span> Plan
                 </p>
                 <p className="text-[11px] text-[var(--ink-faint)]">
-                  Covers {ownerOrgCount} restaurant{ownerOrgCount === 1 ? "" : "s"} · Status: <span className="font-mono">{anchorOrg.subscription_status}</span>
+                  Covers {ownerOrgCount} restaurant{ownerOrgCount === 1 ? "" : "s"} · Status: <span className="font-mono">{billingStatus}</span>
                 </p>
               </div>
             </div>
 
-            {(anchorOrg.stripe_customer_id || anchorOrg.subscription_status === "active") && anchorOrg.subscription_status !== "free" && (
-              <div className="flex items-center gap-2">
+            {ownerPlan !== "free" && (
+              <div className="flex flex-wrap items-center gap-2">
                 {/* Always available when paid: re-mirrors the Stripe plan to
                     every owned restaurant (repairs stale 1x Max / 2x Free rows). */}
                 <button
@@ -382,7 +412,15 @@ export function PricingClient({
                 >
                   {loadingPlan === "sync" ? "Syncing…" : "Sync Plan Status"}
                 </button>
-                {anchorOrg.stripe_subscription_id && anchorOrg.subscription_status !== "canceled" && (
+                <button
+                  type="button"
+                  onClick={handleManageSubscription}
+                  disabled={loadingPlan === "manage"}
+                  className="btn btn-outline text-xs py-1.5 px-3"
+                >
+                  {loadingPlan === "manage" ? "Opening…" : "Manage Subscription"}
+                </button>
+                {billingOrg?.subscription_status !== "canceled" && (
                   <button
                     type="button"
                     onClick={handleCancel}
@@ -443,14 +481,14 @@ export function PricingClient({
                   <span className="text-xs text-[var(--ink-faint)]">{billing === "annual" ? "/ year" : "/ month"}</span>
                   {billing === "annual" && (
                     <span className="ml-2 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-bold leading-none">
-                      1 month free
+                      2 months free
                     </span>
                   )}
                 </div>
                 <p className="text-[11px] text-[var(--ink-faint)] mt-1">
                   {billing === "annual"
-                    ? `AED ${getAnnualMonthlyEquivalent("pro")}/mo billed annually · Save AED ${getAnnualSavings("pro").savedAed.toLocaleString()} — 1 month free`
-                    : `or AED ${PLAN_ANNUAL_AED.pro.toLocaleString()}/year with annual billing — 1 month free`}
+                    ? `AED ${getAnnualMonthlyEquivalent("pro")}/mo billed annually · Save AED ${getAnnualSavings("pro").savedAed.toLocaleString()} — 2 months free`
+                    : `or AED ${PLAN_ANNUAL_AED.pro.toLocaleString()}/year with annual billing — 2 months free`}
                 </p>
               </div>
 
@@ -542,14 +580,14 @@ export function PricingClient({
                   <span className="text-xs text-[var(--ink-faint)]">{billing === "annual" ? "/ year" : "/ month"}</span>
                   {billing === "annual" && (
                     <span className="ml-2 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-bold leading-none">
-                      1 month free
+                      2 months free
                     </span>
                   )}
                 </div>
                 <p className="text-[11px] text-[var(--ink-faint)] mt-1">
                   {billing === "annual"
-                    ? `AED ${getAnnualMonthlyEquivalent("max")}/mo billed annually · Save AED ${getAnnualSavings("max").savedAed.toLocaleString()} — 1 month free`
-                    : `or AED ${PLAN_ANNUAL_AED.max.toLocaleString()}/year with annual billing — 1 month free`}
+                    ? `AED ${getAnnualMonthlyEquivalent("max")}/mo billed annually · Save AED ${getAnnualSavings("max").savedAed.toLocaleString()} — 2 months free`
+                    : `or AED ${PLAN_ANNUAL_AED.max.toLocaleString()}/year with annual billing — 2 months free`}
                 </p>
               </div>
 

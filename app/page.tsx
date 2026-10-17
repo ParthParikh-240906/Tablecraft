@@ -1011,7 +1011,7 @@ function PricingSection() {
         ? p.period
         : isAnnual
           ? `AED ${equiv} a month, billed annually. Saves AED ${savings!.savedAed.toLocaleString()}.`
-          : `Or AED ${annualAed.toLocaleString()} a year. One month free.`,
+          : `Or AED ${annualAed.toLocaleString()} a year. Two months free.`,
     };
   });
 
@@ -1029,7 +1029,7 @@ function PricingSection() {
         <Reveal delay={80}>
           <p className="text-[18px] leading-[1.6] text-neutral-600 mt-5 max-w-[52ch]">
             Start free with a mock site. Upgrade when you&apos;re ready to go
-            live. Annual billing takes a month off, remembered next visit.
+            live. Annual billing takes two months off, remembered next visit.
           </p>
         </Reveal>
         <Reveal delay={140}>
@@ -1050,7 +1050,7 @@ function PricingSection() {
                     : "text-neutral-600 hover:text-neutral-950"
                 }`}
               >
-                {v === "annual" ? "Annual · 1 month free" : "Monthly"}
+                {v === "annual" ? "Annual · 2 months free" : "Monthly"}
               </button>
             ))}
           </div>
