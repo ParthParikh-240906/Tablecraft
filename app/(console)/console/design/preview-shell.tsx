@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { type DesignSettingsV2, type DeviceKind } from "@/lib/design";
-import { withBuiltSiteGuards, withLiveGallery, withLiveHero, withLiveMenu, withPreviewChrome, type LiveMenuItem } from "@/lib/built-site";
+import { withBuiltSiteGuards, withLiveGallery, withLiveHero, withLiveHeroMobile, withLiveMenu, withPreviewChrome, type LiveMenuItem } from "@/lib/built-site";
 import { OrgPageView, type OrgView } from "@/components/OrgPageView";
 import { useDesignDevice } from "./design-device";
 
@@ -191,9 +191,12 @@ export function PreviewShell({
                 srcDoc={withPreviewChrome(
                   withBuiltSiteGuards(
                     withLiveGallery(
-                      withLiveHero(
-                        withLiveMenu(srcDocOverride ?? settings.built_html, menuItems),
-                        org?.background_image_url ?? null,
+                      withLiveHeroMobile(
+                        withLiveHero(
+                          withLiveMenu(srcDocOverride ?? settings.built_html, menuItems),
+                          org?.background_image_url ?? null,
+                        ),
+                        org?.mobile_background_image_url ?? null,
                       ),
                       org?.restaurant_photos ?? [],
                     ),

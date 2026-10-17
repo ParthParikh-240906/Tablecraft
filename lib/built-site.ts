@@ -112,6 +112,24 @@ export function withLiveHero(html: string, heroUrl: string | null | undefined): 
   return next === html ? html : next;
 }
 
+/**
+ * Replace the built HERO_IMAGE_URL_MOBILE const with the live mobile hero
+ * (organizations.mobile_background_image_url from the creation mobile-hero
+ * upload) so the mobile hero stays live without a rebuild — the mobile twin of
+ * withLiveHero. No-op when the declaration is absent or mobileUrl is empty
+ * (keeps the baked CSS-art mobile hero or an edit-applied override rather than
+ * blanking it). Never touches HERO_IMAGE_URL: the desktop regex cannot match
+ * the mobile declaration (HERO_IMAGE_URL\s*= fails on the _MOBILE suffix) and
+ * this one only matches HERO_IMAGE_URL_MOBILE.
+ */
+export function withLiveHeroMobile(html: string, mobileUrl: string | null | undefined): string {
+  if (!html || !html.includes("HERO_IMAGE_URL_MOBILE")) return html;
+  if (typeof mobileUrl !== "string" || mobileUrl.length === 0) return html;
+  const replacement = `const HERO_IMAGE_URL_MOBILE = ${JSON.stringify(mobileUrl)};`;
+  const next = html.replace(/(?:const|let|var)\s+HERO_IMAGE_URL_MOBILE\s*=\s*(?:"[^"]*"|'[^']*')\s*;/, replacement);
+  return next === html ? html : next;
+}
+
 
 /** Preview-only chrome: hide scrollbars + force instant anchor scrolling inside
  * the preview frame (a smooth programmatic scroll under the scaled preview

@@ -79,6 +79,7 @@ export default async function ConsoleDesignWebsitePage({
             contact_address: data.org.contact_address ?? null,
             restaurant_photos: (data.org.restaurant_photos as string[] | null) ?? [],
             background_image_url: (data.org as { background_image_url?: unknown }).background_image_url as string | null ?? null,
+            mobile_background_image_url: (data.org as { mobile_background_image_url?: unknown }).mobile_background_image_url as string | null ?? null,
           }}
           paragraphs={data.paragraphs}
           menuItems={((menuRows ?? []) as { id: string; name: string; price: number; category: string | null; description: string | null }[]).filter((r) => r && typeof r.id === "string")}

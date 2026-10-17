@@ -190,7 +190,7 @@ export async function getOrgById(orgId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("public_organizations")
-    .select("id, name, slug, logo_url, theme_color, theme_text_color, theme_secondary_color, theme_font_pair, theme_motif, tagline, about_text, about_title, contact_heading, location, restaurant_image_url, branches, contact_phone, contact_email, contact_address, design_settings, restaurant_photos, background_image_url")
+    .select("id, name, slug, logo_url, theme_color, theme_text_color, theme_secondary_color, theme_font_pair, theme_motif, tagline, about_text, about_title, contact_heading, location, restaurant_image_url, branches, contact_phone, contact_email, contact_address, design_settings, restaurant_photos, background_image_url, mobile_background_image_url")
     .eq("id", orgId)
     .maybeSingle();
   if (error) { console.error("getOrgById:", error); throw new OrgFetchError(); }
@@ -202,7 +202,7 @@ export async function getOrgBySlug(slug: string) {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("public_organizations")
-      .select("id, name, slug, logo_url, theme_color, theme_text_color, theme_secondary_color, theme_font_pair, theme_motif, tagline, about_text, about_title, contact_heading, location, restaurant_image_url, branches, contact_phone, contact_email, contact_address, design_settings, restaurant_photos, background_image_url")
+      .select("id, name, slug, logo_url, theme_color, theme_text_color, theme_secondary_color, theme_font_pair, theme_motif, tagline, about_text, about_title, contact_heading, location, restaurant_image_url, branches, contact_phone, contact_email, contact_address, design_settings, restaurant_photos, background_image_url, mobile_background_image_url")
       .eq("slug", slug)
       .maybeSingle();
     if (error) { console.error("getOrgBySlug:", error); throw new OrgFetchError(); }

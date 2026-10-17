@@ -57,5 +57,7 @@ describe("create build hard rules", () => {
     expect(src).toContain("CART_SETTINGS");
     expect(src).toContain("CONSOLE HOOK");
     expect(src).toContain("/api/cart/checkout");
+    expect(src).toContain("HERO_IMAGE_URL_MOBILE");
+    expect(src).toContain("heroMobileUrl");
   });
 });

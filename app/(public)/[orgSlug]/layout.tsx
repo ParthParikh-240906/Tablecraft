@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org";
 import { hydrateSettings } from "@/lib/design";
-import { withBuiltSiteGuards, withLiveGallery, withLiveHero, withLiveMenu, type LiveMenuItem } from "@/lib/built-site";
+import { withBuiltSiteGuards, withLiveGallery, withLiveHero, withLiveHeroMobile, withLiveMenu, type LiveMenuItem } from "@/lib/built-site";
 import { BookingChatbot } from "@/components/BookingChatbot";
 import { PublicSiteFrame } from "@/components/PublicSiteFrame";
 
@@ -53,12 +53,19 @@ export default async function PublicLayout({
     } catch {
       // Fall back to the baked-in const.
     }
-    // Hero stays live (creation hero upload); gallery stays live without a rebuild.
-    // Hero and gallery are strictly separate sources.
+    // Heroes stay live (creation hero uploads); gallery stays live without a rebuild.
+    // Hero and gallery are strictly separate sources; each hero const feeds its
+    // own breakpoint (desktop/tablet vs mobile) and empty = CSS-art hero.
     liveHtml = withLiveHero(
       liveHtml,
       typeof (org as { background_image_url?: unknown }).background_image_url === "string"
         ? ((org as { background_image_url: string }).background_image_url as string)
+        : null,
+    );
+    liveHtml = withLiveHeroMobile(
+      liveHtml,
+      typeof (org as { mobile_background_image_url?: unknown }).mobile_background_image_url === "string"
+        ? ((org as { mobile_background_image_url: string }).mobile_background_image_url as string)
         : null,
     );
     liveHtml = withLiveGallery(

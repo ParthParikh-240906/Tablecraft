@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from "vitest";
 import vm from "node:vm";
-import { withBuiltSiteGuards, withLiveHero, withLiveMenu, withPreviewChrome, extractChatbotAccent } from "@/lib/built-site";
+import { withBuiltSiteGuards, withLiveHero, withLiveHeroMobile, withLiveMenu, withPreviewChrome, extractChatbotAccent } from "@/lib/built-site";
 
 describe("withBuiltSiteGuards", () => {
   it("injects the guard before </body>", () => {
@@ -350,10 +350,37 @@ describe("withLiveHero", () => {
     expect(withLiveHero("<p>no hero here</p>", "https://x/hero.jpg")).toBe("<p>no hero here</p>");
   });
 
-  it("leaves HERO_IMAGE_URL_MOBILE untouched (mobile override is edit-owned)", () => {
+  it("leaves HERO_IMAGE_URL_MOBILE untouched (the mobile const has its own live helper)", () => {
     const html = `<script>const HERO_IMAGE_URL = "";const HERO_IMAGE_URL_MOBILE = "https://x/mobile.jpg";</script>`;
     const out = withLiveHero(html, "https://x/desktop.jpg");
     expect(out).toContain("https://x/desktop.jpg");
+    expect(out).toContain('const HERO_IMAGE_URL_MOBILE = "https://x/mobile.jpg";');
+  });
+});
+
+describe("withLiveHeroMobile", () => {
+  it("replaces HERO_IMAGE_URL_MOBILE with the live mobile hero URL", () => {
+    const html = `<script>const HERO_IMAGE_URL_MOBILE = "";</script>`;
+    const out = withLiveHeroMobile(html, "https://x/mobile.jpg");
+    expect(out).toContain("https://x/mobile.jpg");
+  });
+
+  it("is a no-op when the mobile hero is empty or the declaration is absent", () => {
+    expect(withLiveHeroMobile(`<script>const HERO_IMAGE_URL_MOBILE = "";</script>`, "")).toContain("HERO_IMAGE_URL_MOBILE");
+    expect(withLiveHeroMobile("<p>no hero here</p>", "https://x/mobile.jpg")).toBe("<p>no hero here</p>");
+  });
+
+  it("never touches HERO_IMAGE_URL (desktop swap belongs to withLiveHero)", () => {
+    const html = `<script>const HERO_IMAGE_URL = "https://x/desktop.jpg";const HERO_IMAGE_URL_MOBILE = "";</script>`;
+    const out = withLiveHeroMobile(html, "https://x/mobile.jpg");
+    expect(out).toContain('const HERO_IMAGE_URL = "https://x/desktop.jpg";');
+    expect(out).toContain('const HERO_IMAGE_URL_MOBILE = "https://x/mobile.jpg";');
+  });
+
+  it("leaves HERO_IMAGE_URL untouched when only the mobile URL is present", () => {
+    const html = `<script>const HERO_IMAGE_URL = "";const HERO_IMAGE_URL_MOBILE = "";</script>`;
+    const out = withLiveHeroMobile(html, "https://x/mobile.jpg");
+    expect(out).toContain('const HERO_IMAGE_URL = "";');
     expect(out).toContain('const HERO_IMAGE_URL_MOBILE = "https://x/mobile.jpg";');
   });
 });

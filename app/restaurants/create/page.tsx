@@ -22,6 +22,7 @@ export default function CreateRestaurantPage() {
   const [contactAddress, setContactAddress] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [heroFile, setHeroFile] = useState<File | null>(null);
+  const [heroMobileFile, setHeroMobileFile] = useState<File | null>(null);
   const [restaurantImages, setRestaurantImages] = useState<File[]>([]);
   const [vibe, setVibe] = useState("");
   const [createdOrg, setCreatedOrg] = useState<{ id: string; slug: string } | null>(null);
@@ -123,6 +124,7 @@ export default function CreateRestaurantPage() {
       if (contactAddress) formData.append('contactAddress', contactAddress);
       if (logoFile) formData.append('logoFile', logoFile);
       if (heroFile) formData.append('heroFile', heroFile);
+      if (heroMobileFile) formData.append('heroMobileFile', heroMobileFile);
       if (restaurantImages.length > 0) restaurantImages.forEach((f) => formData.append('restaurantImageFiles', f));
 
       const res = await fetch("/api/signup", {
@@ -159,6 +161,7 @@ export default function CreateRestaurantPage() {
             contactAddress,
             logoUrl: data?.org?.logo_url ?? undefined,
             heroUrl: data?.org?.hero_url ?? data?.org?.background_image_url ?? undefined,
+            heroMobileUrl: data?.org?.hero_mobile_url ?? data?.org?.mobile_background_image_url ?? undefined,
             imageUrls: data?.org?.restaurant_photos ?? undefined,
           }),
         });
@@ -647,7 +650,22 @@ export default function CreateRestaurantPage() {
                     className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors"
                   />
                   <p className="text-xs text-neutral-500 mt-1">
-                    Shown in the website hero section. Gallery photos are never reused for the hero.
+                    Shown in the website hero section on desktop and tablet. Gallery photos are never reused for the hero.
+                  </p>
+                </div>
+                <div>
+                  <label htmlFor="heroMobileFile" className="block text-sm font-medium mb-1.5">
+                    Hero image for mobile (optional)
+                  </label>
+                  <input
+                    id="heroMobileFile"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setHeroMobileFile(e.target.files?.[0] || null)}
+                    className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors"
+                  />
+                  <p className="text-xs text-neutral-500 mt-1">
+                    Shown on phones (720px and below) instead of the desktop hero. If left empty, mobile gets the CSS-art hero.
                   </p>
                 </div>
                 <div>

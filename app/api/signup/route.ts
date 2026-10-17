@@ -49,10 +49,12 @@ export async function POST(request: Request) {
   const logoFile = formData.get('logoFile') as File;
   const heroFileRaw = formData.get('heroFile');
   const heroFile = heroFileRaw instanceof File ? heroFileRaw : null;
+  const heroMobileFileRaw = formData.get('heroMobileFile');
+  const heroMobileFile = heroMobileFileRaw instanceof File ? heroMobileFileRaw : null;
   const restaurantImageFiles = formData.getAll('restaurantImageFiles') as File[];
 
   if (process.env.NODE_ENV === "development") {
-    console.log("[SIGNUP] Incoming request:", { orgName_len: orgName?.length ?? 0, slug, hasTagline: !!tagline, hasLogo: !!logoFile, hasHero: !!heroFile, hasRestaurantImages: restaurantImageFiles.length > 0 });
+    console.log("[SIGNUP] Incoming request:", { orgName_len: orgName?.length ?? 0, slug, hasTagline: !!tagline, hasLogo: !!logoFile, hasHero: !!heroFile, hasHeroMobile: !!heroMobileFile, hasRestaurantImages: restaurantImageFiles.length > 0 });
   }
 
   // --- Validate inputs ---
@@ -206,9 +208,10 @@ export async function POST(request: Request) {
    // --- File uploads (if provided) ---
    let logoUrl: string | null = null;
    let heroUrl: string | null = null;
+   let heroMobileUrl: string | null = null;
    let restaurantImageUrls: string[] = [];
 
-   if (logoFile || heroFile || restaurantImageFiles.length > 0) {
+   if (logoFile || heroFile || heroMobileFile || restaurantImageFiles.length > 0) {
      console.log("[SIGNUP] Processing file uploads...");
      const uploadAdmin = createAdminClient();
 
@@ -276,6 +279,27 @@ export async function POST(request: Request) {
            console.log('[SIGNUP] Hero uploaded:', heroUrl);
          }
        }
+
+       // Upload mobile hero image (mobile-only hero override for the build -
+       // shown on phones instead of the desktop hero; never reused for the
+       // gallery or as the desktop hero)
+       if (heroMobileFile && typeof heroMobileFile.size === "number" && heroMobileFile.size > 0) {
+         const heroMobileExt = heroMobileFile.name.split('.').pop();
+         const heroMobileFileName = `hero-mobile-${Date.now()}.${heroMobileExt}`;
+         const heroMobilePath = `${slug}/${heroMobileFileName}`;
+         const { data: heroMobileData, error: heroMobileError } = await uploadAdmin.storage
+           .from('org-backgrounds')
+           .upload(heroMobilePath, heroMobileFile);
+         if (heroMobileError) {
+           console.error('[SIGNUP] Mobile hero upload failed:', heroMobileError);
+         } else {
+           const { data: { publicUrl: heroMobilePublicUrl } } = uploadAdmin.storage
+             .from('org-backgrounds')
+             .getPublicUrl(heroMobileData.path);
+           heroMobileUrl = heroMobilePublicUrl;
+           console.log('[SIGNUP] Mobile hero uploaded:', heroMobileUrl);
+         }
+       }
      } catch (uploadErr) {
        console.error("[SIGNUP] Upload error:", uploadErr);
        // Continue — uploads are non-fatal
@@ -298,6 +322,7 @@ export async function POST(request: Request) {
   if (aboutText && aboutText.trim().length >= 10) orgData.about_text = aboutText.slice(0, 2000);
   if (logoUrl) orgData.logo_url = logoUrl;
   if (heroUrl) orgData.background_image_url = heroUrl;
+  if (heroMobileUrl) orgData.mobile_background_image_url = heroMobileUrl;
   if (restaurantImageUrls.length > 0) orgData.restaurant_photos = restaurantImageUrls;
 
   const { data: org, error: orgError } = await admin
@@ -434,6 +459,8 @@ export async function POST(request: Request) {
         logo_url: logoUrl,
         hero_url: heroUrl,
         background_image_url: heroUrl,
+        hero_mobile_url: heroMobileUrl,
+        mobile_background_image_url: heroMobileUrl,
         restaurant_photos: restaurantImageUrls,
       },
     },
