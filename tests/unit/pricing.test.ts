@@ -4,18 +4,23 @@
  * Stripe price ensure logic (mocked), marketing plan consistency.
  */
 import { describe, it, expect, vi } from "vitest";
-import { PLAN_MONTHLY_AED, PLAN_ANNUAL_AED, PLAN_LABELS, getPlanConfig, displayPlan, ensurePriceIds, getMonthlyPriceId, getAnnualPriceId } from "@/lib/pricing";
+import { PLAN_MONTHLY_AED, PLAN_ANNUAL_AED, LEGACY_PLAN_AED, PLAN_LABELS, getPlanConfig, displayPlan, ensurePriceIds, getMonthlyPriceId, getAnnualPriceId } from "@/lib/pricing";
 import { MARKETING_PLANS } from "@/lib/marketing-plans";
 
 describe("pricing constants", () => {
   it("has AED monthly prices for pro/max", () => {
-    expect(PLAN_MONTHLY_AED.pro).toBe(150);
-    expect(PLAN_MONTHLY_AED.max).toBe(350);
+    expect(PLAN_MONTHLY_AED.pro).toBe(149);
+    expect(PLAN_MONTHLY_AED.max).toBe(899);
   });
 
   it("has AED annual prices for pro/max", () => {
-    expect(PLAN_ANNUAL_AED.pro).toBe(1650);
-    expect(PLAN_ANNUAL_AED.max).toBe(3850);
+    expect(PLAN_ANNUAL_AED.pro).toBe(1490);
+    expect(PLAN_ANNUAL_AED.max).toBe(8990);
+  });
+
+  it("keeps legacy prices mapped so existing subscriptions still resolve", () => {
+    expect(LEGACY_PLAN_AED.pro).toEqual([150, 1650]);
+    expect(LEGACY_PLAN_AED.max).toEqual([350, 3850]);
   });
 
   it("has labels for all plans", () => {
@@ -25,8 +30,8 @@ describe("pricing constants", () => {
   });
 
   it("getPlanConfig returns label + amount", () => {
-    expect(getPlanConfig("pro")).toEqual({ label: "Pro", monthlyAed: 150, annualAed: 1650 });
-    expect(getPlanConfig("max")).toEqual({ label: "Max", monthlyAed: 350, annualAed: 3850 });
+    expect(getPlanConfig("pro")).toEqual({ label: "Pro", monthlyAed: 149, annualAed: 1490 });
+    expect(getPlanConfig("max")).toEqual({ label: "Max", monthlyAed: 899, annualAed: 8990 });
   });
 });
 
