@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOwnerForSlug } from "@/lib/api-auth";
-import { getStripe } from "@/lib/stripe";
+import { getStripeConnect } from "@/lib/stripe";
+import { retrieveConnectStatus } from "@/lib/stripe-connect";
 
 /**
  * GET /api/stripe/connect/status?orgSlug=...
- * Owner-only. Polls the Express account state and syncs
+ * Owner-only. Polls the Connect account state and syncs
  * organizations.stripe_connect_status. Returns { status } where status is
  * one of: none | pending | active | restricted.
  */
@@ -28,16 +29,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ status: "none" });
     }
 
-    const stripe = getStripe();
-    const account = await stripe.accounts.retrieve(
+    const stripe = getStripeConnect();
+    const status = await retrieveConnectStatus(
+      stripe,
       (org as { stripe_connect_account_id: string }).stripe_connect_account_id,
     );
-    const status =
-      account.details_submitted && account.charges_enabled
-        ? "active"
-        : account.requirements?.disabled_reason
-          ? "restricted"
-          : "pending";
 
     if (status !== (org as { stripe_connect_status?: string }).stripe_connect_status) {
       await admin

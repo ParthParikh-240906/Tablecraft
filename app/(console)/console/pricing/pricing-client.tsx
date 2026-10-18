@@ -511,6 +511,10 @@ export function PricingClient({
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-emerald-500 font-bold">✓</span>
+                  <span>1 custom domain per restaurant</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-emerald-500 font-bold">✓</span>
                   <span>Unlimited digital menu & QR table orders</span>
                 </li>
                 <li className="flex items-center gap-2">
@@ -610,7 +614,7 @@ export function PricingClient({
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-purple-400 font-bold">✓</span>
-                  <span className="font-semibold text-[var(--ink)]">Everything in Pro included</span>
+                  <span className="font-semibold text-[var(--ink)]">Everything in Pro included — including 1 custom domain per restaurant</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-purple-400 font-bold">✓</span>

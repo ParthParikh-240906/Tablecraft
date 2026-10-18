@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getOrgBySlug, getMenuByOrg } from "@/lib/org";
 import { defaultMenuPageDesign, type MenuPageDesign, type ResponsiveOverrides } from "@/lib/design";
@@ -21,6 +22,7 @@ export default async function MenuPage({
   if (!org) {
     notFound();
   }
+  const basePath = (await headers()).get("x-tc-custom-domain") === "1" ? "" : `/${org.slug}`;
 
   // Throws OrgFetchError on DB failure -> error.tsx retry UI.
   // Only a genuinely empty menu reaches the empty-state below.
@@ -38,7 +40,7 @@ export default async function MenuPage({
       {/* Back to restaurant landing page */}
       <div className="mb-6">
         <Link
-          href={`/${org.slug}`}
+          href={basePath || "/"}
           className="inline-flex items-center gap-2 text-sm font-medium underline"
           style={{ color: menuDesign.back_button_color ?? "#ffffff" }}
         >

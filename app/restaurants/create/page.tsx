@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { PasswordInput } from "@/components/PasswordInput";
 
 export default function CreateRestaurantPage() {
   const router = useRouter();
@@ -205,6 +206,16 @@ export default function CreateRestaurantPage() {
     if (connecting || !createdOrg) return;
     setConnecting(true);
     setConnectError(null);
+
+    // Open the popup synchronously inside the click gesture; browsers block
+    // window.open() calls made after an await. Navigate it once we have a URL.
+    const popup = window.open("", "stripe-connect", "width=600,height=800");
+    if (!popup) {
+      setConnecting(false);
+      setConnectError("Popup blocked — allow popups and try again.");
+      return;
+    }
+
     try {
       const res = await fetch("/api/stripe/connect/start", {
         method: "POST",
@@ -213,14 +224,11 @@ export default function CreateRestaurantPage() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.url) {
+        popup.close();
         setConnectError(data?.error ?? "Could not start Stripe onboarding.");
         return;
       }
-      const popup = window.open(data.url, "stripe-connect", "width=600,height=800");
-      if (!popup) {
-        setConnectError("Popup blocked — allow popups and try again.");
-        return;
-      }
+      popup.location.href = data.url;
       const onMessage = (e: MessageEvent) => {
         if (e.data === "stripe-connected") refreshConnectStatus();
       };
@@ -234,6 +242,9 @@ export default function CreateRestaurantPage() {
       window.removeEventListener("message", onMessage);
       await refreshConnectStatus();
     } catch {
+      try {
+        popup.close();
+      } catch {}
       setConnectError("Network error — please try again.");
     } finally {
       setConnecting(false);
@@ -453,9 +464,8 @@ export default function CreateRestaurantPage() {
             <label htmlFor="consolePassword" className="block text-sm font-medium mb-1.5">
               Console Password <span className="text-neutral-500 font-normal">(optional)</span>
             </label>
-            <input
+            <PasswordInput
               id="consolePassword"
-              type="password"
               value={consolePassword}
               onChange={(e) => setConsolePassword(e.target.value)}
               minLength={8}
@@ -495,9 +505,8 @@ export default function CreateRestaurantPage() {
               <label htmlFor="staffPassword" className="block text-sm font-medium mb-1.5">
                 Staff password
               </label>
-              <input
+              <PasswordInput
                 id="staffPassword"
-                type="password"
                 value={staffPassword}
                 onChange={(e) => setStaffPassword(e.target.value)}
                 required

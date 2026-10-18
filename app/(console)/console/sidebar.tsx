@@ -71,6 +71,7 @@ export function ConsoleSidebar({
   const isKitchenActive = pathname === "/console/kitchen" || pathname.startsWith("/console/kitchen/");
   const isMenuActive = pathname === "/console/menu" || pathname.startsWith("/console/menu/");
   const isDesignActive = pathname === "/console/design" || pathname.startsWith("/console/design/");
+  const isLaunchActive = pathname === "/console/launch" || pathname.startsWith("/console/launch/");
 
   const cardClass = theme === "light"
     ? "ticket--light p-4 border border-[var(--rule)] bg-[var(--paper-raised)]"
@@ -130,6 +131,11 @@ export function ConsoleSidebar({
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
     </svg>
   );
+  const rocketIcon = (
+    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.63 8.4m5.96 5.97a14.98 14.98 0 01-6.16 12.12A14.98 14.98 0 013.47 20.5m12.12-6.13L21 9m-9 3l-3 3m0 0l-1-4 4 1" />
+    </svg>
+  );
 
   const navItems = [
     { href: `/console${activeOrgParam}`, label: "Dashboard", icon: <IconHome />, active: isHomeActive },
@@ -142,6 +148,7 @@ export function ConsoleSidebar({
 
   const ownerNavItems = [
     { href: `/console/design${activeOrgParam}`, label: "Design", icon: <IconPalette />, active: isDesignActive },
+    { href: `/console/launch${activeOrgParam}`, label: "Launch", icon: rocketIcon, active: isLaunchActive },
     { href: `/console/config${activeOrgParam}`, label: "Settings", icon: <IconSettings />, active: isConfigActive },
     { href: `/console/pricing${activeOrgParam}`, label: "Plan", icon: <IconTag />, active: isPricingActive },
   ];

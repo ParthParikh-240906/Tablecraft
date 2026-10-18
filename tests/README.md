@@ -23,6 +23,8 @@ with a thenable query builder (see `tests/api/orders-routes.test.ts`).
 | `unit/validation.test.ts` | Slug/UUID/email regexes, `safeNext` open-redirect block, booking + order-quantity + status-allowlist + contact + slug-generation rules (mirrors middleware, api-auth, bookings, orders, contact, signup) |
 | `unit/bookings-logic.test.ts` | Table auto-assign: movable combining (1→4, 2→6…), non-movable tie-break, greedy combo fallback, conflict-window math, immediate-booking filter, `effectiveCapacity` movable `capacity‖4` fallback |
 | `unit/rate-limit.test.ts` | `lib/rate-limit.ts`: sliding-window allow/block, per-key isolation, 429 + Retry-After, `getClientIp`, `PLAN_AI_LIMITS` matches marketing copy |
+| `unit/domains.test.ts` | `lib/domains.ts`: URL/IDN normalization, apex + www pairing, reserved/IP rejection, 1-domain plan limits, Vercel status mapping, DNS instruction shapes |
+| `unit/capacity-helpers.test.ts` | `lib/capacity.ts`: Free gate plan matrix, 2-session/120s constants, cookie parsing, bot detection, fallback slot keys |
 | `unit/table-labels.test.ts` | `lib/table-labels.ts`: label normalize, `Table 1, 2` parse, walk-in rejection, Edit-suffix strip |
 | `unit/dubai-booking.test.ts` | Dubai-only bookings: chatbot yes-regex, +04:00 → UTC, YYYY-MM-DD picker, dynamic duration, marketing copy guard |
 | `unit/stripe-lazy.test.ts` | `lib/stripe.ts`: import never throws, `getStripe()` throws only when called without key, memoizes, no placeholder key |

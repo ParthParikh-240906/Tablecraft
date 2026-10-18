@@ -33,7 +33,7 @@ export async function requireOwnerForSlug(orgSlug: string): Promise<
     .eq("auth_user_id", user.id);
   const isOwner = (staffRows ?? []).some((r: { role?: string }) => r.role === "owner");
   if (!isOwner) {
-    return { response: NextResponse.json({ error: "Only the restaurant owner can manage billing" }, { status: 403 }) };
+    return { response: NextResponse.json({ error: "Only the restaurant owner can perform this action" }, { status: 403 }) };
   }
   return { user: { id: user.id }, orgId: org.id };
 }

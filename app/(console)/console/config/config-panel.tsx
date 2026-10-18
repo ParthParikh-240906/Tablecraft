@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useDesign } from "../design/use-design";
 import { useConsoleTheme } from "../theme-wrapper";
 import { defaultBookingConfig, defaultCartConfig, normalizeCartConfig, type BookingConfigDesign, type CartConfigDesign, type DesignSettingsV2 } from "@/lib/design";
+import { PasswordInput } from "@/components/PasswordInput";
 
 export interface ConfigOrgItem {
   id: string;
@@ -106,6 +107,16 @@ export function ConfigPanel({
     if (connectLoading || !orgSlug) return;
     setConnectLoading(true);
     setConnectError(null);
+
+    // Open the popup synchronously inside the click gesture; browsers block
+    // window.open() calls made after an await. Navigate it once we have a URL.
+    const popup = window.open("", "stripe-connect", "width=600,height=800");
+    if (!popup) {
+      setConnectLoading(false);
+      setConnectError("Popup blocked — allow popups and try again.");
+      return;
+    }
+
     try {
       const res = await fetch("/api/stripe/connect/start", {
         method: "POST",
@@ -114,14 +125,11 @@ export function ConfigPanel({
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.url) {
+        popup.close();
         setConnectError(data?.error ?? "Could not start Stripe onboarding");
         return;
       }
-      const popup = window.open(data.url, "stripe-connect", "width=600,height=800");
-      if (!popup) {
-        setConnectError("Popup blocked — allow popups and try again.");
-        return;
-      }
+      popup.location.href = data.url;
       // Poll until the popup closes or the account goes active (max ~5 min).
       for (let i = 0; i < 100 && !popup.closed; i++) {
         await new Promise((r) => setTimeout(r, 3000));
@@ -135,6 +143,9 @@ export function ConfigPanel({
         } catch {}
       }
     } catch {
+      try {
+        popup.close();
+      } catch {}
       setConnectError("Network error — please try again.");
     } finally {
       setConnectLoading(false);
@@ -665,11 +676,11 @@ export function ConfigPanel({
           <label htmlFor="ownerPassword" className="block text-xs font-medium text-[var(--ink-faint)] mb-1">
             New password <span className="text-[var(--ink-faint)] font-normal normal-case">(optional)</span>
           </label>
-          <input
+          <PasswordInput
             id="ownerPassword"
-            type="password"
             placeholder="At least 8 characters"
-            className="input placeholder:text-[var(--ink-faint)] w-full max-w-sm"
+            wrapperClassName="w-full max-w-sm"
+            className="input placeholder:text-[var(--ink-faint)] w-full"
           />
         </div>
 
@@ -730,11 +741,11 @@ export function ConfigPanel({
           <label htmlFor="staffPassword" className="block text-xs font-medium text-[var(--ink-faint)] mb-1">
             New password <span className="text-[var(--ink-faint)] font-normal normal-case">(optional)</span>
           </label>
-          <input
+          <PasswordInput
             id="staffPassword"
-            type="password"
             placeholder="At least 8 characters"
-            className="input placeholder:text-[var(--ink-faint)] w-full max-w-sm"
+            wrapperClassName="w-full max-w-sm"
+            className="input placeholder:text-[var(--ink-faint)] w-full"
           />
         </div>
 

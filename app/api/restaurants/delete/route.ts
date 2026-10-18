@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { removeDomainsForOrg } from "@/lib/domain-cleanup";
 
 /**
  * DELETE the user's own restaurant (org).
@@ -49,7 +50,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Only the restaurant owner can delete this restaurant" }, { status: 403 });
     }
 
-    // 3. Delete the org (foreign keys cascade)
+    // 3. Detach custom domains from Vercel before the org row cascades away.
+    // Best-effort: the DB rows are marked removed even if Vercel is unreachable.
+    await removeDomainsForOrg(orgId, "restaurant_deleted").catch((err) => {
+      console.error("restaurant delete: domain cleanup failed", err);
+    });
+
+    // 4. Delete the org (foreign keys cascade)
     const { error: deleteError } = await admin.from("organizations").delete().eq("id", orgId);
     if (deleteError) {
       console.error("restaurant delete failed", deleteError);

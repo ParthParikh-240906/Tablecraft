@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org";
 import { hydrateSettings } from "@/lib/design";
 import { withBuiltSiteGuards, withLiveGallery, withLiveHero, withLiveHeroMobile, withLiveMenu, type LiveMenuItem } from "@/lib/built-site";
 import { BookingChatbot } from "@/components/BookingChatbot";
 import { PublicSiteFrame } from "@/components/PublicSiteFrame";
+import { SessionHeartbeat } from "@/components/SessionHeartbeat";
+import { getCapacityPlan, isFreeGated } from "@/lib/capacity";
 
 export default async function PublicLayout({
   children,
@@ -24,6 +27,13 @@ export default async function PublicLayout({
   if (!org) {
     notFound();
   }
+
+  const headerList = await headers();
+  const isCustomDomain = headerList.get("x-tc-custom-domain") === "1";
+  const basePath = isCustomDomain ? "" : `/${org.slug}`;
+  // Read the plan directly instead of trusting a forwarded header, so a
+  // long-lived Free page still renews its lease via the heartbeat.
+  const capacityGated = !isCustomDomain && isFreeGated(await getCapacityPlan(org.id));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB row, loosely typed by supabase
   const design = hydrateSettings(org.design_settings as Record<string, any> | null | undefined);
@@ -84,6 +94,7 @@ export default async function PublicLayout({
           sandbox="allow-scripts allow-forms allow-same-origin"
           className="block h-[100dvh] w-full border-0"
         />
+        <SessionHeartbeat kind="site" orgSlug={org.slug} enabled={capacityGated} />
       </div>
     );
   }
@@ -119,6 +130,7 @@ export default async function PublicLayout({
     >
       <PublicSiteFrame
         slug={org.slug}
+        basePath={basePath}
         org={orgView}
         settings={design}
         colors={{
@@ -134,26 +146,45 @@ export default async function PublicLayout({
   className="border-t py-6 text-center text-sm"
   style={{ borderColor: textColor, color: textColor }}
 >
-  <Link href="/" className="hover:underline">
-    Back to Tablecraft
-  </Link>
-  <span className="mx-2">·</span>
-  <Link href="/dashboard" className="hover:underline">
-    Back to dashboard
-  </Link>
-  <span className="mx-2">·</span>
-  <Link href={`/console/login?org=${org.slug}`} className="hover:underline">
-    Staff login
-  </Link>
+  {isCustomDomain ? (
+    <span>
+      {org.name}
+      {" · "}
+      <Link href={`${basePath}/menu`} className="hover:underline">
+        Menu
+      </Link>
+      <span className="mx-2">·</span>
+      <Link href={`${basePath}/reserve`} className="hover:underline">
+        Book a table
+      </Link>
+    </span>
+  ) : (
+    <>
+      <Link href="/" className="hover:underline">
+        Back to Tablecraft
+      </Link>
+      <span className="mx-2">·</span>
+      <Link href="/dashboard" className="hover:underline">
+        Back to dashboard
+      </Link>
+      <span className="mx-2">·</span>
+      <Link href={`/console/login?org=${org.slug}`} className="hover:underline">
+        Staff login
+      </Link>
+    </>
+  )}
 </footer>
 
       <BookingChatbot
         orgSlug={org.slug}
+        basePath={basePath}
         orgName={org.name}
         accent={highlightColor}
         chatbot={design.chatbot}
         responsive={design.responsive}
       />
+
+      <SessionHeartbeat kind="site" orgSlug={org.slug} enabled={capacityGated} />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { stripe, getStripeConnect } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Stripe from "stripe";
 import {
@@ -11,6 +11,9 @@ import {
   toDbPlan,
   toDbStatus,
 } from "@/lib/billing";
+import { removeDomainsForOrgIds } from "@/lib/domain-cleanup";
+import { clearCapacityCache } from "@/lib/capacity";
+import { retrieveConnectStatus } from "@/lib/stripe-connect";
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 type Meta = Record<string, string | undefined> | null | undefined;
@@ -138,6 +141,19 @@ async function applySubscriptionEvent(
     return NextResponse.json({ error: "Failed to persist subscription" }, { status: 500 });
   }
 
+  // The plan cache is per-instance; clear it so a downgrade gate applies
+  // immediately instead of waiting up to 60s.
+  clearCapacityCache();
+
+  // Max → Pro keeps domains (both allow 1/restaurant). Dropping to Free
+  // removes them immediately; stale webhook misses are backstopped by the
+  // Launch page.
+  if (plan === "free") {
+    await removeDomainsForOrgIds(orgIds, "plan_downgraded").catch((err) => {
+      console.error(`Webhook ${sub.id}: domain cleanup failed`, err);
+    });
+  }
+
   console.log(`Subscription ${sub.id} for ${orgIds.length} org(s): ${dbStatus} (${plan})`);
   return NextResponse.json({ received: true });
 }
@@ -194,6 +210,11 @@ export async function POST(request: Request) {
         console.error(`Webhook ${sub.id}: db update failed`, updateError);
         return NextResponse.json({ error: "Failed to persist cancellation" }, { status: 500 });
       }
+
+      clearCapacityCache();
+      await removeDomainsForOrgIds(orgIds, "subscription_canceled").catch((err) => {
+        console.error(`Webhook ${sub.id}: domain cleanup failed`, err);
+      });
 
       console.log(`Subscription ${sub.id} canceled for ${orgIds.length} org(s)`);
     }
@@ -256,23 +277,40 @@ export async function POST(request: Request) {
   }
 
   // ─── Stripe Connect onboarding state ───────────────────────────────────────
-  else if (event.type === "account.updated") {
-    const account = event.data.object as Stripe.Account;
-    const status =
-      account.details_submitted && account.charges_enabled
-        ? "active"
-        : account.requirements?.disabled_reason
-          ? "restricted"
-          : "pending";
-    const { error: updateError } = await supabase
-      .from("organizations")
-      .update({ stripe_connect_status: status })
-      .eq("stripe_connect_account_id", account.id);
-    if (updateError) {
-      console.error(`Webhook ${account.id}: connect status update failed`, updateError);
-      return NextResponse.json({ error: "Failed to persist connect status" }, { status: 500 });
+  else if (
+    event.type === "account.updated" ||
+    event.type.startsWith("v2.core.account.") ||
+    event.type.startsWith("v2.core.account[")
+  ) {
+    // Accounts v1 events carry the account; Accounts v2 events are thin events
+    // that only reference the account id.
+    const thin = event as unknown as {
+      related_object?: { id?: string };
+      data?: { object?: { id?: string } };
+    };
+    const accountId =
+      (event.type === "account.updated"
+        ? (event.data.object as Stripe.Account).id
+        : thin.related_object?.id ?? thin.data?.object?.id) ?? null;
+
+    if (accountId) {
+      try {
+        const status = await retrieveConnectStatus(getStripeConnect(), accountId);
+        const { error: updateError } = await supabase
+          .from("organizations")
+          .update({ stripe_connect_status: status })
+          .eq("stripe_connect_account_id", accountId);
+        if (updateError) {
+          console.error(`Webhook ${accountId}: connect status update failed`, updateError);
+          return NextResponse.json({ error: "Failed to persist connect status" }, { status: 500 });
+        }
+        console.log(`Connect account ${accountId}: ${status}`);
+      } catch (err) {
+        // Legacy/nonexistent accounts shouldn't fail delivery; status is also
+        // refreshed by polling from the create flow and console config.
+        console.error(`Webhook ${accountId}: connect status lookup failed`, err);
+      }
     }
-    console.log(`Connect account ${account.id}: ${status}`);
   }
 
   return NextResponse.json({ received: true });

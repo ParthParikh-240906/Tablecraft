@@ -47,6 +47,7 @@ export const MARKETING_PLANS: MarketingPlan[] = [
     planKey: "pro",
     features: [
       "Real hosted website",
+      "1 custom domain per restaurant",
       "Real console access",
       "300 AI chatbot messages / month",
       "AI website content generator",
@@ -67,6 +68,7 @@ export const MARKETING_PLANS: MarketingPlan[] = [
     planKey: "max",
     features: [
       "Real hosted website",
+      "1 custom domain per restaurant",
       "Real console access",
       "1000 AI chatbot messages / month",
       "AI website content generator",

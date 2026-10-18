@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org";
 import { defaultReservePageDesign, type ReservePageDesign, type ResponsiveOverrides, getShadowStyle } from "@/lib/design";
@@ -36,6 +37,7 @@ export default async function ReservePage({
   if (!org) {
     notFound();
   }
+  const basePath = (await headers()).get("x-tc-custom-domain") === "1" ? "" : `/${org.slug}`;
 
   // Accent from design settings (ACCENT (BUTTONS, LINKS)), falling back to
   // the org's secondary theme color when no design has been saved yet.
@@ -67,7 +69,7 @@ export default async function ReservePage({
       {/* Top Back Navigation Button */}
       <div className="mb-6">
         <Link
-          href={`/${org.slug}`}
+          href={basePath || "/"}
           className="inline-flex items-center gap-2 text-sm font-medium underline"
           style={{ color: reserveDesign.back_button_color ?? "#ffffff" }}
         >
@@ -109,7 +111,7 @@ export default async function ReservePage({
       {/* Bottom Back Button */}
       <div className="mt-8 pt-6 text-center" style={{ borderTop: `1px solid ${reserveDesign.subtitle_design.color}22` }}>
         <Link
-          href={`/${org.slug}`}
+          href={basePath || "/"}
           className="inline-flex items-center gap-2 text-sm font-medium text-white underline"
           style={{ color: accent }}
         >

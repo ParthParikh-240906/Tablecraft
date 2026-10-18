@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getClientIp, rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
+import { assertSiteSlot } from "@/lib/capacity";
 
 /**
  * POST /api/bookings
@@ -172,6 +173,9 @@ export async function POST(request: Request) {
   if (!org) {
     return NextResponse.json({ error: "Organization not found" }, { status: 404 });
   }
+
+  const capacity = await assertSiteSlot(org.id, request);
+  if (!capacity.allowed) return capacity.response;
 
   // Fetch ALL open/reserved tables for this org.
   const { data: orgTables, error: tablesError } = await admin

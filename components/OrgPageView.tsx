@@ -220,6 +220,7 @@ function HeroText({
 function ButtonVisual({
   el,
   slug,
+  basePath,
   mode,
   fontKey,
   device,
@@ -227,13 +228,15 @@ function ButtonVisual({
 }: {
   el: { buttonType?: "book" | "menu"; bgColor?: string; design: TextDesign };
   slug?: string;
+  basePath?: string;
   mode: "preview" | "site";
   fontKey?: string;
   device?: DeviceKind;
   responsive?: ResponsiveOverrides | null;
 }) {
   const label = el.buttonType === "menu" ? "Menu" : "Book a table";
-  const href = el.buttonType === "menu" ? `/${slug}/menu` : `/${slug}/reserve`;
+  const base = basePath ?? (slug ? `/${slug}` : "");
+  const href = el.buttonType === "menu" ? `${base}/menu` : `${base}/reserve`;
   const resolvedSize = resolveFontSize(el.design.fontSize, fontKey, device ?? "desktop", responsive);
   const resolvedColor = resolveColor(el.design.color, fontKey, device ?? "desktop", responsive);
   const style: React.CSSProperties = {
@@ -281,6 +284,7 @@ function ContentVisual({
   paragraphs,
   mode,
   slug,
+  basePath,
   device,
   responsive,
 }: {
@@ -289,6 +293,7 @@ function ContentVisual({
   paragraphs: { id: string; title: string | null; content: string | null }[];
   mode: "preview" | "site";
   slug?: string;
+  basePath?: string;
   device: DeviceKind;
   responsive?: ResponsiveOverrides | null;
 }) {
@@ -299,7 +304,7 @@ function ContentVisual({
   }
 
   if (el.kind === "button") {
-    return <ButtonVisual el={el} slug={slug} mode={mode} fontKey={`content:${el.id}`} device={device} responsive={responsive} />;
+    return <ButtonVisual el={el} slug={slug} basePath={basePath} mode={mode} fontKey={`content:${el.id}`} device={device} responsive={responsive} />;
   }
 
   if (el.kind === "image" || el.kind === "images") {
@@ -389,6 +394,7 @@ export function OrgPageView({
   colors,
   mode,
   slug,
+  basePath,
   onGrowHero,
   previewHeight,
   device: deviceProp,
@@ -399,6 +405,8 @@ export function OrgPageView({
   colors: { bg: string; text: string; accent: string };
   mode: "preview" | "site";
   slug?: string;
+  /** "" on a custom domain, "/<slug>" on the platform path. */
+  basePath?: string;
   onGrowHero?: (id: string, h: number) => void;
   previewHeight?: number;
   /**
@@ -409,6 +417,7 @@ export function OrgPageView({
   device?: DeviceKind;
 }) {
   const { ref, width: cw } = useContainerWidth();
+  const base = basePath ?? (slug ? `/${slug}` : "");
   const hero = settings.hero;
   const heroRect = settings.canvas.hero_rect;
   const contentEls = settings.content.elements;
@@ -449,7 +458,7 @@ export function OrgPageView({
         }}
       >
       {/* Header — sticky, with page-text-colored bottom border */}
-      <SiteHeader org={org} settings={settings} colors={colors} slug={slug} mode={mode} device={device} />
+      <SiteHeader org={org} settings={settings} colors={colors} slug={slug} basePath={base} mode={mode} device={device} />
 
       {/* Hero section */}
       <section
@@ -482,7 +491,7 @@ export function OrgPageView({
                 className="absolute"
                 style={{ left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, height: `${r.h}%`, zIndex: 6 }}
               >
-                <ButtonVisual el={el} slug={slug} mode={mode} fontKey={`hero:${el.id}`} device={device} responsive={responsive} />
+                <ButtonVisual el={el} slug={slug} basePath={base} mode={mode} fontKey={`hero:${el.id}`} device={device} responsive={responsive} />
               </div>
             ) : el.kind === "logo" ? (
               org.logo_url ? (
@@ -568,6 +577,7 @@ export function OrgPageView({
                   paragraphs={paragraphs}
                   mode={mode}
                   slug={slug}
+                  basePath={base}
                   device={device}
                   responsive={responsive}
                 />

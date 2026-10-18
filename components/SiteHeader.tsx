@@ -9,7 +9,17 @@ import { useCart } from "@/lib/cart";
 
 const DEFAULT_ELEMENT_ORDER: HeaderElementKind[] = ["logo", "name", "menu_link", "book_button"];
 
-function CartHeaderLink({ slug, mode, accent }: { slug?: string; mode: "preview" | "site"; accent: string }) {
+function CartHeaderLink({
+  slug,
+  basePath,
+  mode,
+  accent,
+}: {
+  slug?: string;
+  basePath?: string;
+  mode: "preview" | "site";
+  accent: string;
+}) {
   const { count } = useCart(slug ?? "");
   if (mode !== "site" || !slug) {
     return (
@@ -20,7 +30,7 @@ function CartHeaderLink({ slug, mode, accent }: { slug?: string; mode: "preview"
   }
   return (
     <Link
-      href={`/${slug}/cart`}
+      href={`${basePath ?? `/${slug}`}/cart`}
       aria-label={`Cart, ${count} items`}
       className="relative inline-flex items-center text-lg hover:opacity-80"
       style={{ color: accent }}
@@ -45,6 +55,7 @@ export function SiteHeader({
   settings,
   colors,
   slug,
+  basePath,
   mode,
   device: deviceProp,
 }: {
@@ -52,6 +63,8 @@ export function SiteHeader({
   settings: DesignSettingsV2;
   colors: { bg: string; text: string; accent: string };
   slug?: string;
+  /** "" on a custom domain, "/<slug>" on the platform path. */
+  basePath?: string;
   mode: "preview" | "site";
   /**
    * Explicit device for per-device font resolution. Console previews pass
@@ -61,6 +74,7 @@ export function SiteHeader({
   device?: DeviceKind;
 }) {
   const h = settings.header;
+  const base = basePath ?? (slug ? `/${slug}` : "");
   const ref = useRef<HTMLElement>(null);
   const [scrolled, setScrolled] = useState(false);
   // Own container width (default 1280 = desktop) so per-device overrides
@@ -164,7 +178,7 @@ export function SiteHeader({
       return mode === "site" && slug ? (
         <Link
           key="menu_link"
-          href={`/${slug}/menu`}
+          href={`${base}/menu`}
           className="hover:underline"
           style={{ color: navColor, fontFamily: h.nav_design.fontFamily, fontSize: fs(h.nav_design.fontSize, "header.nav") }}
         >
@@ -202,7 +216,7 @@ export function SiteHeader({
       return mode === "site" && slug ? (
         <Link
           key="book_button"
-          href={`/${slug}/reserve`}
+          href={`${base}/reserve`}
           className={`font-medium border-2 hover:opacity-90 transition-opacity inline-flex items-center ${ctaInteractive}`}
           style={btnStyle}
         >
@@ -247,7 +261,7 @@ export function SiteHeader({
           </div>
           <nav className="flex items-center gap-4 flex-wrap" aria-label="Restaurant">
             {rightKinds.map((k) => renderElement(k))}
-            <CartHeaderLink slug={slug} mode={mode} accent={colors.accent} />
+            <CartHeaderLink slug={slug} basePath={base} mode={mode} accent={colors.accent} />
           </nav>
         </div>
       </div>

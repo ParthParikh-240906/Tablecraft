@@ -23,6 +23,26 @@ export const stripe = new Proxy({} as Stripe, {
   },
 });
 
+let _stripeConnect: Stripe | null = null;
+
+/**
+ * Stripe client for Connect / Accounts v2 calls.
+ *
+ * Accounts v2 fields are versioned separately from the pinned v1 API version
+ * above, and an older pinned version rejects newer v2 fields (for example
+ * `configuration.recipient.capabilities`). This client follows the SDK's
+ * default API version so the v2 request shape matches the SDK types.
+ */
+export function getStripeConnect(): Stripe {
+  if (_stripeConnect) return _stripeConnect;
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    throw new Error("STRIPE_SECRET_KEY is not defined in environment variables");
+  }
+  _stripeConnect = new Stripe(key);
+  return _stripeConnect;
+}
+
 /**
  * Publishable key — safe to use on the client side.
  * Empty string when unset; callers should handle the unconfigured case.

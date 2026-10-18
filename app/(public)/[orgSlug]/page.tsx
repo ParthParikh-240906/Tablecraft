@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { getOrgAndParagraphs } from "@/lib/org";
 import { buildDefaultContentElements, hydrateSettings, type DesignSettingsV2 } from "@/lib/design";
 import { OrgPageView } from "@/components/OrgPageView";
+import { getPrimaryDomainHost } from "@/lib/site-url";
 import type { Metadata } from "next";
 
 // Revalidate every 60s so repeated visits hit the cache instead of a cold Supabase fetch
@@ -25,10 +27,24 @@ export async function generateMetadata({
   }
 
   const capitalizeWords = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase());
+  const headerList = await headers();
+  const isCustomDomain = headerList.get("x-tc-custom-domain") === "1";
+  const canonicalHost = isCustomDomain
+    ? headerList.get("x-tc-canonical-host") || headerList.get("x-tc-request-host")
+    : await getPrimaryDomainHost(org.id);
+  const canonical = canonicalHost ? `https://${canonicalHost}` : undefined;
 
   return {
-    title: org.name,
+    // On a customer domain, do not append the platform's "| Tablecraft" template.
+    title: isCustomDomain ? { absolute: org.name } : org.name,
     description: org.tagline || `${capitalizeWords(org.name)} - Browse our menu, book a table, and order ahead.`,
+    ...(canonical
+      ? {
+          metadataBase: new URL(canonical),
+          alternates: { canonical },
+          openGraph: { url: canonical, title: org.name },
+        }
+      : {}),
   };
 }
 
@@ -70,6 +86,8 @@ export default async function OrgLandingPage({
   }
 
   const hasSavedDesign = Boolean(org.design_settings);
+  const pageHeaders = await headers();
+  const basePath = pageHeaders.get("x-tc-custom-domain") === "1" ? "" : `/${org.slug}`;
 
   // Note: when design.built_html exists, the layout above serves the built
   // standalone site bare (no frame/footer/chatbot) — this renderer is the
@@ -79,6 +97,7 @@ export default async function OrgLandingPage({
       <OrgPageView
         mode="site"
         slug={org.slug}
+        basePath={basePath}
         org={{
           name: org.name,
           tagline: org.tagline,

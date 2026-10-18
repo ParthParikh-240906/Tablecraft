@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org";
 
@@ -15,6 +16,7 @@ export default async function CartSuccessPage({
   if (!org) {
     notFound();
   }
+  const basePath = (await headers()).get("x-tc-custom-domain") === "1" ? "" : `/${org.slug}`;
   return (
     <div className="max-w-xl mx-auto px-4 py-16 text-center">
       <p className="text-4xl mb-4">✓</p>
@@ -22,7 +24,7 @@ export default async function CartSuccessPage({
       <p className="text-sm opacity-70 mb-6">
         Thanks! {org.name} is preparing your order. Show this screen if asked.
       </p>
-      <Link href={`/${org.slug}/menu`} className="text-sm font-medium underline">
+      <Link href={`${basePath}/menu`} className="text-sm font-medium underline">
         Back to menu
       </Link>
     </div>

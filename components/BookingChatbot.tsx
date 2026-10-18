@@ -44,12 +44,15 @@ function formatDateDisplay(ymd: string | null): string {
 // ---------------------------------------------------------------------------
 export function BookingChatbot({
   orgSlug,
+  basePath,
   orgName,
   accent,
   chatbot,
   responsive,
 }: {
   orgSlug: string;
+  /** "" on a custom domain, "/<slug>" on the platform path. */
+  basePath?: string;
   orgName: string;
   accent: string;
   chatbot?: {
@@ -576,7 +579,7 @@ export function BookingChatbot({
             Having trouble? Book directly:
           </p>
           <a
-            href={`/${orgSlug}/reserve`}
+            href={`${basePath ?? `/${orgSlug}`}/reserve`}
             className="text-xs font-medium px-4 py-2 rounded-full inline-block transition-opacity hover:opacity-80"
             style={{ backgroundColor: chatColor, color: chatTextColor, fontFamily: chatFontFamily }}
           >

@@ -14,6 +14,9 @@ import { MobileMenuButton } from "./mobile-menu-button";
 import { ConsoleSidebarOverlay } from "./console-sidebar-overlay";
 import { DemoModeProvider } from "./demo-mode-provider";
 import { FullscreenToggle } from "./fullscreen-toggle";
+import { ConsoleCapacityNotice } from "./console-capacity-notice";
+import { SessionHeartbeat } from "@/components/SessionHeartbeat";
+import { acquireConsoleSlot, getCapacityPlan, isFreeGated } from "@/lib/capacity";
 
 const DEMO_EMAIL = "demo@tablecraft.app";
 
@@ -24,7 +27,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Console layout: resolves the logged-in staff member's organization.
- * Auth gating happens in middleware.ts; this adds the staff check.
+ * Auth gating happens in proxy.ts; this adds the staff check.
  */
 export default async function ConsoleLayout({
   children,
@@ -96,7 +99,7 @@ export default async function ConsoleLayout({
   const admin = createAdminClient();
   const { data: allStaffRows } = await admin
     .from("staff_users")
-    .select("org_id, role, organizations(id, name, slug, logo_url, theme_color)")
+    .select("org_id, role, organizations(id, name, slug, logo_url, theme_color, subscription_plan, subscription_status)")
     .eq("auth_user_id", user.id);
 
   const userOrgs = (allStaffRows ?? [])
@@ -113,8 +116,34 @@ export default async function ConsoleLayout({
   // Check if this is a demo session
   const isDemoOrg = staffRow.email === DEMO_EMAIL;
 
+  // Free-plan combined capacity: website leases are acquired in proxy.ts;
+  // console leases are acquired here because this layout already resolved the
+  // active org and staff member. Resolve the ORG OWNER's plan (not the current
+  // staff member's owned orgs) so a waiter on a Pro restaurant is not gated.
+  const capacityPlan = await getCapacityPlan(activeOrgId);
+  const capacityGated = !isDemoOrg && isFreeGated(capacityPlan);
+
+  if (capacityGated) {
+    const headerList = await headers();
+    const slot = await acquireConsoleSlot({
+      orgId: activeOrgId,
+      authUserId: user.id,
+      userAgent: headerList.get("user-agent"),
+    });
+    if (!slot.allowed) {
+      return (
+        <ConsoleThemeWrapper>
+          <ConsoleCapacityNotice orgId={activeOrgId} />
+        </ConsoleThemeWrapper>
+      );
+    }
+  }
+
   return (
     <ConsoleThemeWrapper>
+      {capacityGated && (
+        <SessionHeartbeat kind="console" orgId={activeOrgId} enabled />
+      )}
       {isDemoOrg && <DemoModeProvider isDemo={isDemoOrg} orgId={activeOrgId} orgSlug={org?.slug ?? ""} />}
       <header className="border-b border-[var(--rule)] bg-[var(--paper-raised)]">
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">

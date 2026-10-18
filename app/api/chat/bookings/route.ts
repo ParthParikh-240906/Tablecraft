@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getClientIp, rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
+import { assertSiteSlot } from "@/lib/capacity";
 
 type SlotState = {
   name: string | null;
@@ -122,6 +123,7 @@ async function tryAutoBook(opts: {
   orgId: string | null;
   slots: SlotState;
   origin: string;
+  cookie?: string | null;
 }): Promise<
   | { booked: true; bookingId: string }
   | { booked: false; pendingCombo: { message: string; tables: Array<{ id: string; label: string; capacity: number }> } }
@@ -155,7 +157,12 @@ async function tryAutoBook(opts: {
     }
     const res = await fetch(`${opts.origin}/api/bookings`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // Forward the visitor's Free-plan lease cookie so the internal
+        // booking call renews the same slot instead of creating a new one.
+        ...(opts.cookie ? { cookie: opts.cookie } : {}),
+      },
       body: JSON.stringify({
         ...(orgSlug ? { orgSlug } : { orgId }),
         customerName: slots.name,
@@ -216,6 +223,10 @@ export async function POST(request: NextRequest) {  const rl = rateLimit(`chat-b
           orgRow = data as { id?: string } | null;
         }
         if (orgRow?.id) {
+          // Free-plan capacity gate (shares the same counter as the site proxy).
+          const capacity = await assertSiteSlot(orgRow.id, request);
+          if (!capacity.allowed) return capacity.response;
+
           const { getOwnerForOrg, getOwnerPlanContext, checkOwnerQuota, ownerQuotaExceededResponse } = await import("@/lib/owner-quotas");
           const { ownerId, ownerEmail } = await getOwnerForOrg(orgRow.id);
           if (ownerId) {
@@ -561,6 +572,7 @@ export async function POST(request: NextRequest) {  const rl = rateLimit(`chat-b
         orgId,
         slots: updatedSlots,
         origin: new URL(request.url).origin,
+        cookie: request.headers.get("cookie"),
       });
       if (bookingResult.booked) {
         bookingId = bookingResult.bookingId;

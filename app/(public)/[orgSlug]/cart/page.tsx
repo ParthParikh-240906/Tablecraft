@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { getOrgBySlug, getMenuByOrg } from "@/lib/org";
 import { hydrateSettings } from "@/lib/design";
@@ -19,12 +20,13 @@ export default async function CartPage({
   if (!org) {
     notFound();
   }
+  const basePath = (await headers()).get("x-tc-custom-domain") === "1" ? "" : `/${org.slug}`;
   // AI-built standalone site handles its own cart in-page (hash view) — the
   // settings-driven cart page would render empty/dark, so send users to the site.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB row, loosely typed by supabase
   const builtDesign = hydrateSettings(org.design_settings as Record<string, any> | null | undefined);
   if (builtDesign.built_html) {
-    redirect(`/${org.slug}`);
+    redirect(basePath || "/");
   }
   const menu = (await getMenuByOrg(org.id)) ?? [];
   const flatMenu = menu.flatMap((g) => g.items);
@@ -34,7 +36,7 @@ export default async function CartPage({
   return (
     <div>
       <div className="max-w-2xl mx-auto px-4 pt-6">
-        <Link href={`/${org.slug}/menu`} className="text-sm font-medium underline">
+        <Link href={`${basePath}/menu`} className="text-sm font-medium underline">
           <span aria-hidden="true">&larr;</span> Back to menu
         </Link>
       </div>

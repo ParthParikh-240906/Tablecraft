@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 import { normalizeCartConfig } from "@/lib/design";
 import { rateLimit, getClientIp, rateLimitedResponse } from "@/lib/rate-limit";
+import { getStorefrontContext } from "@/lib/site-url";
+import { assertSiteSlot } from "@/lib/capacity";
 
 type CartItemInput = { id: string; quantity: number };
 
@@ -52,6 +54,10 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (!org) return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
+
+    const capacity = await assertSiteSlot(org.id, request);
+    if (!capacity.allowed) return capacity.response;
+
     if (org.stripe_connect_status !== "active" || !org.stripe_connect_account_id) {
       return NextResponse.json({ error: "Online ordering is not enabled for this restaurant yet" }, { status: 400 });
     }
@@ -116,11 +122,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Could not start checkout" }, { status: 500 });
     }
 
-    const origin =
-      process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin") || "";
-    if (!origin) {
-      return NextResponse.json({ error: "Server is misconfigured" }, { status: 500 });
-    }
+    // Prefer a validated active custom domain over the platform origin so the
+    // customer returns to the restaurant's branded site after checkout.
+    const storefront = await getStorefrontContext(request, org.id, org.slug);
+    const origin = storefront.origin;
 
     const stripe = getStripe();
     const lineItems = validatedItems.map((i) => ({
@@ -145,11 +150,10 @@ export async function POST(request: Request) {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: lineItems,
-      success_url: `${origin}/${org.slug}/cart/success?order=${order.id}`,
-      cancel_url: `${origin}/${org.slug}/cart?cancelled=1`,
+      success_url: `${origin}${storefront.basePath}/cart/success?order=${order.id}`,
+      cancel_url: `${origin}${storefront.basePath}/cart?cancelled=1`,
       metadata: { orgId: org.id, orderId: order.id, type: "guest_order" },
       payment_intent_data: {
-        application_fee_amount: 0,
         transfer_data: { destination: org.stripe_connect_account_id },
       },
     });

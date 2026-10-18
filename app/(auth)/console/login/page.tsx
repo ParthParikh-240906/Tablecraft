@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { PasswordInput } from "@/components/PasswordInput";
 
 const DEMO_EMAIL = "demo@tablecraft.app";
 const DEMO_PASSWORD = "demo123";
@@ -179,9 +180,8 @@ function LoginForm() {
           <label htmlFor="password" className="block text-sm font-medium mb-1.5">
             Password
           </label>
-          <input
+          <PasswordInput
             id="password"
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required

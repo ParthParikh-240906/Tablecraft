@@ -12,18 +12,29 @@ import type { OrgView } from "@/components/OrgPageView";
  */
 export function PublicSiteFrame({
   slug,
+  basePath,
   org,
   settings,
   colors,
 }: {
   slug: string;
+  basePath: string;
   org: OrgView;
   settings: DesignSettingsV2;
   colors: { bg: string; text: string; accent: string };
 }) {
   const pathname = usePathname();
-  // Landing page renders its own header inside OrgPageView.
-  if (pathname === `/${slug}` || pathname === `/${slug}/`) return null;
+  // Landing page renders its own header inside OrgPageView. On a custom domain
+  // the landing URL is "/" while on the platform it is "/<slug>".
+  if (
+    pathname === "/" ||
+    pathname === basePath ||
+    pathname === `${basePath}/` ||
+    pathname === `/${slug}` ||
+    pathname === `/${slug}/`
+  ) {
+    return null;
+  }
   return (
     <>
       <SiteHeader
@@ -31,6 +42,7 @@ export function PublicSiteFrame({
         settings={settings}
         colors={colors}
         slug={slug}
+        basePath={basePath}
         mode="site"
       />
       <div className="h-16" />
