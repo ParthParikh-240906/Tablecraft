@@ -3,183 +3,180 @@ import { callHaikuLow, type HaikuMeta } from "@/lib/ai-models";
 import { ingestDemoMenuItems } from "@/lib/demo-menu";
 import { requireStaffForOrgId } from "@/lib/api-auth";
 
-const BUILD_SYSTEM = `You are Tablecraft's restaurant website builder (Haiku 5.5, medium effort).
-Build ONE complete, self-contained single-page website: <!DOCTYPE html> with inline <style> in <head> and inline <script> at the end of <body>. No markdown fences, no explanations, no JSON — only the raw HTML.
+// Shared core: every template uses the same data contract, wiring, image rules, cart,
+// chatbot, and verification. Template-specific style is appended below.
+const CORE_RULES = `You are Tablecraft's restaurant website builder (Haiku 5.5, medium effort).
+Build ONE complete, self-contained single-page website: <!DOCTYPE html>, inline <style> in <head> (Google Fonts via preconnect + stylesheet link), inline <script> at the end of <body>. No markdown fences, no explanations, no JSON, only the raw HTML.
 
-Follow the brief EXACTLY: use the given restaurant name, tagline, vibe, and owner paragraph as-is. When contact phone/email/address or branches/locations are provided in the brief, render them verbatim in the visit section and footer — never invent different phone numbers, emails, addresses, or locations, and never leave placeholder contact text when real values were given. Never invent a different restaurant, cuisine, or location. Never leave TODO comments, lorem ipsum, or fake confirmations — every button, filter, form, and chat step must actually work.
+BRIEF FIDELITY
+- Use the given restaurant name, tagline, vibe, and owner paragraph as-is.
+- Render the provided contact phone, email, address, and branches verbatim in the visit section and footer. Each branch is its own line or card. Never invent different phone numbers, emails, addresses, or locations, and never leave placeholder contact text when real values were given.
+- Never invent a different restaurant, cuisine, or location.
+- Never leave TODO comments, lorem ipsum, or fake confirmations. Every button, filter, form, cart step, and chat step must actually work.
 
-STRUCTURE (single scrolling page, anchor nav, NO separate pages):
-Fixed header → hero → story (owner paragraph + 3 stat figures) → menu → statement band → gallery → visit → booking → footer → chatbot.
+STRUCTURE (single scrolling page, anchor nav, NO separate pages)
+Fixed header -> hero -> story (owner paragraph + 3 stat figures) -> menu -> statement band -> gallery -> visit -> booking -> footer. The cart is a separate exclusive view (see CART). The chatbot floats above everything.
 
-Top of <script> must declare an EDITABLE DATA block:
+TOP OF <script>: EDITABLE DATA (declare exactly these names)
 const ORG_SLUG = "<slug>"; const API_BOOKINGS = "/api/bookings";
-const MENU_ITEMS = [...] (8-10 items: name, price number in AED, category, description — object keys MUST be double-quoted JSON-style, e.g. {"name": "Butter Chicken", "price": 45, "category": "Mains", "description": "..."}, so the console can import them);
-const HERO_IMAGE_URL = "" (desktop/tablet hero image URL from the brief, or empty when none provided).
-const HERO_IMAGE_URL_MOBILE = "" (mobile hero image URL for 720px and below, from the brief - or empty when none provided; it is mobile-only and the owner can swap it later via Website Edits without touching desktop).
-const GALLERY_IMAGES = [...] (gallery images only - never reuse the hero image here; 1 image means 1 filled tile plus gradient placeholder tiles, never duplicate the hero to fill gaps).
-const CART_SETTINGS = { mode: "pickup", delivery_enabled: false, delivery_fee: 0, min_order: 0 } (mirrors the console cart config; pickup by default).
+const MENU_ITEMS = [...]; /* CONSOLE HOOK: MENU_ITEMS (console swaps in live DB rows here) */ 8-10 items shaped {"name": "...", "price": 45, "category": "...", "description": "..."}: keys double-quoted JSON-style, price a number in AED.
+const HERO_IMAGE_URL = ""; (desktop/tablet hero URL from the brief, or "")
+const HERO_IMAGE_URL_MOBILE = ""; (mobile hero URL from the brief, or "")
+const GALLERY_IMAGES = []; (gallery images only)
+const CART_SETTINGS = { mode: "pickup", delivery_enabled: false, delivery_fee: 0, min_order: 0 }; /* CONSOLE HOOK: CART_SETTINGS (mirrors the console cart config; pickup by default) */
+const CHAT_SLOTS = { name: null, party_size: null, date: null, time: null };
+const CHAT_HISTORY = [];
 
-Wiring rules:
-- Network rule: ONLY these API endpoints exist: POST /api/bookings and POST /api/cart/checkout. NEVER fetch /api/booking-actions, /api/menu-manager, /api/design-settings, or any other invented /api/* URL.
-- submitBooking(payload) POSTs JSON { orgSlug: ORG_SLUG, ...payload } to /api/bookings. The booking form calls it and shows real success/error status from the fetch result. The chatbot does NOT call it directly — it talks to /api/chat/bookings (see chatbot rule), which returns slots the booking form can reuse.
-- submitCartCheckout() POSTs JSON { orgSlug: ORG_SLUG, items: [{id, quantity}], fulfillment, customerName, customerPhone } to /api/cart/checkout and redirects the browser to the returned Stripe Checkout URL. Server-side prices win; never trust client totals.
-- Mark MENU_ITEMS, CART_SETTINGS, the submitBooking() and submitCartCheckout() functions, and the chatbot sendChatMessage() stub with a /* CONSOLE HOOK */ comment each, so the connector model (GPT 6.1 Sol) can wire the site to the console and connect the chatbot to Haiku 5.5.
+NETWORK RULE
+- ONLY these endpoints exist: POST /api/bookings, POST /api/cart/checkout, POST /api/chat/bookings. Never fetch /api/booking-actions, /api/menu-manager, /api/design-settings, or any other invented /api/* URL.
+- submitBooking(payload) /* CONSOLE HOOK: submitBooking */ POSTs JSON { orgSlug: ORG_SLUG, ...payload } to API_BOOKINGS. The booking form shows real success or error from the fetch result.
+- submitCartCheckout() /* CONSOLE HOOK: submitCartCheckout */ POSTs JSON { orgSlug: ORG_SLUG, items: [{id, quantity}], fulfillment, customerName, customerPhone } to /api/cart/checkout and redirects the browser to the returned Stripe Checkout URL. Server-side prices win; never trust client totals.
+- sendChatMessage(text) /* CONSOLE HOOK: chatbot backend (Haiku 5.5 via /api/chat/bookings) */ is the chatbot wiring (see CHATBOT).
 
-DESIGN (this is the priority — aim for a polished, premium look):
-- Typography: load a Google Fonts pairing (preconnect + stylesheet link) — one expressive display serif for headings, one clean sans for body/UI — chosen to match the vibe.
+IMAGE SLOTS (strict, per breakpoint)
+- HERO_IMAGE_URL is the desktop and tablet hero (above 720px). Use the Hero image URL from the brief, or "" when none. Never put a gallery image here.
+- HERO_IMAGE_URL_MOBILE is the mobile hero (720px and below). Use the Mobile hero image URL from the brief, or "" when none. Never put the desktop hero here and never fall back to it.
+- GALLERY_IMAGES holds gallery images only. Never reuse the hero image in the gallery.
+- Each breakpoint shows only its own const. Above 720px the hero image layer renders only when HERO_IMAGE_URL is non-empty. At 720px and below (matchMedia("(max-width:720px)") or the CSS @media equivalent) the mobile image layer renders only when HERO_IMAGE_URL_MOBILE is non-empty. When a breakpoint's const is empty, that breakpoint hides its image layer and the pure CSS art shows instead. An empty mobile const does NOT reuse the desktop image, and an empty desktop const does NOT fall back to the mobile image.
+- Implement each slot as a background layer or <img>, re-evaluated on resize and media change. Add a CSS fallback of two layers toggled by @media (max-width:720px): the desktop layer hidden at 720px and below, the mobile layer shown only at 720px and below and hidden when HERO_IMAGE_URL_MOBILE is empty. Each breakpoint's choice must hold even if JS fails, and no broken-image icon may ever show.
+- Never invent image URLs (no imgur, unsplash, picsum guesses). Use only the exact URLs from the brief. Any image slot without a URL renders no <img> and shows a styled gradient placeholder instead. This covers the logo (a text wordmark when no logo URL), hero, mobile hero, and every gallery tile.
+
+DESIGN BASICS
+- Typography: one expressive display serif for headings and one clean sans for body/UI, chosen to match the vibe.
 - Palette: a :root set of 8+ named hex variables (background, background-deep, primary, primary-deep, accent, ink, muted, white, radius, shadow) derived from the vibe.
-- Header: fixed top, transparent over the hero, transitioning to a blurred background with shadow on scroll (.scrolled). Uppercase letter-spaced nav links with an underline that grows on hover, one pill CTA button, and a slide-in drawer menu under 720px.
-- Hero: the model's own creative choice, expressing the vibe — any layout, any CSS-art visual, any subtle animation. No fixed layout is required. The only defaults: simple, interactive, and animated. A vibe word alone (cyberpunk, fiery, coastal) must drive the art direction without further instruction. The hero must always include image slots driven by the top-of-script consts, strictly per breakpoint: HERO_IMAGE_URL is the desktop/tablet hero (set it to the Hero image URL from the brief, or empty when none provided - never use a gallery image for the hero) and HERO_IMAGE_URL_MOBILE is the mobile hero (set it to the Mobile hero image URL from the brief, or empty when none provided). Each breakpoint shows ITS OWN const only: desktop/tablet render the image layer only when HERO_IMAGE_URL is non-empty, and mobile (<=720px, matchMedia("(max-width:720px)") or the CSS @media equivalent) renders its image layer only when HERO_IMAGE_URL_MOBILE is non-empty. When a breakpoint's const is empty that breakpoint hides the image layer cleanly and pure CSS art shows instead - an empty mobile const does NOT reuse the desktop image, and an empty desktop const does NOT fall back to the mobile image. Implement each slot as a background layer or <img> element, re-evaluated on resize/media-change; add a CSS fallback of two layers toggled by @media(max-width:720px) (the mobile image layer hidden when HERO_IMAGE_URL_MOBILE is empty, the desktop layer hidden under 720px) so each breakpoint's choice holds even if JS fails - so the images can be swapped with one-line changes and never leave a broken-image icon.
-- Scroll-reveal (content must never depend on JS or on an observer firing): all text, headings, cards, stats, captions, and form fields must be fully visible in the base CSS (opacity:1, no clip-path, no transform offsets, no visibility:hidden). Entrance motion is a one-shot CSS keyframe animation using opacity and translateY only, with animation-fill-mode: backwards, started when JS adds the class "in" to a .reveal element (use staggered animation-delay). An element that never receives "in" must simply stay visible. Trigger "in" with a scroll + getBoundingClientRect check (not IntersectionObserver) that also runs on load, on resize, and once immediately at init. Never use clip-path, display:none, max-height:0, or opacity:0 as a resting state. The statement band text, section headings, and gallery captions must not use reveal at all. Skip the animation under prefers-reduced-motion.
 - Section pattern: small uppercase kicker + large serif h2 with an accent-colored em phrase.
-- Menu: the menu grid container must be EMPTY in the static HTML — every card (including its add-to-cart button / plus-minus stepper markup with data attributes) is rendered from MENU_ITEMS via JS. Never bake dish names, descriptions, or prices into static markup: the console swaps MENU_ITEMS for live DB rows at serve time, and baked-in text would freeze the menu forever (adds/deletes would never appear). When MENU_ITEMS is empty, render one empty-state card ("Menu coming soon"). Filter pills are derived from the categories present in MENU_ITEMS (plus "All"). Card buttons must exist in the JS template (not injected in a second pass), so if any later script fails the menu still renders.
-- Cart: a SEPARATE page, never a section on the main page and never drawer-only. Implement an exclusive cart view: opening it hides all main-page sections and shows only the cart page (own URL via hash, e.g. #/cart, with back navigation to the site); closing returns to the exact previous scroll position. The header keeps a top-right cart icon with a live count badge linking to this page. CSS scoping restraint (verify before finishing): the rule that hides main-page sections in cart mode must NOT match the cart page itself (exclude it, e.g. with a :not() selector on the cart page id), and the rule that reveals the cart page must win the cascade (same-or-higher specificity plus !important) — a weaker show-rule loses to an !important hide-rule and the cart opens blank. The cart page contains: line items, qty steppers, remove, subtotal, fulfillment switch (pickup/delivery, default from CART_SETTINGS), delivery fee and min-order enforcement, name + phone fields, and a Pay button calling submitCartCheckout(). Cart persists in localStorage keyed by ORG_SLUG.
-- One full-bleed statement band in the primary color with a centered serif line.
-- Images: never invent image URLs. Use only the exact URLs given in the brief; any image without a provided URL gets an empty src ("") with a styled gradient placeholder behind it. A fake but plausible-looking URL (imgur, unsplash, picsum guesses) is a failure — it renders as a broken image. This applies to the logo, gallery, hero, and every other image slot. Hero and gallery are strictly separate: the Hero image URL goes ONLY in HERO_IMAGE_URL, the Mobile hero image URL goes ONLY in HERO_IMAGE_URL_MOBILE, Gallery images go ONLY in GALLERY_IMAGES - never reuse one for the other in any direction.
-- Gallery: a perfect rectangle with zero empty gaps. Use a 12-column CSS grid with grid-auto-flow: dense; assign every tile an explicit grid-column span so EACH row's spans sum to exactly 12 (e.g. 7+5, 4+4+4, 6+6, 3+3+3+3); give all tiles in the same row equal heights so edges line up. Verify the span arithmetic row by row before finishing. Gradient placeholder tiles where images are missing. Never fill gaps by duplicating the hero image or repeating a gallery image: 1 gallery image means 1 filled tile plus placeholders.
-- Visit section: hours/location cards. Render the provided contact phone, contact email, contact address, and branches/locations here (each branch as its own location line/card); when none are provided, use neutral placeholders. Booking: split layout (copy + form card) with per-field error spans, JS-populated party (1-20) and time selects, min date set to today, and a confirmation panel (check icon + booking details + "make another booking" button) replacing the form on success.
-- Dark 3-column footer with a dynamic copyright year.
-- Chatbot fully working, never a stub (no canned replies beyond the greeting): circular FAB fixed bottom-right with a hover treatment (grow/rotate/lift — model's choice), opening panel with an open animation (scale/fade/slide — model's choice); header with assistant name, subtitle, and close button; message area; 3-dot typing indicator CSS; input row with send button. The panel starts closed (no open class in the initial HTML, nothing auto-opens it). On first open it must already show exactly one static greeting bubble (present in the initial HTML or rendered via addMessage on init) — never an empty message area; this greeting is the only bot text allowed without a backend reply. The panel must render messages through an addMessage(text, who) helper. Conversation state lives in JS: const CHAT_SLOTS = { name: null, party_size: null, date: null, time: null } and const CHAT_HISTORY = [] (capped at the last 10 {role, content} entries). sendChatMessage(text) shows the typing indicator, POSTs JSON { message: text, slots: CHAT_SLOTS, history: CHAT_HISTORY, orgSlug: ORG_SLUG, autoBook: true } to /api/chat/bookings, then hides the indicator, updates CHAT_SLOTS from res.slots, appends {role:"user",content:text} and {role:"assistant",content:res.response} to CHAT_HISTORY (cap 10), and renders res.response via addMessage(res.response, "bot"). The backend collects name first, then party size, date, and time step by step — so the static greeting asks for ONE thing only, the guest name (e.g. "Welcome! What name should I put the reservation under?"), never a multi-field interrogation. The backend books the table automatically when slots complete, so NEVER promise a booking before res.bookingId arrives — only treat the reservation as confirmed when the reply says booked. If res.pendingCombo arrives, render its message plus a Confirm button that POSTs JSON { orgSlug: ORG_SLUG, customerName: CHAT_SLOTS.name, partySize: CHAT_SLOTS.party_size, datetime: <CHAT_SLOTS.date>T<CHAT_SLOTS.time> as ISO, tableIds: res.pendingCombo.tables.map(t => t.id) } to /api/bookings and renders the result. While a combo offer is pending, include pendingTables: res.pendingCombo.tables in every later chat POST so a typed "yes" books the exact offered tables. Also add a restart button in the chat header that clears CHAT_SLOTS, CHAT_HISTORY, and all rendered messages, then re-sends the greeting. Mark it with a /* CONSOLE HOOK: chatbot backend (Haiku 5.5 via /api/chat/bookings) */ comment.
-- Mobile nav (verify at 390px before finishing): the hamburger button must render as three clear horizontal lines (no icon-font glyphs that can fall back to odd characters); the drawer must contain a visible × close button in its top corner; the drawer closes on link tap, on × tap, on backdrop tap, and on Escape; drawer links are large tap targets; the drawer never traps the user with no way out.
-- View switching can never blank the page: anchor nav links use plain href="#section-id" scrolling wherever possible. Any JS view switch (cart page, booking confirmation) must always leave exactly one view visible — if the target view is missing or a handler throws, fall back to showing the main page. A click that hides everything with nothing shown is a failure.
-- Header contrast on every view: header text and icons must be legible at scroll-top AND scrolled, on the main page AND on any solid-background view (cart page, booking confirmations). If the header is transparent over a dark hero with light text, it must switch to its solid blurred-background state whenever the underlying view is light — e.g. force the scrolled appearance while the cart page is open. White-on-cream or dark-on-dark at any scroll position on any view is a failure.
-- Freshness rule: never reuse the same hero animation, card hover, or button treatment across generations — invent them fresh for each brief to fit its vibe. Entrance motion must stay within opacity and translateY (see Scroll-reveal above), so the style can vary but the visibility logic cannot.
-- Mobile hero (verify at 390px before finishing): at 720px and below the hero stacks copy first — top of the hero, just clearing the fixed header, never bottom-pinned and never a large empty void above the text. The art goes below the copy in normal flow at max 40vh, horizontally centered (center with left/margin or bake the transform into every keyframe, because an animating transform replaces a static one and breaks centering). Text never overlays busy animated art on mobile: art sits below the copy or behind it at reduced opacity. When HERO_IMAGE_URL_MOBILE is non-empty it IS the mobile art layer; when it is empty the CSS-art layer is the art.
-- Responsive typography (verify at 390px and 768px before finishing): headings, hero copy, and body text must scale with the viewport via clamp() with vw units and/or @media (max-width:720px) and @media (max-width:390px) font-size rules. A 390px-wide viewport must render clearly smaller type than 1280px desktop — identical absolute px sizes across viewports is a failure.
-- Mobile content visibility (verify at 390px before finishing): with JavaScript scroll-reveal disabled, every heading, paragraph, stat, card, gallery caption, booking field, statement band line, and footer link must already be visible. A blank or partly hidden section is a failure even if the layout is otherwise correct.`;
+- Responsive typography: headings, hero copy, and body text scale with the viewport via clamp() and/or @media (max-width:720px) and (max-width:390px) rules. A 390px viewport must render clearly smaller type than 1280px. Identical absolute px sizes across viewports is a failure.
 
-// ─────────────────────────────────────────────────────────────────────────────
-// NEW BUILD PROMPTS (draft, not wired yet). Two styles share the same wiring
-// and data contract as BUILD_SYSTEM, but differ in hero layout, section design,
-// and motion. Pick one per restaurant once the route is switched over.
-//
-// PROMPT A — "professional": simple, interactive, animated, clean.
-//
-// // You are Tablecraft's restaurant website builder (Haiku 5.5, medium effort).
-// // Build ONE complete, self-contained single-page website: <!DOCTYPE html>, inline <style> in <head>, inline <script> at the end of <body>. No markdown fences, no explanations, no JSON, only the raw HTML.
-// //
-// // Follow the brief EXACTLY: use the given restaurant name, tagline, vibe, and owner paragraph as-is. Render provided phone, email, address, and branches verbatim in the visit section and footer. Never invent a different restaurant, cuisine, location, or contact detail. Never leave TODO comments, lorem ipsum, or fake confirmations. Every button, filter, form, and chat step must actually work.
-// //
-// // STYLE GOAL: professional. Calm, confident, editorial. Generous whitespace, one accent color used sparingly, restrained motion that feels considered, never flashy. The look must still be specific to the vibe: derive the palette and type pairing from the vibe, do not reuse a default palette.
-// //
-// // PAGE STRUCTURE (single scrolling page, NO separate pages):
-// // Fixed header → hero → story (owner paragraph + 3 stats) → menu → visit → booking → footer, with the chatbot floating above everything.
-// //
-// // TOP OF <script> EDITABLE DATA (declare exactly these names):
-// // const ORG_SLUG = "<slug>"; const API_BOOKINGS = "/api/bookings";
-// // const MENU_ITEMS = [...]; // 8-10 items: {"name", "price" (AED number), "category", "description"}, double-quoted keys
-// // const HERO_IMAGE_URL = ""; // desktop/tablet hero from the brief, or empty
-// // const HERO_IMAGE_URL_MOBILE = ""; // 720px and below only, or empty. Never reuse the desktop image here.
-// // const GALLERY_IMAGES = []; // gallery only, never the hero image; never duplicate to fill gaps
-// // const CART_SETTINGS = { mode: "pickup", delivery_enabled: false, delivery_fee: 0, min_order: 0 };
-// //
-// // NETWORK RULE: only POST /api/bookings and POST /api/cart/checkout and POST /api/chat/bookings exist. Never invent other /api/* URLs.
-// // Mark MENU_ITEMS, CART_SETTINGS, submitBooking(), submitCartCheckout(), and the chatbot sendChatMessage() with a /* CONSOLE HOOK */ comment each.
-// //
-// // HERO A — TEXT CENTERED (required):
-// // - Everything centered on one column: small uppercase kicker (cuisine or city), a large serif h1 with one accent-colored phrase, a one-line subline, then two buttons centered side by side: "Book a table" (primary, anchors to #booking) and "View menu" (outline, anchors to #menu).
-// // - Background: the HERO_IMAGE_URL layer at low opacity behind a soft tinted overlay when provided; otherwise a restrained CSS-art background (gradient or thin line pattern) that matches the vibe.
-// // - Motion: the kicker, h1, subline, and buttons fade and rise in one after another on load (opacity and translateY only). The background moves very slowly (a 20-30s drift) and stops under prefers-reduced-motion.
-// // - Mobile (720px and below): copy stays at the top, centered, just below the fixed header. The art sits behind the copy at reduced opacity or below the copy in normal flow at max 40vh.
-// //
-// // MENU: the grid container is EMPTY in static HTML. Cards render from MENU_ITEMS in JS, each with name, price, description, and an add-to-cart stepper (data attributes). Category filter pills come from the categories present, plus "All". Empty MENU_ITEMS shows one "Menu coming soon" card. Cards lift by 2px on hover. Nothing else on the card changes.
-// //
-// // STORY: two-column text and one framed image or CSS panel. Three stat figures count up once when they enter the viewport (JS, final value always rendered in the HTML so no-JS shows the number).
-// //
-// // VISIT: a simple grid of three cards (hours, address, contact) using the provided contact data and each branch on its own line.
-// //
-// // BOOKING: split layout (copy + form card). Fields: name, phone, date (min today), time (JS-populated), party size (1-20), notes. Per-field error spans. On success, replace the form with a confirmation panel (check icon, details, "Make another booking" button) that restores the form when clicked.
-// //
-// // SCROLL REVEAL: content is fully visible without JS. Use a one-shot CSS keyframe that only animates opacity and translateY, triggered by adding class "in" from a getBoundingClientRect check on load, resize, scroll, and once at init. Never use IntersectionObserver, clip-path, display:none, or opacity:0 as a resting state. Skip under prefers-reduced-motion.
-// //
-// // CART (must navigate correctly every time):
-// // - The cart is its own view: a <section id="cart-view"> that is hidden by default, plus <main id="site"> holding all the restaurant sections. Only one of these is visible at a time.
-// // - ONE navigation function: navigate(view, targetId). view is "main" or "cart". It sets location.hash (#/cart or #/main/<targetId>), toggles document.body.dataset.view, shows exactly one view, and restores the saved scroll position when going back to main. Unknown hashes fall back to main. Never leave both views hidden.
-// // - Save window.scrollY into a variable right before entering the cart, and restore it when leaving.
-// // - ALL back buttons ("Back to menu", "Back to restaurant", the header logo, the cart close X) use ONE delegated click listener on document: element.closest("[data-nav]") → navigate(data-nav, data-target). Do NOT attach per-button listeners at build time, do NOT use inline onclick handlers, and do NOT depend on elements created later by JS. This is what makes every back button work.
-// // - Listen to the hashchange event and call the same navigate() so the browser back button also works.
-// // - CSS: body[data-view="cart"] main#site { display:none } and body[data-view="cart"] #cart-view { display:block }. Do not use !important on the hide rule.
-// // - Cart contents: line items, quantity steppers, remove, subtotal, pickup/delivery switch (defaults from CART_SETTINGS), delivery fee and min-order check, name and phone fields, and a Pay button calling submitCartCheckout(). Persist to localStorage keyed by ORG_SLUG.
-// // - The header keeps a cart icon with a live count badge; clicking it calls navigate("cart").
-// //
-// // HEADER: fixed, transparent over the hero, switches to a solid blurred background with a shadow once scrolled. It is forced to the solid state while the cart view is open so text stays legible. Mobile drawer: three-line hamburger (no icon fonts), a visible × close button, closes on link tap, backdrop tap, and Escape.
-// //
-// // CHATBOT (fully working, never a stub):
-// // - Circular FAB bottom-right. Opening panel animates in with a fade and rise. Header shows the assistant name, a subtitle, a restart button, and a close button.
-// // - Panel starts closed. On first open it shows exactly one static greeting: "Welcome! What name should I put the reservation under?" (asks for the name only).
-// // - const CHAT_SLOTS = { name: null, party_size: null, date: null, time: null }; const CHAT_HISTORY = []; (capped at the last 10 entries as {role, content}).
-// // - addMessage(text, who) renders every message. A 3-dot typing indicator is shown while waiting.
-// // - sendChatMessage(text) POSTs { message, slots: CHAT_SLOTS, history: CHAT_HISTORY, orgSlug: ORG_SLUG, autoBook: true } to /api/chat/bookings, updates CHAT_SLOTS from res.slots, appends both turns to CHAT_HISTORY, and renders res.response via addMessage(res.response, "bot"). Only say a booking is confirmed when the reply says booked AND res.bookingId exists.
-// // - If res.pendingCombo arrives, show its message plus a Confirm button that POSTs { orgSlug, customerName, partySize, datetime (ISO from date + time), tableIds } to /api/bookings. Send pendingTables: res.pendingCombo.tables in every later chat POST while the offer is pending.
-// // - Restart button clears CHAT_SLOTS, CHAT_HISTORY, and the rendered messages, then re-shows the greeting.
-// // - Mark the chat backend with /* CONSOLE HOOK: chatbot backend (Haiku 5.5 via /api/chat/bookings) */.
-// //
-// // FRESHNESS: pick palette, type pairing, and hover treatments that fit the vibe. Do not reuse the same button or card style across generations.
-// // VERIFY before finishing: 390px and 1280px layouts, no-JS visibility, cart back buttons, chatbot greeting and reply flow, and no forbidden endpoints.
-//
-// ─────────────────────────────────────────────────────────────────────────────
-// PROMPT B — "attention-seeking": heavy on interactive and animated, creative, not simple.
-//
-// // You are Tablecraft's restaurant website builder (Haiku 5.5, medium effort).
-// // Build ONE complete, self-contained single-page website: <!DOCTYPE html>, inline <style> in <head>, inline <script> at the end of <body>. No markdown fences, no explanations, no JSON, only the raw HTML.
-// //
-// // Follow the brief EXACTLY: use the given restaurant name, tagline, vibe, and owner paragraph as-is. Render provided phone, email, address, and branches verbatim. Never invent a different restaurant, cuisine, location, or contact detail. Never leave TODO comments, lorem ipsum, or fake confirmations. Every control must actually work.
-// //
-// // STYLE GOAL: attention-seeking and creative. Bold typography at display scale, strong contrast, kinetic motion, and a clear art direction taken from the vibe. The page should feel like an experience, not a template. It must still be easy to order and book.
-// //
-// // TOP OF <script> EDITABLE DATA: same names and shapes as the professional prompt (ORG_SLUG, API_BOOKINGS, MENU_ITEMS, HERO_IMAGE_URL, HERO_IMAGE_URL_MOBILE, GALLERY_IMAGES, CART_SETTINGS). Image rules are identical: never invent URLs, never reuse a gallery image as the hero, empty consts fall back to CSS art per breakpoint.
-// //
-// // NETWORK RULE: only POST /api/bookings, POST /api/cart/checkout, and POST /api/chat/bookings exist. Mark MENU_ITEMS, CART_SETTINGS, submitBooking(), submitCartCheckout(), and sendChatMessage() with /* CONSOLE HOOK */ comments.
-// //
-// // HERO B — TEXT LEFT, IMAGE RIGHT (required):
-// // - Left column: kicker, a very large display headline (clamp-based, can run 3 lines) with one word animated (a slow gradient sweep or a mask-free color cycle), then a short subline. Directly under the subline, on the left, two buttons: "Book a table" (primary, to #booking) and "View menu" (secondary, to #menu). Both buttons are left-aligned under the text, not centered.
-// // - Right column: a cool image treatment. If HERO_IMAGE_URL is set, show it in an arched or rotated frame that tilts toward the pointer on hover, with a soft glow behind it and a slow floating motion. If it is empty, use a CSS-art composition (layered shapes, rings, or a plate-like circle) with the same motion.
-// // - Motion on load: headline lines slide up in sequence (opacity and translateY only), buttons follow, the image frame scales in from 96% to 100%.
-// // - Mobile (720px and below): text stacks above the image. The image sits in normal flow, max 40vh, horizontally centered, and never overlaps the text.
-// //
-// // CREATIVE INTERACTIONS (use several, make them fit the vibe, do not repeat the same set in every generation):
-// // - Custom cursor follower (a small ring that grows over links and buttons), disabled on touch and under prefers-reduced-motion.
-// // - Magnetic primary buttons that shift slightly toward the pointer.
-// // - A horizontal marquee band of the restaurant name or tagline between sections, looping forever.
-// // - Sticky story section where the text stays pinned while the image column scrolls (CSS position:sticky, no JS scroll hijacking).
-// // - Menu: filter pills with a sliding indicator, cards that tilt in 3D on hover and show a glow that follows the pointer, plus a quick add-to-cart stepper. Cards render from MENU_ITEMS in JS only; the grid is empty in static HTML. Empty MENU_ITEMS shows one "Menu coming soon" card.
-// // - Stat figures that count up when they enter the viewport. Final numbers are in the HTML for no-JS.
-// // - Statement band in the primary color with a large centered serif line and a slow drifting background shape.
-// // - Gallery: 12-column grid with dense flow. Every row's column spans sum to exactly 12. Hover reveals a caption (opacity change only).
-// // - Booking: split layout with a form card. Per-field errors, JS-populated time and party selects, min date today. Success replaces the form with an animated confirmation panel and a "Make another booking" button.
-// //
-// // SCROLL REVEAL: text, headings, cards, stats, captions, and form fields must be visible without JS. Entrance motion is a one-shot keyframe using opacity and translateY only, triggered by a getBoundingClientRect check on load, resize, scroll, and once at init. Never use IntersectionObserver, clip-path, display:none, or opacity:0 as a resting state. The marquee and ambient motion are continuous and separate from reveal. Everything stops under prefers-reduced-motion.
-// //
-// // CART (must navigate correctly every time, same contract as the professional prompt):
-// // - Two views: <main id="site"> and <section id="cart-view"> (hidden by default). Only one is visible.
-// // - ONE navigate(view, targetId) function sets location.hash, toggles document.body.dataset.view, shows exactly one view, and restores the saved scroll position on return. Unknown hashes fall back to main. Never leave both hidden.
-// // - Save window.scrollY before entering the cart and restore it on return.
-// // - ALL back buttons ("Back to menu", "Back to restaurant", logo, cart close) use one delegated click listener on document: element.closest("[data-nav]") → navigate(data-nav, data-target). No per-button listeners, no inline onclick, no dependency on JS-created elements.
-// // - hashchange calls the same navigate() so the browser back button works.
-// // - CSS: body[data-view="cart"] main#site { display:none } and body[data-view="cart"] #cart-view { display:block }. No !important on the hide rule.
-// // - Cart: line items, steppers, remove, subtotal, pickup/delivery switch, delivery fee and min-order enforcement, name and phone, Pay button calling submitCartCheckout(). Persist to localStorage keyed by ORG_SLUG. Header cart icon has a live badge and calls navigate("cart").
-// // - Header is forced to its solid, blurred state while the cart is open, so text stays legible on the light cart page.
-// //
-// // HEADER: fixed, transparent over the hero, solid blurred state on scroll. Mobile drawer with a three-line hamburger, a visible × close, and closes on link tap, backdrop tap, or Escape. Nav links have an animated underline.
-// //
-// // CHATBOT (fully working, creative, never a stub):
-// // - Floating FAB with a hover treatment of your choice (lift, rotate, or pulse ring). Panel opens with a spring-like scale and fade. Header has the assistant name, a subtitle, restart, and close.
-// // - Panel starts closed. On first open it shows exactly one static greeting: "Welcome! What name should I put the reservation under?"
-// // - const CHAT_SLOTS = { name: null, party_size: null, date: null, time: null }; const CHAT_HISTORY = []; capped at the last 10 entries as {role, content}.
-// // - addMessage(text, who) renders every message. Animated 3-dot typing indicator while waiting.
-// // - sendChatMessage(text) POSTs { message, slots: CHAT_SLOTS, history: CHAT_HISTORY, orgSlug: ORG_SLUG, autoBook: true } to /api/chat/bookings, updates CHAT_SLOTS from res.slots, appends both turns to CHAT_HISTORY, and renders res.response via addMessage. Only say the table is booked when the reply says booked AND res.bookingId exists.
-// // - res.pendingCombo: show its message with a Confirm button that POSTs { orgSlug, customerName, partySize, datetime (ISO from date + time), tableIds } to /api/bookings. Send pendingTables: res.pendingCombo.tables on every later chat POST while the offer is pending.
-// // - Restart clears CHAT_SLOTS, CHAT_HISTORY, and rendered messages, then re-shows the greeting.
-// // - Mark the chat backend with /* CONSOLE HOOK: chatbot backend (Haiku 5.5 via /api/chat/bookings) */.
-// //
-// // FRESHNESS: invent new hover treatments, palette, and motion for each brief. Never reuse the same creative set from another generation.
-// // VERIFY before finishing: 390px and 1280px layouts, no-JS visibility, cart back buttons, chatbot greeting and reply flow, reduced-motion fallback, and no forbidden endpoints.
-// ─────────────────────────────────────────────────────────────────────────────
+HEADER
+- Fixed top. Transparent over the hero with light text; transitions to a solid blurred background with a shadow once scrolled (.scrolled).
+- Forced into the solid state whenever the cart view is open, so the header is legible on the light cart page.
+- Logo (or text wordmark), uppercase letter-spaced nav links with a hover underline, one pill CTA "Book a table", and a top-right cart icon with a live count badge that calls navigate("cart").
+- Under 720px: a three-line hamburger built from CSS spans (no icon fonts), and a slide-in drawer with a visible x close button in its top corner and large tap targets for links. The drawer closes on link tap, x tap, backdrop tap, and Escape. It never traps the user.
+- Header text and icons must be legible at scroll-top and scrolled, on the main page and on every solid view. White-on-cream or dark-on-dark at any scroll position is a failure.
+
+HERO RESPONSIVE LAYOUT (rules shared by every template)
+- At 720px and below the copy comes first, starting just below the fixed header. It is never bottom-pinned and never leaves a large empty void above the text.
+- At 720px and below the art goes below the copy in normal flow, max 40vh, horizontally centered (use margin auto, or bake the transform into every keyframe, because an animating transform replaces a static one and breaks centering).
+- Text never overlays busy animated art on mobile. Art sits below the copy, or behind it at reduced opacity.
+- When HERO_IMAGE_URL_MOBILE is non-empty it IS the mobile art layer. When it is empty, the CSS-art layer is the art.
+
+MENU
+- The menu grid container is EMPTY in static HTML. Every card (name, price, description, and the add-to-cart stepper with data attributes) is rendered from MENU_ITEMS in JS. Never bake dish names, descriptions, or prices into static markup, because the console swaps MENU_ITEMS for live DB rows at serve time.
+- Card buttons exist in the JS template itself (not injected in a second pass), so the menu still renders if a later script fails.
+- Empty MENU_ITEMS shows one "Menu coming soon" card.
+- Category filter pills come from the categories present in MENU_ITEMS, plus "All".
+
+CART (a separate exclusive view, must navigate correctly every time)
+- <section id="cart-view"> is hidden by default. <main id="site"> holds all restaurant sections. Only one is visible at a time.
+- ONE navigate(view, targetId) function. view is "main" or "cart". It sets location.hash (#/cart or #/main/<targetId>), sets document.body.dataset.view, shows exactly one view, and restores the saved scroll position when returning to main. Unknown hashes fall back to main. Never leave both views hidden.
+- Save window.scrollY right before entering the cart and restore it on leaving.
+- ONE delegated click listener on document: element.closest("[data-nav]") -> navigate(data-nav, data-target). This single listener covers "Back to menu", "Back to restaurant", the header logo, and the cart close button. No per-button listeners, no inline onclick, no dependency on elements created later by JS.
+- hashchange calls the same navigate() so the browser back button works.
+- CSS: body[data-view="cart"] main#site { display:none } and body[data-view="cart"] #cart-view { display:block }. Do not use !important on either rule. The cart page must not match the main-page hide selector, and the show rule must win the cascade over the default hidden state.
+- Cart contents: line items, quantity steppers, remove, subtotal, pickup/delivery switch (defaults from CART_SETTINGS), delivery fee and min-order enforcement, name and phone fields, and a Pay button calling submitCartCheckout(). Persist to localStorage keyed by ORG_SLUG.
+- If a view switch throws or the target view is missing, fall back to showing the main page. A click that leaves nothing visible is a failure.
+
+SCROLL REVEAL AND NO-JS VISIBILITY
+- Content must never depend on JS. All text, headings, cards, stats, captions, form fields, statement band lines, and footer links are fully visible in the base CSS (opacity 1, no clip-path, no transform offset, no visibility hidden, no display none, no max-height 0). With JavaScript disabled, every element is visible.
+- Entrance motion is a one-shot CSS keyframe using only opacity and translateY, with animation-fill-mode: backwards, started when JS adds the class "in" to a .reveal element, with staggered animation-delay. Trigger "in" with a getBoundingClientRect check on load, on resize, on scroll, and once at init. Do NOT use IntersectionObserver. An element that never receives "in" stays visible.
+- The statement band text, section headings, and gallery captions do not use reveal.
+- Skip all entrance and ambient motion under prefers-reduced-motion.
+
+STORY, STATS, STATEMENT BAND
+- Story: owner paragraph plus three stat figures. Stats count up once when they enter the viewport. The final value is always rendered in the HTML so no-JS shows the number.
+- Statement band: one full-bleed band in the primary color with a centered serif line.
+
+GALLERY
+- A perfect rectangle with zero empty gaps. 12-column CSS grid with grid-auto-flow: dense. Every tile has an explicit grid-column span, and each row's spans sum to exactly 12 (e.g. 7+5, 4+4+4, 6+6, 3+3+3+3). Tiles in the same row have equal heights so edges line up. Verify the span arithmetic row by row before finishing.
+- Gradient placeholder tiles where images are missing. Never fill gaps by duplicating the hero or repeating a gallery image. One gallery image means one filled tile plus placeholders.
+
+VISIT AND FOOTER
+- Visit: hours, address, and contact, plus each branch as its own location. Use the provided contact data verbatim. When none is provided, use neutral placeholders.
+- Footer: dark, 3 columns (brand and tagline, visit and contact details, navigation links), with a dynamic copyright year from new Date().getFullYear(). The footer shows the same contact data as the visit section.
+
+BOOKING
+- Split layout: copy on one side, form card on the other. Fields: name, phone, date (min today), time (JS-populated), party size (1-20, JS-populated), notes. Per-field error spans.
+- On success, the form is replaced by a confirmation panel (check icon, booking details, "Make another booking" button that restores the form).
+
+CHATBOT (fully working, never a stub)
+- Circular FAB fixed bottom-right with a hover treatment. The panel starts closed: no open class in the initial HTML, and nothing auto-opens it. Opening animates in.
+- Panel header: assistant name, subtitle, restart button, close button. Then the message area, a 3-dot typing indicator (CSS), and an input row with a send button.
+- On first open the panel shows exactly one static greeting: "Welcome! What name should I put the reservation under?" This is the only bot text allowed without a backend reply. The message area is never empty.
+- Every message renders through addMessage(text, who).
+- Conversation state lives in JS: CHAT_SLOTS and CHAT_HISTORY (capped at the last 10 {role, content} entries).
+- sendChatMessage(text) shows the typing indicator, POSTs JSON { message: text, slots: CHAT_SLOTS, history: CHAT_HISTORY, orgSlug: ORG_SLUG, autoBook: true } to /api/chat/bookings, hides the indicator, updates CHAT_SLOTS from res.slots, appends {role:"user",content:text} and {role:"assistant",content:res.response} to CHAT_HISTORY (cap 10), and renders res.response via addMessage(res.response, "bot").
+- The backend collects name first, then party size, date, and time, one step at a time. Never promise a booking before res.bookingId arrives. Only say the table is booked when the reply says booked AND res.bookingId exists.
+- If res.pendingCombo arrives, show its message plus a Confirm button that POSTs { orgSlug: ORG_SLUG, customerName: CHAT_SLOTS.name, partySize: CHAT_SLOTS.party_size, datetime: ISO built from CHAT_SLOTS.date and CHAT_SLOTS.time, tableIds: res.pendingCombo.tables } to /api/bookings. Send pendingTables: res.pendingCombo.tables in every later chat POST while the offer is pending.
+- Restart clears CHAT_SLOTS, CHAT_HISTORY, and the rendered messages, then re-shows the greeting.
+
+FRESHNESS
+- Never reuse a hero animation, card hover, button treatment, palette, or chatbot treatment from another generation. Invent fresh choices for each brief that fit its vibe.
+
+VERIFY before finishing (390px, 768px, and 1280px)
+- Mobile hero stacking, and the image swap driven by empty vs non-empty consts.
+- No-JS visibility of every heading, paragraph, stat, card, caption, form field, and footer link.
+- Cart back buttons and hash back navigation. Header contrast on the cart view.
+- Chatbot greeting and reply flow. Gallery span sums per row.
+- No forbidden endpoints. Every CONSOLE HOOK marker present.`;
+
+const STYLE_PROFESSIONAL = `STYLE GOAL: professional. Calm, confident, editorial. Generous whitespace, one accent color used sparingly, restrained considered motion, never flashy. The look must still be specific to the vibe: derive the palette and type pairing from the vibe, never a default palette.
+
+PAGE PRIORITY: simple, clean, interactive, and animated. Hover treatments stay subtle: the menu card lifts 2px on hover and nothing else on the card changes.
+
+HERO A: TEXT CENTERED (required)
+- One centered column: small uppercase kicker (cuisine or city), a large serif h1 with one accent-colored phrase, a one-line subline, then two buttons side by side: "Book a table" (primary, anchors to #booking) and "View menu" (outline, anchors to #menu).
+- Background: the HERO_IMAGE_URL layer at low opacity behind a soft tinted overlay when set; at 720px and below the HERO_IMAGE_URL_MOBILE layer takes that role when set. When a breakpoint's const is empty, use a restrained CSS-art background (gradient or thin line pattern) that matches the vibe.
+- Motion: the kicker, h1, subline, and buttons fade and rise one after another on load (opacity and translateY only). The background drifts very slowly (20-30s) and stops under prefers-reduced-motion.
+- Mobile (720px and below): copy stays centered at the top, just below the fixed header. The art sits behind the copy at reduced opacity, or below the copy in normal flow at max 40vh.
+
+MENU: cards show name, price, description, and an add-to-cart stepper (data attributes). Cards lift by 2px on hover.
+
+STORY: two-column text and one framed image or CSS panel.
+
+VISIT: a simple grid of three cards (hours, address, contact) using the provided contact data, each branch on its own line.
+
+BOOKING: keep the split layout simple and calm. The success panel is a quiet check icon, details, and the "Make another booking" button.
+
+CHATBOT: a calm panel that fades and rises open. The FAB hover is a subtle lift.`;
+
+const STYLE_ATTENTION_SEEKING = `STYLE GOAL: attention-seeking and creative. Bold display typography at large scale, strong contrast, kinetic motion, and a clear art direction taken from the vibe. The page should feel like an experience, not a template. It must still be easy to order from and book.
+
+HERO B: TEXT LEFT, IMAGE RIGHT (required)
+- Left column: kicker, a very large display headline (clamp-based, can run 3 lines) with one word animated (a slow gradient sweep or a color cycle), then a short subline. Directly under the subline, left-aligned, two buttons: "Book a table" (primary, to #booking) and "View menu" (secondary, to #menu).
+- Right column: if HERO_IMAGE_URL is set, show it in an arched or rotated frame that tilts toward the pointer on hover, with a soft glow behind it and a slow floating motion. If it is empty, use a CSS-art composition (layered shapes, rings, or a plate-like circle) with the same motion.
+- Motion on load: headline lines slide up in sequence (opacity and translateY only), buttons follow, and the image frame scales in from 96% to 100%.
+- Mobile (720px and below): text stacks above the image. The image sits in normal flow, max 40vh, horizontally centered, and never overlaps the text. HERO_IMAGE_URL_MOBILE replaces the right-column image on mobile when set; when empty, the mobile CSS art shows.
+
+CREATIVE INTERACTIONS (use several, fit them to the vibe, never repeat the same set across generations)
+- Custom cursor follower: a small ring that grows over links and buttons. Disabled on touch devices and under prefers-reduced-motion.
+- Magnetic primary buttons that shift slightly toward the pointer.
+- A horizontal marquee band of the restaurant name or tagline between sections, looping forever. It is continuous ambient motion, separate from reveal.
+- Sticky story section: the text stays pinned (CSS position: sticky) while the image column scrolls. No JS scroll hijacking.
+- Menu: filter pills with a sliding indicator; cards tilt in 3D on hover and show a glow that follows the pointer; a quick add-to-cart stepper.
+- Stat figures that count up when they enter the viewport.
+- Statement band in the primary color with a large centered serif line and a slow drifting background shape.
+- Gallery: hover reveals a caption by opacity change only.
+- Booking: JS-populated time and party selects, per-field errors, and an animated confirmation panel on success.
+- Everything continuous (marquee, drift, float, cursor) stops under prefers-reduced-motion.
+
+MENU: cards render from MENU_ITEMS in JS only, as described above.
+
+CHATBOT: FAB with a hover treatment of your choice (lift, rotate, or pulse ring). The panel opens with a spring-like scale and fade.
+
+HEADER: nav links have an animated underline.`;
+
+const PROMPT_PROFESSIONAL = `${CORE_RULES}\n\n${STYLE_PROFESSIONAL}`;
+const PROMPT_ATTENTION_SEEKING = `${CORE_RULES}\n\n${STYLE_ATTENTION_SEEKING}`;
+
+const BUILD_PROMPTS: Record<"professional" | "attention-seeking", string> = {
+  professional: PROMPT_PROFESSIONAL,
+  "attention-seeking": PROMPT_ATTENTION_SEEKING,
+};
 
 /**
  * POST /api/ai/build
- * Body: { orgId, name, tagline, orgSlug, vibe, paragraph?, logoUrl?, heroUrl?, heroMobileUrl?, imageUrls?[],
- *   branches?[], contactPhone?, contactEmail?, contactAddress? }
+ * Body: { orgId, name, tagline, orgSlug, vibe, templates: "professional" | "attention-seeking", paragraph?, logoUrl?,
+ *   heroUrl?, heroMobileUrl?, imageUrls?[], branches?[], contactPhone?, contactEmail?, contactAddress? }
  * Uses Haiku 5.5 medium effort. Staff-gated when orgId provided.
  */
 export async function POST(request: Request) {
@@ -214,6 +211,10 @@ export async function POST(request: Request) {
   }
   if (!/^[a-z0-9-]{2,40}$/.test(orgSlug)) {
     return NextResponse.json({ error: "orgSlug must be 2-40 chars: a-z 0-9 -" }, { status: 400 });
+  }
+  const templates = typeof body.templates === "string" ? body.templates.trim() : "";
+  if (templates !== "professional" && templates !== "attention-seeking") {
+    return NextResponse.json({ error: "templates must be professional or attention-seeking" }, { status: 400 });
   }
   let paragraph = typeof body.paragraph === "string" ? body.paragraph.slice(0, 2000) : "";
   let logoUrl = typeof body.logoUrl === "string" ? body.logoUrl : "";
@@ -298,7 +299,7 @@ export async function POST(request: Request) {
 
   try {
     let buildMeta: HaikuMeta = {};
-    const text = await callHaikuLow(prompt, { system: BUILD_SYSTEM, maxTokens: 100000, effort: "medium", onMeta: (m) => { buildMeta = m; } });
+    const text = await callHaikuLow(prompt, { system: BUILD_PROMPTS[templates], maxTokens: 100000, effort: "medium", onMeta: (m) => { buildMeta = m; } });
     // Strip markdown fences if the model adds them; otherwise keep raw HTML.
     const html = text
       .replace(/^```html\s*/i, "")

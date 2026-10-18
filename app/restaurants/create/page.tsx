@@ -25,6 +25,7 @@ export default function CreateRestaurantPage() {
   const [heroMobileFile, setHeroMobileFile] = useState<File | null>(null);
   const [restaurantImages, setRestaurantImages] = useState<File[]>([]);
   const [vibe, setVibe] = useState("");
+  const [templates, setTemplates] = useState<"professional" | "attention-seeking" | "">("");
   const [createdOrg, setCreatedOrg] = useState<{ id: string; slug: string } | null>(null);
   const [connectStatus, setConnectStatus] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
@@ -95,6 +96,10 @@ export default function CreateRestaurantPage() {
       setError("Please describe the vibe / aesthetic — it is required for the website build.");
       return;
     }
+    if (!templates) {
+      setError("Please choose a template — Professional or Attention seeking.");
+      return;
+    }
     setSubmitting(true);
     setUploading(true);
     setBuildFailed(false);
@@ -154,6 +159,7 @@ export default function CreateRestaurantPage() {
             tagline,
             orgSlug: data?.org?.slug ?? slug,
             vibe,
+            templates,
             paragraph: aboutText,
             branches: validBranches,
             contactPhone,
@@ -521,6 +527,42 @@ export default function CreateRestaurantPage() {
             />
             <p className="text-xs text-neutral-500 mt-1">
               Required — the build model applies this first.
+            </p>
+          </div>
+
+          <div>
+            <p id="templates-label" className="block text-sm font-medium mb-1.5">
+              Template <span className="text-[#d45200]">*</span>
+            </p>
+            <div role="radiogroup" aria-labelledby="templates-label" className="grid grid-cols-2 gap-3">
+              {(
+                [
+                  ["professional", "Professional", "Calm, editorial, clean"],
+                  ["attention-seeking", "Attention seeking", "Bold, kinetic, creative"],
+                ] as const
+              ).map(([value, label, hint]) => {
+                const selected = templates === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setTemplates(value)}
+                    className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
+                      selected
+                        ? "border-[#d45200] bg-orange-50"
+                        : "border-neutral-300 bg-white hover:border-neutral-950"
+                    }`}
+                  >
+                    <span className="block text-[15px] font-semibold text-neutral-950">{label}</span>
+                    <span className="block text-xs text-neutral-500 mt-0.5">{hint}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-neutral-500 mt-1">
+              Required — picks the website style the build model follows.
             </p>
           </div>
 
