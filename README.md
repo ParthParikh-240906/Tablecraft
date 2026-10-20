@@ -42,12 +42,6 @@ Open [http://localhost:3000](http://localhost:3000).
 stripe listen --forward-to localhost:3000/api/webhooks/stripe
 ```
 
-## Demo seed
-
-```bash
-curl -X POST http://localhost:3000/api/demo/setup
-```
-
 ## Tests & checks
 
 ```bash

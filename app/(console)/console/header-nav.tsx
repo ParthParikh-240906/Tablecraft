@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { HeaderOrgSlug } from "./header-org-slug";
 
 interface OrgInfo {
   id: string;
@@ -14,9 +13,26 @@ interface HeaderNavProps {
   isOwner: boolean;
   userOrgs: OrgInfo[];
   fallbackSlug: string;
+  notificationCount?: number;
+  lowStockCount?: number;
 }
 
-export function HeaderNav({ isOwner, userOrgs, fallbackSlug }: HeaderNavProps) {
+function Badge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="ml-1 inline-flex min-w-[16px] h-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] leading-none text-white tabular-nums">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
+export function HeaderNav({
+  isOwner,
+  userOrgs,
+  fallbackSlug,
+  notificationCount = 0,
+  lowStockCount = 0,
+}: HeaderNavProps) {
   const searchParams = useSearchParams();
   const orgId = searchParams.get("org");
   const orgParam = orgId ? `?org=${orgId}` : "";
@@ -45,6 +61,17 @@ export function HeaderNav({ isOwner, userOrgs, fallbackSlug }: HeaderNavProps) {
         </Link>
         <Link href={`/console/menu${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors text-xs">
           Menu
+        </Link>
+        <Link href={`/console/inventory${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors text-xs inline-flex items-center">
+          Inventory
+          <Badge count={lowStockCount} />
+        </Link>
+        <Link
+          href={`/console/notifications${orgParam}`}
+          className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors text-xs inline-flex items-center"
+        >
+          Notifications
+          <Badge count={notificationCount} />
         </Link>
         {isOwner && (
           <Link href={`/console/design${orgParam}`} className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors text-xs">

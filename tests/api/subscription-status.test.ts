@@ -57,7 +57,7 @@ describe("GET /api/subscription/status", () => {
   });
 
   it("401 when not signed in", async () => {
-    const res = await GET(get("?orgSlug=demo-diner"));
+    const res = await GET(get("?orgSlug=test-diner"));
     expect(res.status).toBe(401);
   });
 
@@ -72,7 +72,7 @@ describe("GET /api/subscription/status", () => {
     mockState.user = { id: "u1" };
     mockState.orgRow = { id: "org-1" };
     mockState.staffRows = [];
-    const res = await GET(get("?orgSlug=demo-diner"));
+    const res = await GET(get("?orgSlug=test-diner"));
     expect(res.status).toBe(403);
   });
 
@@ -80,7 +80,7 @@ describe("GET /api/subscription/status", () => {
     mockState.user = { id: "u1" };
     mockState.orgRow = { id: "org-1" };
     mockState.staffRows = [{ org_id: "org-1" }];
-    const res = await GET(get("?orgSlug=demo-diner"));
+    const res = await GET(get("?orgSlug=test-diner"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.plan).toBe("free");

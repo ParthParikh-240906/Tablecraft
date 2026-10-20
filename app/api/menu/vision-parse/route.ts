@@ -9,6 +9,14 @@ import {
 import { spawn } from "child_process";
 import { promises as fs } from "fs";
 import path from "path";
+import {
+  estimateMenuIngredients,
+  normalizeEstimateForPreview,
+  persistMenuIngredients,
+} from "@/lib/menu-ingredients";
+import type { IngredientEstimate } from "@/types/inventory";
+
+export const maxDuration = 60;
 
 const COMPRESSION_THRESHOLD = 5 * 1024 * 1024; // 5MB
 const MAX_WIDTH = 1920;
@@ -41,6 +49,8 @@ export async function POST(request: NextRequest) {
         ""
     ).toLowerCase();
     const isPreview = previewFlag === "true" || previewFlag === "1";
+    const estimateFlag = String(formData.get("estimateIngredients") ?? "true").toLowerCase();
+    const shouldEstimateIngredients = estimateFlag !== "false" && estimateFlag !== "0";
     const itemsParam = formData.get("items") as string | null;
 
     if (!orgId) {
@@ -121,12 +131,17 @@ export async function POST(request: NextRequest) {
           typeof (item as { category?: unknown }).category === "string"
             ? ((item as { category: string }).category as string)
             : undefined,
+        deducts_stock: (item as { deducts_stock?: unknown }).deducts_stock !== false,
+        ingredients: normalizeEstimateForPreview((item as { ingredients?: unknown }).ingredients),
       }));
       const confirmed = await insertItems(orgId, mode, normalized);
       if ("response" in confirmed) return confirmed.response;
+
+      const warnings = await persistInsertedIngredients(orgId, confirmed.items, normalized);
       return NextResponse.json({
         success: true,
         itemCount: confirmed.count,
+        ingredientWarnings: warnings.length > 0 ? warnings.slice(0, 10) : undefined,
         mode,
       });
     }
@@ -294,7 +309,7 @@ Rules:
     // WITHOUT inserting — the client shows the review-before-save step and
     // POSTs back `items` JSON to confirm. Same length/cap sanitization.
     if (isPreview) {
-      const previewItems = validItems.map((item) => ({
+      const sanitized = validItems.map((item) => ({
         name: String(item.name).slice(0, MAX_NAME_LEN),
         description:
           typeof item.description === "string"
@@ -306,11 +321,36 @@ Rules:
             ? item.category.slice(0, MAX_CATEGORY_LEN)
             : undefined,
       }));
+
+      let estimates: Awaited<ReturnType<typeof estimateMenuIngredients>> | null = null;
+      if (shouldEstimateIngredients) {
+        let restaurantName = "this restaurant";
+        try {
+          const admin = createAdminClient();
+          const { data: orgRow } = await admin
+            .from("organizations")
+            .select("name")
+            .eq("id", orgId)
+            .maybeSingle();
+          if (orgRow?.name) restaurantName = orgRow.name;
+        } catch {
+          // Use the generic name; estimation can still proceed.
+        }
+        estimates = await estimateMenuIngredients(restaurantName, sanitized);
+      }
+
+      const previewItems = sanitized.map((item, index) => ({
+        ...item,
+        deducts_stock: true,
+        ingredients: estimates?.byIndex.get(index) ?? [],
+      }));
+
       return NextResponse.json({
         success: true,
         preview: true,
         items: previewItems,
         itemCount: previewItems.length,
+        ingredientError: estimates?.error ?? null,
         mode,
       });
     }
@@ -338,7 +378,11 @@ type InsertableItem = {
   description?: string;
   price: number;
   category?: string;
+  deducts_stock?: boolean;
+  ingredients?: IngredientEstimate[];
 };
+
+type InsertedMenuItem = { id: string; name: string };
 
 /**
  * Shared insert path for extracted AND client-reviewed items.
@@ -349,7 +393,7 @@ async function insertItems(
   mode: "append" | "replace",
   items: InsertableItem[]
 ): Promise<
-  | { count: number }
+  | { count: number; items: InsertedMenuItem[] }
   | { response: ReturnType<typeof NextResponse.json> }
 > {
   const supabase = createAdminClient();
@@ -419,12 +463,16 @@ async function insertItems(
           ? item.category.slice(0, MAX_CATEGORY_LEN)
           : null,
       available: true,
+      deducts_stock: item.deducts_stock !== false,
       sort_order: (sortBase[cat] ?? 0) + perCatCount[cat],
       category_sort_order: categoryOrder[cat] ?? 0,
     };
   });
 
-  const { error: insertError } = await supabase.from("menu_items").insert(rows);
+  const { data: inserted, error: insertError } = await supabase
+    .from("menu_items")
+    .insert(rows)
+    .select("id, name");
 
   if (insertError) {
     console.error("[VISION PARSE] Insert error:", insertError);
@@ -436,7 +484,38 @@ async function insertItems(
     };
   }
 
-  return { count: rows.length };
+  return {
+    count: rows.length,
+    items: (inserted ?? []) as InsertedMenuItem[],
+  };
+}
+
+/**
+ * Persist ingredient estimates for inserted menu items. A failure here does not
+ * roll back the menu save; the API returns warnings so staff can fix recipes.
+ */
+async function persistInsertedIngredients(
+  orgId: string,
+  inserted: InsertedMenuItem[],
+  source: InsertableItem[],
+): Promise<string[]> {
+  if (inserted.length === 0) return [];
+  const admin = createAdminClient();
+  const warnings: string[] = [];
+
+  for (let i = 0; i < inserted.length; i++) {
+    const estimates = source[i]?.ingredients ?? [];
+    if (estimates.length === 0) continue;
+    const itemWarnings = await persistMenuIngredients(
+      admin,
+      orgId,
+      inserted[i].id,
+      estimates,
+    );
+    warnings.push(...itemWarnings.map((w) => `${inserted[i].name}: ${w}`));
+  }
+
+  return warnings;
 }
 
 async function compressImage(data: Buffer, ext: string): Promise<Buffer> {

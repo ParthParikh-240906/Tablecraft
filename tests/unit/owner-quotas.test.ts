@@ -15,7 +15,7 @@ describe("OWNER_QUOTAS values (user-specified)", () => {
   it("free tier matches spec", () => {
     expect(OWNER_QUOTAS.free).toEqual({
       chatbot: 50,
-      menu_scanner: 10,
+      menu_scanner: 20,
       restaurant_create: 1,
       edit: 3,
       image: 10,
@@ -25,7 +25,7 @@ describe("OWNER_QUOTAS values (user-specified)", () => {
   it("pro tier matches spec", () => {
     expect(OWNER_QUOTAS.pro).toEqual({
       chatbot: 300,
-      menu_scanner: 30,
+      menu_scanner: 60,
       restaurant_create: 5,
       edit: 30,
       image: 100,
@@ -35,7 +35,7 @@ describe("OWNER_QUOTAS values (user-specified)", () => {
   it("max tier matches spec", () => {
     expect(OWNER_QUOTAS.max).toEqual({
       chatbot: 1000,
-      menu_scanner: 70,
+      menu_scanner: 140,
       restaurant_create: 20,
       edit: 100,
       image: 300,
@@ -81,6 +81,6 @@ describe("peekOwnerQuota", () => {
     expect(peekOwnerQuota(owner, "free", "chatbot").limit).toBe(50);
     expect(peekOwnerQuota(owner, "pro", "image").limit).toBe(100);
     expect(peekOwnerQuota(owner, "max", "edit").limit).toBe(100);
-    expect(getOwnerQuotaLimit("free", "menu_scanner")).toBe(10);
+    expect(getOwnerQuotaLimit("free", "menu_scanner")).toBe(20);
   });
 });

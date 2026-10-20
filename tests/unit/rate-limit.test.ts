@@ -58,11 +58,11 @@ describe("PLAN_AI_LIMITS matches marketing copy", () => {
     const free = MARKETING_PLANS.find((p) => p.planKey === null)!;
     const pro = MARKETING_PLANS.find((p) => p.planKey === "pro")!;
     const max = MARKETING_PLANS.find((p) => p.planKey === "max")!;
-    expect(free.features.join(" ")).toContain(`${PLAN_AI_LIMITS.free.scan} AI menu scanner`);
+    expect(free.features.join(" ")).toContain(`${PLAN_AI_LIMITS.free.scan} AI scan requests`);
     expect(free.features.join(" ")).toContain(`${PLAN_AI_LIMITS.free.image} AI image`);
-    expect(pro.features.join(" ")).toContain(`${PLAN_AI_LIMITS.pro.scan} AI menu scanner`);
+    expect(pro.features.join(" ")).toContain(`${PLAN_AI_LIMITS.pro.scan} AI scan requests`);
     expect(pro.features.join(" ")).toContain(`${PLAN_AI_LIMITS.pro.image} AI image`);
-    expect(max.features.join(" ")).toContain(`${PLAN_AI_LIMITS.max.scan} AI menu scanner`);
+    expect(max.features.join(" ")).toContain(`${PLAN_AI_LIMITS.max.scan} AI scan requests`);
     expect(max.features.join(" ")).toContain(`${PLAN_AI_LIMITS.max.image} AI image`);
   });
 

@@ -18,7 +18,8 @@ interface ConsoleSidebarProps {
   userOrgs: SidebarOrgItem[];
   activeOrgId: string;
   isOwner?: boolean;
-  isDemo?: boolean;
+  lowStockCount?: number;
+  notificationCount?: number;
 }
 
 export function ConsoleSidebar({
@@ -27,7 +28,8 @@ export function ConsoleSidebar({
   userOrgs,
   activeOrgId,
   isOwner = true,
-  isDemo = false,
+  lowStockCount = 0,
+  notificationCount = 0,
 }: ConsoleSidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -70,6 +72,8 @@ export function ConsoleSidebar({
   const isOrdersActive = pathname === "/console/orders" || pathname.startsWith("/console/orders/");
   const isKitchenActive = pathname === "/console/kitchen" || pathname.startsWith("/console/kitchen/");
   const isMenuActive = pathname === "/console/menu" || pathname.startsWith("/console/menu/");
+  const isInventoryActive = pathname === "/console/inventory" || pathname.startsWith("/console/inventory/");
+  const isNotificationsActive = pathname === "/console/notifications" || pathname.startsWith("/console/notifications/");
   const isDesignActive = pathname === "/console/design" || pathname.startsWith("/console/design/");
   const isLaunchActive = pathname === "/console/launch" || pathname.startsWith("/console/launch/");
 
@@ -115,6 +119,16 @@ export function ConsoleSidebar({
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
     </svg>
   );
+  const IconInventory = () => (
+    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+    </svg>
+  );
+  const IconBell = () => (
+    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V10a6 6 0 10-12 0v4.2a2 2 0 01-.6 1.4L4 17h5m6 0a3 3 0 11-6 0" />
+    </svg>
+  );
   const IconPalette = () => (
     <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
@@ -138,19 +152,21 @@ export function ConsoleSidebar({
   );
 
   const navItems = [
-    { href: `/console${activeOrgParam}`, label: "Dashboard", icon: <IconHome />, active: isHomeActive },
-    { href: `/console/tables${activeOrgParam}`, label: "Tables", icon: <IconTable />, active: isTablesActive },
-    { href: `/console/bookings${activeOrgParam}`, label: "Reservations", icon: <IconCalendar />, active: isBookingsActive },
-    { href: `/console/orders${activeOrgParam}`, label: "Orders", icon: <IconReceipt />, active: isOrdersActive },
-    { href: `/console/kitchen${activeOrgParam}`, label: "Kitchen", icon: <IconFire />, active: isKitchenActive },
-    { href: `/console/menu${activeOrgParam}`, label: "Menu", icon: <IconMenu />, active: isMenuActive },
+    { href: `/console${activeOrgParam}`, label: "Dashboard", icon: <IconHome />, active: isHomeActive, badge: 0 },
+    { href: `/console/tables${activeOrgParam}`, label: "Tables", icon: <IconTable />, active: isTablesActive, badge: 0 },
+    { href: `/console/bookings${activeOrgParam}`, label: "Reservations", icon: <IconCalendar />, active: isBookingsActive, badge: 0 },
+    { href: `/console/orders${activeOrgParam}`, label: "Orders", icon: <IconReceipt />, active: isOrdersActive, badge: 0 },
+    { href: `/console/kitchen${activeOrgParam}`, label: "Kitchen", icon: <IconFire />, active: isKitchenActive, badge: 0 },
+    { href: `/console/menu${activeOrgParam}`, label: "Menu", icon: <IconMenu />, active: isMenuActive, badge: 0 },
+    { href: `/console/inventory${activeOrgParam}`, label: "Inventory", icon: <IconInventory />, active: isInventoryActive, badge: lowStockCount },
+    { href: `/console/notifications${activeOrgParam}`, label: "Notifications", icon: <IconBell />, active: isNotificationsActive, badge: notificationCount },
   ];
 
   const ownerNavItems = [
-    { href: `/console/design${activeOrgParam}`, label: "Design", icon: <IconPalette />, active: isDesignActive },
-    { href: `/console/launch${activeOrgParam}`, label: "Launch", icon: rocketIcon, active: isLaunchActive },
-    { href: `/console/config${activeOrgParam}`, label: "Settings", icon: <IconSettings />, active: isConfigActive },
-    { href: `/console/pricing${activeOrgParam}`, label: "Plan", icon: <IconTag />, active: isPricingActive },
+    { href: `/console/design${activeOrgParam}`, label: "Design", icon: <IconPalette />, active: isDesignActive, badge: 0 },
+    { href: `/console/launch${activeOrgParam}`, label: "Launch", icon: rocketIcon, active: isLaunchActive, badge: 0 },
+    { href: `/console/config${activeOrgParam}`, label: "Settings", icon: <IconSettings />, active: isConfigActive, badge: 0 },
+    { href: `/console/pricing${activeOrgParam}`, label: "Plan", icon: <IconTag />, active: isPricingActive, badge: 0 },
   ];
 
   return (
@@ -175,19 +191,6 @@ export function ConsoleSidebar({
 
       {/* Full sidebar body: visible on mobile drawer always; on desktop hidden when collapsed */}
       <aside id="console-sidebar-body" className={`space-y-6 ${collapsed ? "lg:hidden" : ""}`}>
-      {/* ── Demo Banner in Sidebar ─────────────────────────────────── */}
-      {isDemo && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-sm p-3">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-base">🧪</span>
-            <span className="text-xs font-semibold text-yellow-800">Demo Mode</span>
-          </div>
-          <p className="text-[10px] text-yellow-600">
-            Changes auto-reset after 3 min of inactivity
-          </p>
-        </div>
-      )}
-
       {/* ── Dynamic Title Header ───────────────────────────────────── */}
       <div className={cardClass}>
         <div className="flex items-center gap-3">
@@ -229,10 +232,15 @@ export function ConsoleSidebar({
           >
             {item.icon}
             <span>{item.label}</span>
+            {item.badge > 0 && (
+              <span className="ml-auto inline-flex min-w-[16px] h-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] leading-none text-white">
+                {item.badge > 99 ? "99+" : item.badge}
+              </span>
+            )}
           </Link>
         ))}
 
-        {!isDemo && isOwner && (
+        {isOwner && (
           <>
             <div className="border-t border-[var(--rule)] my-2" />
             <div className="px-3 py-1.5 text-xs font-semibold text-[var(--ink-soft)] tracking-wide">
@@ -255,8 +263,7 @@ export function ConsoleSidebar({
       </nav>
 
       {/* ── Theme Toggle Widget ────────────────────────────────────── */}
-      {!isDemo && (
-        <div className={cardClass.replace("p-4", "p-3").replace("space-y-", "") + " space-y-2"}>
+      <div className={cardClass.replace("p-4", "p-3").replace("space-y-", "") + " space-y-2"}>
           <div className="flex items-center justify-between text-xs font-semibold text-[var(--ink-soft)] tracking-wide">
             <span>Theme Mode</span>
             <span className="text-[var(--accent)] font-semibold">{theme === "dark" ? "Dark" : "Light"}</span>
@@ -285,11 +292,10 @@ export function ConsoleSidebar({
               <span>Light</span>
             </button>
           </div>
-        </div>
-      )}
+      </div>
 
       {/* ── Restaurant Switcher Widget ──────────────────────────────── */}
-      {!isDemo && userOrgs.length > 1 && (
+      {userOrgs.length > 1 && (
         <div className={cardClass.replace("p-4", "p-3").replace("space-y-", "") + " space-y-2"}>
           <div className="flex items-center justify-between text-xs font-semibold text-[var(--ink-soft)] tracking-wide">
             <span>Switch Restaurant</span>

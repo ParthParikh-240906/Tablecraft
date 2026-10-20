@@ -14,7 +14,7 @@ export default function NotFound() {
             Back home
           </Link>
           <Link href="/#restaurants" className="btn btn-outline text-sm">
-            See live demos
+            See live restaurants
           </Link>
         </div>
       </div>

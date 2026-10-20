@@ -29,7 +29,7 @@ with a thenable query builder (see `tests/api/orders-routes.test.ts`).
 | `unit/dubai-booking.test.ts` | Dubai-only bookings: chatbot yes-regex, +04:00 → UTC, YYYY-MM-DD picker, dynamic duration, marketing copy guard |
 | `unit/stripe-lazy.test.ts` | `lib/stripe.ts`: import never throws, `getStripe()` throws only when called without key, memoizes, no placeholder key |
 | `unit/dashboard-console.test.ts` | Dashboard stats, parent/child order grouping + totals, KDS filter/FIFO, earnings aggregation, `Table X` label build/parse, `?org=` nav contract |
-| `unit/auth-error-handling.test.ts` | Sign-in rate-limit mapping (no enumeration), console fallback 5xx vs 4xx, `?error=` banners, middleware redirect targets, demo-check failure, `?next=` preservation |
+| `unit/auth-error-handling.test.ts` | Sign-in rate-limit mapping (no enumeration), console fallback 5xx vs 4xx, `?error=` banners, middleware redirect targets, `?next=` preservation |
 | `unit/org-errors.test.ts` | `OrgFetchError` code/name, `getOrgs`/`getMenuByOrg` throw on DB failure (error UI, never empty state), category grouping + `Other` fallback |
 | `api/contact.test.ts` | Live `POST /api/contact`: invalid JSON, name/email/message 400s, success path |
 | `api/bookings-route.test.ts` | Live `POST /api/bookings` validation: JSON, org, name, partySize, tableIds, datetime, past, orgId format, no internal leaks |

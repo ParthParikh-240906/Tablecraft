@@ -11,9 +11,12 @@ import { sendQuotaWarningEmail } from "@/lib/email";
  * (owner:{ownerId}:{category}:{YYYY-MM}) so usage aggregates across orgs.
  *
  * Limits (monthly, except restaurant_create which is lifetime total):
- *   free: chatbot 50, scanner 10, create 1, edit 3, image 10
- *   pro:  chatbot 300, scanner 30, create 5, edit 30, image 100
- *   max:  chatbot 1000, scanner 70, create 20, edit 100, image 300
+ *   free: chatbot 50, scans 20, create 1, edit 3, image 10
+ *   pro:  chatbot 300, scans 60, create 5, edit 30, image 100
+ *   max:  chatbot 1000, scans 140, create 20, edit 100, image 300
+ *
+ * `menu_scanner` is the shared AI-scan pool: menu scans and inventory scans
+ * both consume it.
  *
  * Persistence note: in-memory Map (per serverless instance) like lib/rate-limit.
  * A Supabase migration (0034) adds owner_usage_monthly + owner_quota_warnings
@@ -29,9 +32,9 @@ export type QuotaCategory =
   | "image";
 
 export const OWNER_QUOTAS: Record<PlanTier, Record<QuotaCategory, number>> = {
-  free: { chatbot: 50, menu_scanner: 10, restaurant_create: 1, edit: 3, image: 10 },
-  pro: { chatbot: 300, menu_scanner: 30, restaurant_create: 5, edit: 30, image: 100 },
-  max: { chatbot: 1000, menu_scanner: 70, restaurant_create: 20, edit: 100, image: 300 },
+  free: { chatbot: 50, menu_scanner: 20, restaurant_create: 1, edit: 3, image: 10 },
+  pro: { chatbot: 300, menu_scanner: 60, restaurant_create: 5, edit: 30, image: 100 },
+  max: { chatbot: 1000, menu_scanner: 140, restaurant_create: 20, edit: 100, image: 300 },
 };
 
 export function getOwnerQuotaLimit(plan: PlanTier, category: QuotaCategory): number {

@@ -15,7 +15,7 @@ const req = (body: unknown) =>
   });
 
 const future = () => new Date(Date.now() + 3600_000).toISOString();
-const valid = () => ({ orgSlug: "demo-diner", customerName: "Ali", partySize: 2, datetime: future() });
+const valid = () => ({ orgSlug: "test-diner", customerName: "Ali", partySize: 2, datetime: future() });
 
 describe("POST /api/bookings — error handling", () => {
   it("400 on invalid JSON body", async () => {

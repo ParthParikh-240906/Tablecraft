@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useConsoleTheme } from "../theme-wrapper";
 import { defaultSortOrders } from "@/lib/menu-order";
+import { IngredientEditor, type InventoryOption } from "./ingredient-editor";
 
 interface MenuItem {
   id: string;
@@ -13,6 +14,7 @@ interface MenuItem {
   category: string | null;
   image_url: string | null;
   available: boolean;
+  deducts_stock: boolean;
   sort_order: number | null;
   category_sort_order: number | null;
 }
@@ -23,6 +25,15 @@ const EMPTY_FORM = {
   price: "",
   category: "",
   image_url: "",
+  deducts_stock: true,
+};
+
+type PreviewIngredient = {
+  name: string;
+  quantity: string;
+  unit: string;
+  par_level: string;
+  confidence?: string;
 };
 
 export function MenuManager({ orgId }: { orgId: string }) {
@@ -44,7 +55,19 @@ export function MenuManager({ orgId }: { orgId: string }) {
   const [deleteItemTarget, setDeleteItemTarget] = useState<MenuItem | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [inventoryItems, setInventoryItems] = useState<InventoryOption[]>([]);
+  const [ingredientItem, setIngredientItem] = useState<MenuItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function refreshInventoryOptions() {
+    const { data } = await supabase
+      .from("inventory_items")
+      .select("id, name, base_unit, archived")
+      .eq("org_id", orgId)
+      .eq("archived", false)
+      .order("name", { ascending: true });
+    setInventoryItems((data ?? []) as InventoryOption[]);
+  }
 
   // Review-before-save state (Step 2 of AI scan)
   interface PreviewRow {
@@ -53,6 +76,8 @@ export function MenuManager({ orgId }: { orgId: string }) {
     price: string;
     category: string;
     included: boolean;
+    deducts_stock: boolean;
+    ingredients: PreviewIngredient[];
   }
   const [previewItems, setPreviewItems] = useState<PreviewRow[] | null>(null);
   const [previewMode, setPreviewMode] = useState<"append" | "replace">("append");
@@ -61,8 +86,17 @@ export function MenuManager({ orgId }: { orgId: string }) {
   useEffect(() => {
     if (!orgId) return;
     supabase
+      .from("inventory_items")
+      .select("id, name, base_unit, archived")
+      .eq("org_id", orgId)
+      .eq("archived", false)
+      .order("name", { ascending: true })
+      .then(({ data }) => {
+        setInventoryItems((data ?? []) as InventoryOption[]);
+      });
+    supabase
       .from("menu_items")
-      .select("id, name, description, price, category, image_url, available, sort_order, category_sort_order")
+      .select("id, name, description, price, category, image_url, available, deducts_stock, sort_order, category_sort_order")
       .eq("org_id", orgId)
       .order("category_sort_order", { ascending: true })
       .order("sort_order", { ascending: true })
@@ -89,6 +123,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
       price: String(item.price),
       category: item.category ?? "",
       image_url: item.image_url ?? "",
+      deducts_stock: item.deducts_stock !== false,
     });
     setShowForm(true);
     setError(null);
@@ -105,6 +140,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
       price: Number(form.price),
       category: form.category.trim() || null,
       image_url: form.image_url.trim() || null,
+      deducts_stock: form.deducts_stock,
     };
 
     if (!payload.name || Number.isNaN(payload.price) || payload.price < 0) {
@@ -249,7 +285,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
     // Refresh items
     const { data, error } = await supabase
       .from("menu_items")
-      .select("id, name, description, price, category, image_url, available, sort_order, category_sort_order")
+      .select("id, name, description, price, category, image_url, available, deducts_stock, sort_order, category_sort_order")
       .eq("org_id", orgId)
       .order("category_sort_order", { ascending: true })
       .order("sort_order", { ascending: true });
@@ -274,7 +310,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
     // Refresh items
     const { data } = await supabase
       .from("menu_items")
-      .select("id, name, description, price, category, image_url, available, sort_order, category_sort_order")
+      .select("id, name, description, price, category, image_url, available, deducts_stock, sort_order, category_sort_order")
       .eq("org_id", orgId)
       .order("category_sort_order", { ascending: true })
       .order("sort_order", { ascending: true });
@@ -317,12 +353,32 @@ export function MenuManager({ orgId }: { orgId: string }) {
       // Preview path: show the review-before-save step (no DB writes yet).
       if (result.preview === true && Array.isArray(result.items)) {
         const rows: PreviewRow[] = result.items.map(
-          (item: { name?: unknown; description?: unknown; price?: unknown; category?: unknown }) => ({
+          (item: {
+            name?: unknown;
+            description?: unknown;
+            price?: unknown;
+            category?: unknown;
+            deducts_stock?: unknown;
+            ingredients?: unknown;
+          }) => ({
             name: typeof item.name === "string" ? item.name : String(item.name ?? ""),
             description: typeof item.description === "string" ? item.description : "",
             price: item.price != null ? String(item.price) : "",
             category: typeof item.category === "string" ? item.category : "",
             included: true,
+            deducts_stock: item.deducts_stock !== false,
+            ingredients: Array.isArray(item.ingredients)
+              ? item.ingredients.map((raw) => {
+                  const r = (raw ?? {}) as Record<string, unknown>;
+                  return {
+                    name: typeof r.name === "string" ? r.name : "",
+                    quantity: r.quantity != null ? String(r.quantity) : "",
+                    unit: typeof r.unit === "string" ? r.unit : "g",
+                    par_level: r.par_level != null ? String(r.par_level) : "",
+                    confidence: typeof r.confidence === "string" ? r.confidence : undefined,
+                  };
+                })
+              : [],
           })
         );
         if (rows.length === 0) {
@@ -330,7 +386,13 @@ export function MenuManager({ orgId }: { orgId: string }) {
         } else {
           setPreviewItems(rows);
           setPreviewMode("append");
-          setScanStatus(`Detected ${rows.length} items — review below, then confirm.`);
+          setScanStatus(
+            `Detected ${rows.length} items${
+              result.ingredientError
+                ? " — ingredient estimates unavailable; add them manually if needed"
+                : ""
+            } — review below, then confirm.`,
+          );
         }
         return;
       }
@@ -340,7 +402,7 @@ export function MenuManager({ orgId }: { orgId: string }) {
       // Refresh menu list
       const { data } = await supabase
         .from("menu_items")
-        .select("id, name, description, price, category, available")
+        .select("id, name, description, price, category, available, deducts_stock")
         .eq("org_id", orgId);
       setItems(data as MenuItem[]);
     } catch (err: unknown) {
@@ -360,6 +422,57 @@ export function MenuManager({ orgId }: { orgId: string }) {
     );
   }
 
+  function updatePreviewIngredient(
+    rowIndex: number,
+    ingredientIndex: number,
+    patch: Partial<PreviewIngredient>,
+  ) {
+    setPreviewItems((prev) =>
+      prev
+        ? prev.map((row, i) =>
+            i === rowIndex
+              ? {
+                  ...row,
+                  ingredients: row.ingredients.map((ing, j) =>
+                    j === ingredientIndex ? { ...ing, ...patch } : ing,
+                  ),
+                }
+              : row,
+          )
+        : prev,
+    );
+  }
+
+  function addPreviewIngredient(rowIndex: number) {
+    setPreviewItems((prev) =>
+      prev
+        ? prev.map((row, i) =>
+            i === rowIndex
+              ? {
+                  ...row,
+                  ingredients: [
+                    ...row.ingredients,
+                    { name: "", quantity: "", unit: "g", par_level: "" },
+                  ],
+                }
+              : row,
+          )
+        : prev,
+    );
+  }
+
+  function removePreviewIngredient(rowIndex: number, ingredientIndex: number) {
+    setPreviewItems((prev) =>
+      prev
+        ? prev.map((row, i) =>
+            i === rowIndex
+              ? { ...row, ingredients: row.ingredients.filter((_, j) => j !== ingredientIndex) }
+              : row,
+          )
+        : prev,
+    );
+  }
+
   async function handleConfirmPreview() {
     if (!previewItems) return;
     const selected = previewItems.filter((row) => row.included);
@@ -367,7 +480,20 @@ export function MenuManager({ orgId }: { orgId: string }) {
       setScanError("Select at least one item to add.");
       return;
     }
-    const payload: Array<{ name: string; description?: string; price: number; category?: string }> = [];
+    const payload: Array<{
+      name: string;
+      description?: string;
+      price: number;
+      category?: string;
+      deducts_stock: boolean;
+      ingredients: Array<{
+        name: string;
+        quantity: number;
+        unit: string;
+        par_level?: number | null;
+        confidence?: string;
+      }>;
+    }> = [];
     for (const row of selected) {
       const name = row.name.trim();
       const price = Number(row.price);
@@ -375,11 +501,38 @@ export function MenuManager({ orgId }: { orgId: string }) {
         setScanError(`Fix invalid row: "${row.name.trim() || "(unnamed)"}" needs a name and a valid price.`);
         return;
       }
+      const ingredients: Array<{
+        name: string;
+        quantity: number;
+        unit: string;
+        par_level: number | null;
+        confidence?: string;
+      }> = [];
+      for (const ingredient of row.ingredients) {
+        const ingredientName = ingredient.name.trim();
+        const quantity = Number(ingredient.quantity);
+        if (!ingredientName && ingredient.quantity.trim() === "") continue;
+        if (!ingredientName || !Number.isFinite(quantity) || quantity <= 0) {
+          setScanError(
+            `Fix the ingredient "${ingredient.name || "(unnamed)"}" for "${name}" — it needs a name and a positive quantity.`,
+          );
+          return;
+        }
+        ingredients.push({
+          name: ingredientName,
+          quantity,
+          unit: ingredient.unit.trim() || "g",
+          par_level: ingredient.par_level.trim() === "" ? null : Number(ingredient.par_level),
+          confidence: ingredient.confidence,
+        });
+      }
       payload.push({
         name,
         description: row.description.trim() || undefined,
         price,
         category: row.category.trim() || undefined,
+        deducts_stock: row.deducts_stock,
+        ingredients,
       });
     }
     if (previewMode === "replace") {
@@ -406,10 +559,11 @@ export function MenuManager({ orgId }: { orgId: string }) {
       }
       setScanStatus(`✓ Added ${result.itemCount} items`);
       setPreviewItems(null);
+      void refreshInventoryOptions();
       // Refresh menu list
       const { data } = await supabase
         .from("menu_items")
-        .select("id, name, description, price, category, available")
+        .select("id, name, description, price, category, available, deducts_stock")
         .eq("org_id", orgId);
       setItems(data as MenuItem[]);
     } catch (err: unknown) {
@@ -524,8 +678,8 @@ export function MenuManager({ orgId }: { orgId: string }) {
           </div>
           {previewMode === "replace" && (
             <p className={`text-sm rounded-sm px-3 py-2 ${theme === "light" ? "bg-red-600 text-white" : "text-red-400 bg-red-900/40"}`}>
-              Replace will delete all {items.length} existing menu items and insert only the
-              selected scanned items. This cannot be undone.
+              Replace will delete all {items.length} existing menu items — including their
+              ingredient links — and insert only the selected scanned items. This cannot be undone.
             </p>
           )}
           <ul className="space-y-2">
@@ -578,6 +732,89 @@ export function MenuManager({ orgId }: { orgId: string }) {
                 >
                   Remove
                 </button>
+
+                <div className="sm:col-span-12 border-t border-[var(--rule)] pt-2 mt-1 space-y-2">
+                  <label className="flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={row.deducts_stock}
+                      onChange={(e) => updatePreviewRow(index, { deducts_stock: e.target.checked })}
+                    />
+                    <span>Deduct stock when this item is ordered</span>
+                    {!row.deducts_stock && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800">
+                        Third-party / no deduction
+                      </span>
+                    )}
+                  </label>
+
+                  <details open={row.ingredients.length > 0 && row.included}>
+                    <summary className="cursor-pointer text-xs font-medium text-[var(--ink-soft)]">
+                      Ingredients ({row.ingredients.length}) — AI estimate, edit before saving
+                    </summary>
+                    <div className="mt-2 space-y-2">
+                      {row.ingredients.map((ingredient, ingIndex) => (
+                        <div key={ingIndex} className="grid grid-cols-12 gap-1.5 items-center">
+                          <input
+                            className="input col-span-4 py-1"
+                            placeholder="Ingredient"
+                            value={ingredient.name}
+                            onChange={(e) =>
+                              updatePreviewIngredient(index, ingIndex, { name: e.target.value })
+                            }
+                          />
+                          <input
+                            className="input col-span-2 py-1"
+                            type="number"
+                            step="any"
+                            min="0"
+                            placeholder="Qty"
+                            value={ingredient.quantity}
+                            onChange={(e) =>
+                              updatePreviewIngredient(index, ingIndex, { quantity: e.target.value })
+                            }
+                          />
+                          <input
+                            className="input col-span-1 py-1"
+                            placeholder="g"
+                            value={ingredient.unit}
+                            onChange={(e) =>
+                              updatePreviewIngredient(index, ingIndex, { unit: e.target.value })
+                            }
+                          />
+                          <input
+                            className="input col-span-2 py-1"
+                            type="number"
+                            step="any"
+                            min="0"
+                            placeholder="Par"
+                            value={ingredient.par_level}
+                            onChange={(e) =>
+                              updatePreviewIngredient(index, ingIndex, { par_level: e.target.value })
+                            }
+                          />
+                          <span className="col-span-2 text-[10px] text-[var(--ink-faint)]">
+                            {ingredient.confidence ? `${ingredient.confidence} confidence` : ""}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removePreviewIngredient(index, ingIndex)}
+                            className="btn btn-ghost text-xs py-1 text-red-500 col-span-1"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => addPreviewIngredient(index)}
+                        className="btn btn-outline text-xs py-1"
+                      >
+                        + Add ingredient
+                      </button>
+                    </div>
+                  </details>
+                </div>
               </li>
             ))}
           </ul>
@@ -659,6 +896,20 @@ export function MenuManager({ orgId }: { orgId: string }) {
               onChange={(e) => setForm({ ...form, image_url: e.target.value })}
               className="input sm:col-span-2"
             />
+            <label className="sm:col-span-2 flex items-start gap-2 text-xs rounded-sm border border-[var(--rule)] p-3">
+              <input
+                type="checkbox"
+                checked={form.deducts_stock}
+                onChange={(e) => setForm({ ...form, deducts_stock: e.target.checked })}
+                className="mt-0.5"
+              />
+              <span>
+                <span className="font-medium">Deduct stock when this item is ordered</span>
+                <span className="block text-[10px] text-[var(--ink-faint)] mt-0.5">
+                  Turn off for third-party desserts, outsourced pastries, or resold bottled drinks.
+                </span>
+              </span>
+            </label>
           </div>
           {error && (
             <p className={`text-sm rounded-sm px-3 py-2 ${theme === "light" ? "bg-red-600 text-white" : "text-red-400 bg-red-900/40"}`}> 
@@ -709,8 +960,9 @@ export function MenuManager({ orgId }: { orgId: string }) {
                       type="button"
                       onClick={() => moveCategory(cat, "up")}
                       disabled={catIdx === 0}
-                      className="btn btn-ghost btn-xs p-1 opacity-50 hover:opacity-100 disabled:opacity-20"
+                      className="btn btn-ghost btn-xs p-1"
                       title="Move category up"
+                      aria-label={`Move ${cat} category up`}
                     >
                       ↑
                     </button>
@@ -718,8 +970,9 @@ export function MenuManager({ orgId }: { orgId: string }) {
                       type="button"
                       onClick={() => moveCategory(cat, "down")}
                       disabled={catIdx === categoryOrder.length - 1}
-                      className="btn btn-ghost btn-xs p-1 opacity-50 hover:opacity-100 disabled:opacity-20"
+                      className="btn btn-ghost btn-xs p-1"
                       title="Move category down"
+                      aria-label={`Move ${cat} category down`}
                     >
                       ↓
                     </button>
@@ -729,8 +982,9 @@ export function MenuManager({ orgId }: { orgId: string }) {
                         setDeleteCatTarget(cat);
                         setShowDeleteCatConfirm(true);
                       }}
-                      className="btn btn-ghost btn-xs p-1 text-red-400 opacity-50 hover:opacity-100"
+                      className="btn btn-xs btn-danger-soft"
                       title={`Delete ${cat} category`}
+                      aria-label={`Delete ${cat} category`}
                     >
                       Delete
                     </button>
@@ -748,8 +1002,9 @@ export function MenuManager({ orgId }: { orgId: string }) {
                             type="button"
                             onClick={() => moveItem(item.id, "up")}
                             disabled={idx === 0}
-                            className="btn btn-ghost btn-xs p-1 opacity-50 hover:opacity-100 disabled:opacity-20"
+                            className="btn btn-ghost btn-xs p-1"
                             title="Move up"
+                            aria-label={`Move ${item.name} up`}
                           >
                             ↑
                           </button>
@@ -757,8 +1012,9 @@ export function MenuManager({ orgId }: { orgId: string }) {
                             type="button"
                             onClick={() => moveItem(item.id, "down")}
                             disabled={idx === grouped[cat].length - 1}
-                            className="btn btn-ghost btn-xs p-1 opacity-50 hover:opacity-100 disabled:opacity-20"
+                            className="btn btn-ghost btn-xs p-1"
                             title="Move down"
+                            aria-label={`Move ${item.name} down`}
                           >
                             ↓
                           </button>
@@ -778,6 +1034,13 @@ export function MenuManager({ orgId }: { orgId: string }) {
                           {item.description && (
                             <p className="text-xs text-[var(--ink-muted)] mt-0.5">{item.description}</p>
                           )}
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {!item.deducts_stock && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800">
+                                Third-party — no stock deduction
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -799,6 +1062,13 @@ export function MenuManager({ orgId }: { orgId: string }) {
                         </button>
                         <button
                           type="button"
+                          onClick={() => setIngredientItem(item)}
+                          className="btn btn-ghost text-xs py-1"
+                        >
+                          Ingredients
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => startEdit(item)}
                           className="btn btn-ghost text-xs py-1"
                         >
@@ -807,7 +1077,8 @@ export function MenuManager({ orgId }: { orgId: string }) {
                         <button
                           type="button"
                           onClick={() => setDeleteItemTarget(item)}
-                          className="btn btn-ghost text-xs py-1 text-red-400"
+                          className="btn btn-xs btn-danger-soft"
+                          aria-label={`Delete ${item.name}`}
                         >
                           Delete
                         </button>
@@ -821,11 +1092,35 @@ export function MenuManager({ orgId }: { orgId: string }) {
         </div>
       )}
 
+      {ingredientItem && (
+        <IngredientEditor
+          orgId={orgId}
+          menuItem={ingredientItem}
+          inventoryItems={inventoryItems}
+          onClose={() => setIngredientItem(null)}
+          onSaved={async () => {
+            const { data } = await supabase
+              .from("menu_items")
+              .select("id, name, description, price, category, image_url, available, deducts_stock, sort_order, category_sort_order")
+              .eq("org_id", orgId)
+              .order("category_sort_order", { ascending: true })
+              .order("sort_order", { ascending: true });
+            if (data) setItems(data as MenuItem[]);
+            void refreshInventoryOptions();
+          }}
+        />
+      )}
+
       {/* Delete category confirmation modal */}
       {showDeleteCatConfirm && deleteCatTarget && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[var(--card)] p-6 rounded-lg max-w-sm w-full mx-4">
-            <h3 className="text-lg font-semibold mb-2">Delete category?</h3>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div
+            className="ticket p-6 max-w-sm w-full shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-category-title"
+          >
+            <h3 id="delete-category-title" className="text-lg font-semibold mb-2">Delete category?</h3>
             <p className="text-[var(--ink-faint)] mb-4">
               Are you sure you want to delete &ldquo;{deleteCatTarget}&rdquo; category?
               This will remove all its items and cannot be undone.
@@ -853,9 +1148,14 @@ export function MenuManager({ orgId }: { orgId: string }) {
 
       {/* Delete menu item confirmation modal */}
       {deleteItemTarget && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[var(--card)] p-6 rounded-lg max-w-sm w-full mx-4">
-            <h3 className="text-lg font-semibold mb-2">Delete menu item?</h3>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div
+            className="ticket p-6 max-w-sm w-full shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-item-title"
+          >
+            <h3 id="delete-item-title" className="text-lg font-semibold mb-2">Delete menu item?</h3>
             <p className="text-[var(--ink-faint)] mb-4">
               Are you sure you want to delete &ldquo;{deleteItemTarget.name}&rdquo;? This action cannot be undone.
             </p>

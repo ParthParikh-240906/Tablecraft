@@ -36,6 +36,7 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: vi.fn(() => ({
     from: vi.fn((table: string) => chain(mockState.adminData[table] ?? { data: null })),
+    rpc: vi.fn(async () => ({ data: null, error: null })),
   })),
 }));
 

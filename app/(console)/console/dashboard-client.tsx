@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useOrdersRealtime } from "@/lib/orders-realtime";
 import type { OrderRecord } from "./orders/orders-list";
@@ -64,10 +65,41 @@ export default function DashboardClient({
   ));
   const [todayDateStr, setTodayDateStr] = useState(todayDate);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [stockAlerts, setStockAlerts] = useState<{
+    lowStock: number;
+    outOfStock: number;
+    unreadNotifications: number;
+  } | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!orgId) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/inventory/alerts?org_id=${encodeURIComponent(orgId)}`);
+        const data = await res.json().catch(() => null);
+        if (!cancelled && res.ok) {
+          setStockAlerts({
+            lowStock: Number(data?.lowStock ?? 0),
+            outOfStock: Number(data?.outOfStock ?? 0),
+            unreadNotifications: Number(data?.unreadNotifications ?? 0),
+          });
+        }
+      } catch {
+        // Inventory alerts are optional.
+      }
+    };
+    void load();
+    const timer = setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [orgId]);
 
   // Orders realtime (with polling fallback)
   const { orders } = useOrdersRealtime(orgId, initialOrders);
@@ -280,6 +312,18 @@ export default function DashboardClient({
         <div className="mb-4 rounded-sm border border-red-800 bg-red-950/40 p-2 text-xs text-red-300">
           No restaurant selected — stats are empty. Pick a restaurant from the sidebar.
         </div>
+      )}
+      {stockAlerts && stockAlerts.lowStock + stockAlerts.outOfStock > 0 && (
+        <Link
+          href={`/console/notifications${orgId ? `?org=${orgId}` : ""}`}
+          className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-sm border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 hover:bg-amber-100 transition-colors"
+        >
+          <span>
+            <strong>Stock alerts:</strong> {stockAlerts.lowStock} low · {stockAlerts.outOfStock} out
+            {stockAlerts.unreadNotifications > 0 ? ` · ${stockAlerts.unreadNotifications} unread` : ""}
+          </span>
+          <span className="font-semibold">View notifications →</span>
+        </Link>
       )}
 
       {/* ── Stats cards ── */}

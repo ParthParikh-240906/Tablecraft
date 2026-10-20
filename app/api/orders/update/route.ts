@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     // Look up the order to identify its org_id
     const { data: order, error: orderLookupErr } = await supabase
       .from("orders")
-      .select("id, org_id, customer_name")
+      .select("id, org_id, customer_name, status")
       .eq("id", orderId)
       .single();
 
@@ -46,6 +46,16 @@ export async function POST(request: Request) {
     const isStaffOfOrg = (staffRows ?? []).some((s) => s.org_id === order.org_id);
     if (!isStaffOfOrg) {
       return NextResponse.json({ error: "Forbidden: Not a staff member of this restaurant" }, { status: 403 });
+    }
+
+    // Once the kitchen has started, ingredients have already been deducted.
+    // Block item edits instead of silently desyncing stock. Add an "extra"
+    // order for additions after preparation starts.
+    if (["preparing", "ready", "completed"].includes(order.status)) {
+      return NextResponse.json(
+        { error: "Items cannot be changed after preparation has started. Add an extra order instead." },
+        { status: 409 },
+      );
     }
 
     // Validate menu items against DB prices

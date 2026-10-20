@@ -1,13 +1,10 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { PasswordInput } from "@/components/PasswordInput";
-
-const DEMO_EMAIL = "demo@tablecraft.app";
-const DEMO_PASSWORD = "demo123";
 
 function LoginForm() {
   const router = useRouter();
@@ -19,7 +16,7 @@ function LoginForm() {
     ? `${rawNext.startsWith("/") ? rawNext : "/"}${rawNext.includes("?") ? "&" : "?"}org=${orgSlug}`
     : rawNext;
 
-  const [email, setEmail] = useState(orgSlug === "rasam" ? "owner@rasam.test" : orgSlug === "demo-diner" ? DEMO_EMAIL : "");
+  const [email, setEmail] = useState(orgSlug === "rasam" ? "owner@rasam.test" : "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(
     callbackError === "auth_callback_failed"
@@ -29,30 +26,6 @@ function LoginForm() {
         : null,
   );
   const [submitting, setSubmitting] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(false);
-  const [demoError, setDemoError] = useState<string | null>(null);
-
-  // Check if this org is a demo org
-  const [isDemoOrg, setIsDemoOrg] = useState(false);
-  const [demoCheckError, setDemoCheckError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!orgSlug) return;
-    setDemoCheckError(null);
-    fetch(`/api/demo/check?slug=${encodeURIComponent(orgSlug)}`)
-      .then(async (r) => {
-        const data = await r.json().catch(() => null);
-        if (!r.ok) {
-          setDemoCheckError("Could not check demo availability — demo login may be hidden. Try again.");
-          setIsDemoOrg(false);
-          return;
-        }
-        setIsDemoOrg(data?.isDemo ?? false);
-      })
-      .catch(() => {
-        setDemoCheckError("Could not check demo availability — demo login may be hidden. Try again.");
-      });
-  }, [orgSlug]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -119,38 +92,6 @@ function LoginForm() {
     }
   }
 
-  async function handleDemoLogin() {
-    if (!orgSlug || demoLoading) return;
-    setDemoLoading(true);
-    setDemoError(null);
-
-    try {
-      const res = await fetch("/api/demo/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgSlug }),
-      });
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok) {
-        setDemoError(data?.error ?? "Demo login failed");
-        setDemoLoading(false);
-        return;
-      }
-
-      // Navigate to the magiclink which will create the Supabase session
-      if (data.magicLink) {
-        window.location.href = data.magicLink;
-      } else {
-        setDemoError("No magic link returned");
-        setDemoLoading(false);
-      }
-    } catch {
-      setDemoError("Demo login failed. Please try again.");
-      setDemoLoading(false);
-    }
-  }
-
   return (
     <div className="layer2-bg border border-white rounded-sm overflow-hidden">
       <form onSubmit={handleSubmit} className="ticket ticket--dark p-6 space-y-5">
@@ -203,35 +144,6 @@ function LoginForm() {
         >
           {submitting ? "Signing in…" : "Sign in with Email"}
         </button>
-
-        {isDemoOrg && (
-          <>
-            <div className="relative flex py-2 items-center">
-              <div className="flex-grow border-t border-[var(--rule)]"></div>
-              <span className="flex-shrink mx-3 text-[11px] text-[var(--ink-faint)] uppercase tracking-wider">
-                Or
-              </span>
-              <div className="flex-grow border-t border-[var(--rule)]"></div>
-            </div>
-            <button
-              type="button"
-              onClick={handleDemoLogin}
-              disabled={demoLoading}
-              className="btn btn-outline w-full flex items-center justify-center gap-2 text-xs font-medium"
-            >
-              {demoLoading ? "Loading…" : "🧪 Try Demo Console"}
-            </button>
-            {demoError && (
-              <p className="text-xs text-red-400 text-center">{demoError}</p>
-            )}
-            {demoCheckError && (
-              <p className="text-xs text-amber-400 text-center">{demoCheckError}</p>
-            )}
-            <p className="text-xs text-center text-[var(--ink-faint)]">
-              Free access for 3 minutes — changes auto-reset on inactivity
-            </p>
-          </>
-        )}
 
         <div className="relative flex py-2 items-center">
           <div className="flex-grow border-t border-[var(--rule)]"></div>

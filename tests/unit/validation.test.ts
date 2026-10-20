@@ -54,12 +54,12 @@ export function autoSlug(name: string): string {
 
 describe("org slug validation (public site layout)", () => {
   it("accepts valid slugs", () => {
-    expect(SLUG_RE.test("demo-diner")).toBe(true);
+    expect(SLUG_RE.test("test-diner")).toBe(true);
     expect(SLUG_RE.test("rasam")).toBe(true);
     expect(SLUG_RE.test("a")).toBe(true);
   });
   it("rejects uppercase, spaces, special chars, too long", () => {
-    expect(SLUG_RE.test("Demo Diner")).toBe(false);
+    expect(SLUG_RE.test("Test Diner")).toBe(false);
     expect(SLUG_RE.test("UPPER")).toBe(false);
     expect(SLUG_RE.test("a/b")).toBe(false);
     expect(SLUG_RE.test("")).toBe(false);
@@ -71,7 +71,7 @@ describe("UUID validation (middleware / api-auth / org resolution)", () => {
   const good = "123e4567-e89b-12d3-a456-426614174000";
   it("accepts valid UUIDs", () => expect(UUID_RE.test(good)).toBe(true));
   it("rejects slugs, empty, malformed", () => {
-    expect(UUID_RE.test("demo-diner")).toBe(false);
+    expect(UUID_RE.test("test-diner")).toBe(false);
     expect(UUID_RE.test("")).toBe(false);
     expect(UUID_RE.test("123")).toBe(false);
     expect(UUID_RE.test(good + "-extra")).toBe(false);
@@ -107,7 +107,7 @@ describe("email validation (signin / signup / contact)", () => {
 
 describe("booking input validation (POST /api/bookings)", () => {
   const future = new Date(Date.now() + 3600_000).toISOString();
-  const base = { orgSlug: "demo-diner", customerName: "Ali", partySize: 2, datetime: future };
+  const base = { orgSlug: "test-diner", customerName: "Ali", partySize: 2, datetime: future };
   it("accepts a valid booking", () => {
     expect(validateBookingInput(base)).toEqual({ ok: true });
   });
@@ -173,7 +173,7 @@ describe("contact form validation (POST /api/contact)", () => {
 
 describe("restaurant slug auto-generation (create form)", () => {
   it("slugifies names", () => {
-    expect(autoSlug("Demo Diner")).toBe("demo-diner");
+    expect(autoSlug("Test Diner")).toBe("test-diner");
     expect(autoSlug("  Rasam & Co!  ")).toBe("rasam-co");
   });
   it("caps length and strips dashes", () => {

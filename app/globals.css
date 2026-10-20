@@ -107,6 +107,13 @@
   --accent-glow: rgba(212, 82, 0, 0.35);
   --secondary: #0ea5e9;
 
+  /* Destructive actions — soft tinted chip + solid confirm */
+  --danger: #f87171;
+  --danger-ink: #fca5a5;
+  --danger-soft: rgba(220, 38, 38, 0.14);
+  --danger-border: rgba(248, 113, 113, 0.38);
+  --danger-soft-strong: rgba(220, 38, 38, 0.22);
+
   --font-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
   --font-sans: 'Inter', var(--font-body), ui-sans-serif, system-ui, sans-serif;
 }
@@ -273,6 +280,52 @@ body {
   border-color: rgba(255, 255, 255, 0.50);
 }
 
+/* Small button for dense row actions. */
+.btn-xs {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+}
+
+/* Quiet button — no chrome at rest, subtle fill on hover.
+   Intentionally no `color` here: callers tint it with text-* utilities. */
+.btn-ghost {
+  background: transparent;
+  border: 1px solid transparent;
+}
+.btn-ghost:hover {
+  background: var(--paper-overlay);
+  border-color: var(--rule);
+}
+
+/* Solid destructive — modal confirmation buttons. */
+.btn-error {
+  background: #dc2626;
+  border: 1px solid transparent;
+  color: #ffffff;
+}
+.btn-error:hover {
+  background: #b91c1c;
+}
+
+/* Soft destructive — row/category delete actions, visible at rest.
+   The label is muted until hovered, then turns red with a stronger tint. */
+.btn-danger-soft {
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-border);
+  color: var(--ink-soft);
+  transition:
+    color 120ms ease,
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+.btn-danger-soft:hover {
+  background: var(--danger-soft-strong);
+  border-color: var(--danger);
+  color: var(--danger-ink);
+}
+
 /* Focus-visible ring for keyboard navigation */
 .btn:focus-visible,
 .input:focus-visible {
@@ -397,6 +450,12 @@ body {
   --accent-subtle: rgba(212, 82, 0, 0.08);
   --accent-border: rgba(212, 82, 0, 0.3);
 
+  --danger: #dc2626;
+  --danger-ink: #b91c1c;
+  --danger-soft: #fef2f2;
+  --danger-border: #fca5a5;
+  --danger-soft-strong: #fee2e2;
+
   --shadow-sm: 0 1px 2px rgba(10, 10, 10, 0.04);
   --shadow-md: 0 6px 18px rgba(10, 10, 10, 0.06);
   --shadow-lg: 0 16px 40px rgba(10, 10, 10, 0.08);
@@ -425,6 +484,11 @@ body {
   --accent-glow: rgba(249, 115, 22, 0.35);
   --accent-subtle: rgba(249, 115, 22, 0.12);
   --accent-border: rgba(249, 115, 22, 0.38);
+  --danger: #f87171;
+  --danger-ink: #fca5a5;
+  --danger-soft: rgba(220, 38, 38, 0.14);
+  --danger-border: rgba(248, 113, 113, 0.38);
+  --danger-soft-strong: rgba(220, 38, 38, 0.22);
   --muted: #0b0e13;
   --ink-muted: #6b778a;
 }
@@ -478,6 +542,10 @@ body {
 /* Light shapes — pill buttons, softer rounded panels, like the marketing page */
 [data-theme="light"] .btn {
   border-radius: 999px;
+}
+/* Dense row actions stay rectangular so they read as chips, not pills. */
+[data-theme="light"] .btn-xs {
+  border-radius: 6px;
 }
 [data-theme="light"] .btn-ink {
   background: var(--ink);

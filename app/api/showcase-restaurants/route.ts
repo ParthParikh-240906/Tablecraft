@@ -1,0 +1,41 @@
+import { NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+/**
+ * Public showcase directory: returns only the restaurants owned by the
+ * showcase account. Everyone else sees their own restaurants in their
+ * dashboard after signing in.
+ */
+const SHOWCASE_OWNER_EMAIL = "parth.kaushik.parikh@gmail.com";
+
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  try {
+    const admin = createAdminClient();
+
+    const { data, error } = await admin
+      .from("staff_users")
+      .select(
+        "organizations(id, name, slug, logo_url, theme_color, tagline, created_at)",
+      )
+      .eq("email", SHOWCASE_OWNER_EMAIL)
+      .order("created_at", { referencedTable: "organizations", ascending: true });
+
+    if (error) {
+      console.error("showcase-restaurants: query failed", error);
+      return NextResponse.json({ error: "Could not load restaurants. Please try again." }, { status: 500 });
+    }
+
+    const orgs = (data ?? [])
+      .map((r: { organizations?: unknown }) =>
+        Array.isArray(r.organizations) ? r.organizations[0] : r.organizations,
+      )
+      .filter(Boolean);
+
+    return NextResponse.json({ orgs });
+  } catch (err) {
+    console.error("showcase-restaurants: unhandled", err);
+    return NextResponse.json({ error: "Could not load restaurants. Please try again." }, { status: 500 });
+  }
+}

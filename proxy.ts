@@ -104,7 +104,6 @@ async function handleCustomDomain(request: NextRequest): Promise<NextResponse> {
     pathname === "/signup" ||
     pathname === "/privacy" ||
     pathname === "/terms" ||
-    pathname === "/mock" ||
     pathname === "/stripe-connected" ||
     pathname === "/restaurants" ||
     pathname.startsWith("/restaurants/")
@@ -270,22 +269,6 @@ export async function proxy(request: NextRequest) {
         maxAge: 60 * 60 * 24 * 365,
       });
       resp.headers.set("x-console-selected-org", resolvedOrgId);
-      // Mark demo orgs so the frontend can show demo UI
-      if (user) {
-        try {
-          const { data: staff } = await supabase
-            .from("staff_users")
-            .select("id")
-            .eq("org_id", resolvedOrgId)
-            .eq("email", "demo@tablecraft.app")
-            .maybeSingle();
-          if (staff) {
-            resp.headers.set("x-demo-org", resolvedOrgId);
-          }
-        } catch {
-          // ignore
-        }
-      }
     }
     return resp;
   }

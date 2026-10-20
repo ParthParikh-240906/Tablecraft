@@ -15,12 +15,11 @@ describe("capacity helpers", () => {
     expect(SLOT_TTL_SECONDS).toBe(120);
   });
 
-  it("gates only Free, non-demo, non-degraded orgs", () => {
-    expect(isFreeGated({ plan: "free", demo: false, degraded: false })).toBe(true);
-    expect(isFreeGated({ plan: "pro", demo: false, degraded: false })).toBe(false);
-    expect(isFreeGated({ plan: "max", demo: false, degraded: false })).toBe(false);
-    expect(isFreeGated({ plan: "free", demo: true, degraded: false })).toBe(false);
-    expect(isFreeGated({ plan: "free", demo: false, degraded: true })).toBe(false);
+  it("gates only Free, non-degraded orgs", () => {
+    expect(isFreeGated({ plan: "free", degraded: false })).toBe(true);
+    expect(isFreeGated({ plan: "pro", degraded: false })).toBe(false);
+    expect(isFreeGated({ plan: "max", degraded: false })).toBe(false);
+    expect(isFreeGated({ plan: "free", degraded: true })).toBe(false);
   });
 
   it("parses a cookie from a request header", () => {

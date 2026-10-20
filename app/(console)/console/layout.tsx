@@ -12,13 +12,12 @@ import { HeaderNav } from "./header-nav";
 import type { SidebarOrgItem } from "./sidebar";
 import { MobileMenuButton } from "./mobile-menu-button";
 import { ConsoleSidebarOverlay } from "./console-sidebar-overlay";
-import { DemoModeProvider } from "./demo-mode-provider";
 import { FullscreenToggle } from "./fullscreen-toggle";
 import { ConsoleCapacityNotice } from "./console-capacity-notice";
 import { SessionHeartbeat } from "@/components/SessionHeartbeat";
 import { acquireConsoleSlot, getCapacityPlan, isFreeGated } from "@/lib/capacity";
-
-const DEMO_EMAIL = "demo@tablecraft.app";
+import { getStockStatus } from "@/lib/inventory";
+import { InventoryAlertToast } from "./inventory-alert-toast";
 
 // Force per-request rendering so the header/sidebar reflect the current ?org=
 // param. Without this, the layout is cached as part of the App Shell and
@@ -113,15 +112,48 @@ export default async function ConsoleLayout({
   const org = userOrgs.find((o) => o?.id === activeOrgId) || userOrgs[0] || null;
   const orgParam = activeOrgId ? `?org=${activeOrgId}` : "";
 
-  // Check if this is a demo session
-  const isDemoOrg = staffRow.email === DEMO_EMAIL;
-
   // Free-plan combined capacity: website leases are acquired in proxy.ts;
   // console leases are acquired here because this layout already resolved the
   // active org and staff member. Resolve the ORG OWNER's plan (not the current
   // staff member's owned orgs) so a waiter on a Pro restaurant is not gated.
   const capacityPlan = await getCapacityPlan(activeOrgId);
-  const capacityGated = !isDemoOrg && isFreeGated(capacityPlan);
+  const capacityGated = isFreeGated(capacityPlan);
+
+  // Inventory alerts are optional: if migration 0040 has not been applied yet,
+  // these queries return errors and the console still renders normally.
+  let inventoryCounts = { unread: 0, low: 0, out: 0 };
+  try {
+    const [{ data: notifications }, { data: inventoryRows }] = await Promise.all([
+      supabase
+        .from("inventory_notifications")
+        .select("id")
+        .eq("org_id", activeOrgId)
+        .is("cleared_at", null)
+        .eq("status", "unread")
+        .limit(100),
+      supabase
+        .from("inventory_items")
+        .select("quantity_on_hand, par_level, low_stock_percent, track_stock, archived")
+        .eq("org_id", activeOrgId)
+        .eq("archived", false)
+        .eq("track_stock", true),
+    ]);
+
+    inventoryCounts.unread = notifications?.length ?? 0;
+    for (const item of inventoryRows ?? []) {
+      const status = getStockStatus(item as {
+        quantity_on_hand: number;
+        par_level: number | null;
+        low_stock_percent: number;
+        track_stock: boolean;
+        archived: boolean;
+      });
+      if (status === "low") inventoryCounts.low++;
+      if (status === "out") inventoryCounts.out++;
+    }
+  } catch {
+    // Inventory tables are not set up yet.
+  }
 
   if (capacityGated) {
     const headerList = await headers();
@@ -144,7 +176,7 @@ export default async function ConsoleLayout({
       {capacityGated && (
         <SessionHeartbeat kind="console" orgId={activeOrgId} enabled />
       )}
-      {isDemoOrg && <DemoModeProvider isDemo={isDemoOrg} orgId={activeOrgId} orgSlug={org?.slug ?? ""} />}
+      <InventoryAlertToast orgId={activeOrgId} initialUnread={inventoryCounts.unread} />
       <header className="border-b border-[var(--rule)] bg-[var(--paper-raised)]">
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -166,14 +198,11 @@ export default async function ConsoleLayout({
               isOwner={isOwner}
               userOrgs={userOrgs.filter((o): o is NonNullable<typeof o> => !!o)}
               fallbackSlug={org?.slug ?? ""}
+              notificationCount={inventoryCounts.unread}
+              lowStockCount={inventoryCounts.low + inventoryCounts.out}
             />
             <div className="flex items-center gap-3 border-l border-[var(--rule)] pl-4">
-              {isDemoOrg && (
-                <span className="px-2 py-0.5 rounded-sm border text-[10px] font-medium uppercase tracking-wider border-yellow-500/40 text-yellow-600 bg-yellow-50">
-                  DEMO
-                </span>
-              )}
-              <LogoutButton isDemo={isDemoOrg} orgId={activeOrgId} />
+              <LogoutButton />
             </div>
           </div>
         </div>
@@ -187,7 +216,8 @@ export default async function ConsoleLayout({
               staffRole={staffRow.role}
               userOrgs={userOrgs as any}
               activeOrgId={activeOrgId}
-              isDemo={isDemoOrg}
+              lowStockCount={inventoryCounts.low + inventoryCounts.out}
+              notificationCount={inventoryCounts.unread}
             />
           )}
           <div className="ticket flex-1 w-full rounded-sm border border-[var(--rule)] bg-[var(--paper-raised)] overflow-hidden">

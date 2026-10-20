@@ -762,7 +762,7 @@ function OpsPreviewSection() {
                 href="#restaurants"
                 className="text-[16px] font-semibold px-6 py-4 rounded-full bg-white/10 hover:bg-white/20 btn-press"
               >
-                Explore a live demo
+                See live restaurants
               </a>
             </div>
           </Reveal>
@@ -835,15 +835,15 @@ function OpsPreviewSection() {
   );
 }
 
-/* ── Demo restaurants: live sites, no login ── */
-function RestaurantsSection() {
+/* ── Live restaurants: no login required ── */
+function LiveRestaurantsSection() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchOrgs = async () => {
       try {
-        const res = await fetch("/api/demo-restaurants");
+        const res = await fetch("/api/showcase-restaurants");
         const data = await res.json();
         setOrgs(data.orgs ?? []);
       } catch {
@@ -864,12 +864,12 @@ function RestaurantsSection() {
               className="font-display leading-[1.02] tracking-[-0.03em]"
               style={{ color: INK, fontSize: "clamp(2.25rem, 4vw, 3.5rem)" }}
             >
-              Demo restaurants
+              Live restaurants
             </h2>
           </Reveal>
           <Reveal delay={80}>
             <p className="text-[17px] leading-[1.6] text-neutral-600 mt-5 max-w-[30ch]">
-              Live sites below. Opening one needs no login.
+              A few restaurants live on Tablecraft. Opening one needs no login.
             </p>
           </Reveal>
         </div>
@@ -928,12 +928,6 @@ function RestaurantsSection() {
                         >
                           Visit site
                         </ViewSiteLink>
-                        <a
-                          href={`/api/demo/redirect?org=${org.slug}`}
-                          className="flex-1 text-center text-[15px] font-semibold py-3 rounded-full bg-neutral-950 text-white hover:bg-neutral-800 btn-press whitespace-nowrap"
-                        >
-                          Demo console
-                        </a>
                       </div>
                     </div>
                   </Reveal>
@@ -1486,7 +1480,7 @@ export default function MarketingHomePage() {
         <FeaturesSection />
         <HowItWorksSection />
         <OpsPreviewSection />
-        <RestaurantsSection />
+        <LiveRestaurantsSection />
         <PricingSection />
         <FaqSection />
         <ContactSection />

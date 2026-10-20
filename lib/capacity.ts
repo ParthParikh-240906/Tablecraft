@@ -15,7 +15,6 @@ export const FREE_SESSION_LIMIT = 2;
 export const SLOT_TTL_SECONDS = 120;
 export const HEARTBEAT_MS = 30_000;
 export const SITE_SESSION_COOKIE = "tc_site_session";
-const DEMO_EMAIL = "demo@tablecraft.app";
 
 /** Local plan helpers — avoids importing Stripe/pricing into the proxy bundle. */
 function displayPlanLocal(plan: unknown, status: unknown): PlanTier {
@@ -32,7 +31,6 @@ function resolveOwnerPlanLocal(plans: PlanTier[]): PlanTier {
 
 export type CapacityPlan = {
   plan: PlanTier;
-  demo: boolean;
   degraded: boolean;
 };
 
@@ -58,11 +56,11 @@ function cacheSet(orgId: string, value: CapacityPlan) {
 }
 
 /**
- * Owner-wide plan + demo flag for an org. Fails open (degraded) if the DB is
- * unreachable so an outage never turns every Free site into a 429.
+ * Owner-wide plan for an org. Fails open (degraded) if the DB is unreachable
+ * so an outage never turns every Free site into a 429.
  */
 export async function getCapacityPlan(orgId: string): Promise<CapacityPlan> {
-  if (!orgId) return { plan: "free", demo: false, degraded: true };
+  if (!orgId) return { plan: "free", degraded: true };
   const cached = cacheGet(orgId);
   if (cached) return cached;
 
@@ -70,14 +68,13 @@ export async function getCapacityPlan(orgId: string): Promise<CapacityPlan> {
     const admin = createAdminClient();
     const { data: ownerRow } = await admin
       .from("staff_users")
-      .select("auth_user_id, email")
+      .select("auth_user_id")
       .eq("org_id", orgId)
       .eq("role", "owner")
       .limit(1)
       .maybeSingle();
 
-    const owner = ownerRow as { auth_user_id?: string; email?: string } | null;
-    const demo = owner?.email === DEMO_EMAIL;
+    const owner = ownerRow as { auth_user_id?: string } | null;
 
     if (owner?.auth_user_id) {
       // Owner-wide plan: highest tier across all orgs the owner holds.
@@ -87,7 +84,7 @@ export async function getCapacityPlan(orgId: string): Promise<CapacityPlan> {
         .eq("auth_user_id", owner.auth_user_id)
         .eq("role", "owner");
       if (ownerOrgError) {
-        return { plan: "free", demo, degraded: true };
+        return { plan: "free", degraded: true };
       }
       const plans = ((ownerOrgRows ?? []) as Array<{ organizations?: unknown }>).map((r) => {
         const o = Array.isArray(r.organizations)
@@ -97,7 +94,6 @@ export async function getCapacityPlan(orgId: string): Promise<CapacityPlan> {
       });
       const value: CapacityPlan = {
         plan: resolveOwnerPlanLocal(plans),
-        demo,
         degraded: false,
       };
       cacheSet(orgId, value);
@@ -113,19 +109,18 @@ export async function getCapacityPlan(orgId: string): Promise<CapacityPlan> {
     const row = orgRow as { subscription_plan?: unknown; subscription_status?: unknown } | null;
     const value: CapacityPlan = {
       plan: displayPlanLocal(row?.subscription_plan, row?.subscription_status ?? null),
-      demo,
       degraded: false,
     };
     cacheSet(orgId, value);
     return value;
   } catch (err) {
     console.error("getCapacityPlan failed:", err);
-    return { plan: "free", demo: false, degraded: true };
+    return { plan: "free", degraded: true };
   }
 }
 
 export async function getCapacityPlanBySlug(slug: string): Promise<CapacityPlan & { orgId: string | null }> {
-  if (!slug) return { plan: "free", demo: false, degraded: true, orgId: null };
+  if (!slug) return { plan: "free", degraded: true, orgId: null };
   try {
     const admin = createAdminClient();
     const { data } = await admin
@@ -134,16 +129,16 @@ export async function getCapacityPlanBySlug(slug: string): Promise<CapacityPlan 
       .eq("slug", slug)
       .maybeSingle();
     const orgId = (data as { id?: string } | null)?.id ?? null;
-    if (!orgId) return { plan: "free", demo: false, degraded: true, orgId: null };
+    if (!orgId) return { plan: "free", degraded: true, orgId: null };
     return { ...(await getCapacityPlan(orgId)), orgId };
   } catch (err) {
     console.error("getCapacityPlanBySlug failed:", err);
-    return { plan: "free", demo: false, degraded: true, orgId: null };
+    return { plan: "free", degraded: true, orgId: null };
   }
 }
 
 export function isFreeGated(plan: CapacityPlan): boolean {
-  return !plan.degraded && !plan.demo && plan.plan === "free";
+  return !plan.degraded && plan.plan === "free";
 }
 
 const BOT_RE =

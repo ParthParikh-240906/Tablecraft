@@ -83,29 +83,17 @@ describe("middleware protected-route redirects", () => {
   });
   it("public paths untouched", () => {
     expect(middlewareRedirect("/")).toBeNull();
-    expect(middlewareRedirect("/demo-diner")).toBeNull();
-    expect(middlewareRedirect("/demo-diner/menu")).toBeNull();
-  });
-});
-
-describe("demo-org check error handling (console/login)", () => {
-  it("failed demo check hides demo login with retry hint", () => {
-    const onFailedCheck = () => ({
-      isDemoOrg: false,
-      demoCheckError: "Could not check demo availability — demo login may be hidden. Try again.",
-    });
-    const s = onFailedCheck();
-    expect(s.isDemoOrg).toBe(false);
-    expect(s.demoCheckError).toContain("Try again");
+    expect(middlewareRedirect("/test-diner")).toBeNull();
+    expect(middlewareRedirect("/test-diner/menu")).toBeNull();
   });
 });
 
 describe("next-param preservation (?org= + ?next=)", () => {
   it("console login appends ?org= to next", () => {
     const rawNext = "/console";
-    const orgSlug = "demo-diner";
+    const orgSlug = "test-diner";
     const next = `${rawNext}${rawNext.includes("?") ? "&" : "?"}org=${orgSlug}`;
-    expect(next).toBe("/console?org=demo-diner");
+    expect(next).toBe("/console?org=test-diner");
   });
   it("unauth console redirect preserves pathname as ?next=", () => {
     const loginUrl = new URL("http://x/console/login");

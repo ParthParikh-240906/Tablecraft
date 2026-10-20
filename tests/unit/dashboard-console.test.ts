@@ -162,7 +162,7 @@ describe("customer_name ↔ table labels", () => {
 });
 
 describe("console nav contract (sidebar.tsx)", () => {
-  const routes = ["/console", "/console/tables", "/console/bookings", "/console/orders", "/console/kitchen", "/console/menu", "/console/design", "/console/config", "/console/pricing"];
+  const routes = ["/console", "/console/tables", "/console/bookings", "/console/orders", "/console/kitchen", "/console/menu", "/console/inventory", "/console/notifications", "/console/design", "/console/config", "/console/pricing"];
   it("every console route preserves ?org= for multi-org", () => {
     const org = "org-123";
     for (const r of routes) {

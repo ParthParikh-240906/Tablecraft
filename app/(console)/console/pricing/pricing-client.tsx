@@ -449,7 +449,7 @@ export function PricingClient({
           <BillingToggle value={billing} onChange={setBilling} />
         </div>
         <p className="text-center text-xs text-[var(--ink-soft)]">
-          Free includes {OWNER_QUOTAS.free.chatbot} chatbot · {OWNER_QUOTAS.free.menu_scanner} scanner · {OWNER_QUOTAS.free.image} images · {OWNER_QUOTAS.free.restaurant_create} restaurant · {OWNER_QUOTAS.free.edit} edits / month (1-week trial, limits shared across all your restaurants)
+          Free includes {OWNER_QUOTAS.free.chatbot} chatbot · {OWNER_QUOTAS.free.menu_scanner} AI scans · {OWNER_QUOTAS.free.image} images · {OWNER_QUOTAS.free.restaurant_create} restaurant · {OWNER_QUOTAS.free.edit} edits / month (1-week trial, limits shared across all your restaurants)
         </p>
 
         {/* Pricing Tier Comparison Cards */}
@@ -499,7 +499,7 @@ export function PricingClient({
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-emerald-500 font-bold">✓</span>
-                  <span className="font-semibold text-[var(--ink)]">{OWNER_QUOTAS.pro.menu_scanner} AI menu scanner requests / month</span>
+                  <span className="font-semibold text-[var(--ink)]">{OWNER_QUOTAS.pro.menu_scanner} AI scan requests / month</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-emerald-500 font-bold">✓</span>
@@ -602,7 +602,7 @@ export function PricingClient({
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-purple-400 font-bold">✓</span>
-                  <span className="font-semibold text-[var(--ink)]">{OWNER_QUOTAS.max.menu_scanner} AI menu scanner requests / month</span>
+                  <span className="font-semibold text-[var(--ink)]">{OWNER_QUOTAS.max.menu_scanner} AI scan requests / month</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-purple-400 font-bold">✓</span>

@@ -74,6 +74,21 @@ export async function POST(request: Request) {
         .eq("parent_order_id", order.id);
     }
 
+    // Keep inventory in sync with the kitchen. This is deliberately
+    // non-blocking: an incomplete recipe must never stop service.
+    let inventoryWarning: string | undefined;
+    if (["preparing", "ready", "completed", "cancelled"].includes(status)) {
+      const direction = status === "cancelled" ? "reverse" : "deduct";
+      const { error: inventoryError } = await adminSupabase.rpc("apply_order_inventory", {
+        p_order_id: orderId,
+        p_direction: direction,
+      });
+      if (inventoryError) {
+        console.error("[orders/status] inventory sync failed", inventoryError);
+        inventoryWarning = "Order updated, but stock could not be synced. Check the inventory page.";
+      }
+    }
+
     // Free tables when order is paid or cancelled.
     // Labels are normalized (trimmed, case-insensitive, "Table " prefix
     // stripped) so renames/case drift don't leave tables stuck occupied.
@@ -84,7 +99,7 @@ export async function POST(request: Request) {
         const tableLabels = parseTableLabelsFromCustomerName(rawName);
 
         if (tableLabels.length === 0) {
-          return NextResponse.json({ success: true, status });
+          return NextResponse.json({ success: true, status, inventoryWarning });
         }
 
         const { data: allTables } = await adminSupabase
@@ -98,12 +113,12 @@ export async function POST(request: Request) {
 
         if (!tables || tables.length === 0) {
           console.warn(`[orders/status] No tables found for labels: ${tableLabels.join(", ")}`);
-          return NextResponse.json({ success: true, status });
+          return NextResponse.json({ success: true, status, inventoryWarning });
         }
 
         const tableIds = (tables ?? []).map((t) => t.id);
         if (tableIds.length === 0) {
-          return NextResponse.json({ success: true, status });
+          return NextResponse.json({ success: true, status, inventoryWarning });
         }
 
         // Check for upcoming non-cancelled bookings to determine reserved vs open
@@ -157,7 +172,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, status });
+    return NextResponse.json({ success: true, status, inventoryWarning });
   } catch (err) {
     console.error("[orders/status] Error:", err);
     return NextResponse.json({ error: "Could not update order status. Please try again." }, { status: 500 });

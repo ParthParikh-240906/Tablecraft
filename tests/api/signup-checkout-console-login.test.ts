@@ -1,8 +1,8 @@
 /**
  * tests/api/signup-contact-auth.test.ts
- * Validation-layer tests for signup-account, subscription checkout,
- * console login, and demo check routes — all 400 branches run
- * before any Supabase/Stripe call (no env needed).
+ * Validation-layer tests for signup-account, subscription checkout, and
+ * console login — all 400 branches run before any Supabase/Stripe call
+ * (no env needed).
  */
 import { describe, it, expect } from "vitest";
 import { POST as signupAccount } from "@/app/api/signup-account/route";
