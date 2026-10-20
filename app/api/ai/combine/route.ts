@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaffForOrgId } from "@/lib/api-auth";
 import { verifyAndFixSiteHtml, COMBINE_MODEL } from "@/lib/ai-connect";
+import { validateBuiltHtml } from "@/lib/build-validation";
 
 /**
  * POST /api/ai/combine
@@ -46,6 +47,16 @@ export async function POST(request: Request) {
     const current = typeof settings.built_html === "string" ? settings.built_html : "";
     if (!current) {
       return NextResponse.json({ error: "No built site to connect yet — run the AI build first" }, { status: 400 });
+    }
+    const currentCheck = validateBuiltHtml(current);
+    if (!currentCheck.ok) {
+      return NextResponse.json(
+        {
+          error: "Stored site is incomplete — rebuild it before reconnecting.",
+          details: currentCheck.errors,
+        },
+        { status: 422 },
+      );
     }
     const name = (orgRow as { name?: unknown } | null)?.name;
     const fixed = await verifyAndFixSiteHtml(current, { orgSlug, name: typeof name === "string" ? name : orgSlug });

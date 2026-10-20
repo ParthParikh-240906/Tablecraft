@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { requireStaffForOrgId } from "@/lib/api-auth";
+import { normalizeGallery } from "@/lib/design";
+import { buildAiGallerySeed } from "@/lib/gallery";
+import { withHeroRemoved } from "@/lib/built-site";
 
 const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -39,13 +42,14 @@ export async function POST(req: Request) {
   // Delete old background if present
   const { data: org } = await admin
     .from("organizations")
-    .select("background_image_url, slug")
+    .select("background_image_url, slug, design_settings")
     .eq("id", org_id)
     .single();
 
-  if (org?.background_image_url) {
+  const oldBackgroundUrl = org?.background_image_url ?? null;
+  if (oldBackgroundUrl) {
     try {
-      const url = new URL(org.background_image_url);
+      const url = new URL(oldBackgroundUrl);
       const path = url.pathname.slice(1);
       await admin.storage.from("org-backgrounds").remove([path]);
     } catch { /* ignore */ }
@@ -72,9 +76,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Could not upload image. Please try again." }, { status: 500 });
   }
 
+  // Keep the console Image Gallery in sync: the old hero entry is removed and
+  // the new upload becomes "Hero (desktop)". Without this the gallery picker
+  // keeps a dead URL while the hero silently points somewhere else.
+  const settings = ((org as { design_settings?: Record<string, unknown> })
+    ?.design_settings ?? {}) as Record<string, unknown>;
+  const existingGallery = normalizeGallery(settings.ai_gallery, 20).filter(
+    (g) => g.url !== oldBackgroundUrl && g.name !== "Hero (desktop)",
+  );
+  const gallery = buildAiGallerySeed({
+    heroUrl: newUrl,
+    existing: existingGallery,
+  });
+
   const { error: updateError } = await admin
     .from("organizations")
-    .update({ background_image_url: newUrl })
+    .update({
+      background_image_url: newUrl,
+      design_settings: { ...settings, ai_gallery: gallery },
+    })
     .eq("id", org_id);
 
   if (updateError) {
@@ -114,21 +134,48 @@ export async function DELETE(req: Request) {
   // Delete existing background file
   const { data: org } = await admin
     .from("organizations")
-    .select("background_image_url, slug")
+    .select("background_image_url, slug, design_settings, restaurant_photos")
     .eq("id", org_id)
     .single();
 
-  if (org?.background_image_url) {
+  const oldBackgroundUrl = org?.background_image_url ?? null;
+  if (oldBackgroundUrl) {
     try {
-      const url = new URL(org.background_image_url);
+      const url = new URL(oldBackgroundUrl);
       const path = url.pathname.slice(1);
       await admin.storage.from("org-backgrounds").remove([path]);
     } catch { /* ignore */ }
   }
 
+  const settings = ((org as { design_settings?: Record<string, unknown> })
+    ?.design_settings ?? {}) as Record<string, unknown>;
+  const gallery = normalizeGallery(settings.ai_gallery, 20).filter(
+    (g) => g.url !== oldBackgroundUrl && g.name !== "Hero (desktop)",
+  );
+  const photos = Array.isArray((org as { restaurant_photos?: unknown })?.restaurant_photos)
+    ? ((org as { restaurant_photos: unknown[] }).restaurant_photos.filter(
+        (u): u is string => typeof u === "string" && u !== oldBackgroundUrl,
+      ) as string[])
+    : null;
+
+  // withLiveHero(null) no-ops to protect legacy/AI-applied heroes, so clear the
+  // stored const + static fallback here when the owner deletes the upload.
+  const builtHtml = typeof settings.built_html === "string" ? settings.built_html : "";
+  const nextBuiltHtml = builtHtml ? withHeroRemoved(builtHtml, "desktop") : "";
+
+  const update: Record<string, unknown> = {
+    background_image_url: null,
+    design_settings: {
+      ...settings,
+      ai_gallery: gallery,
+      ...(nextBuiltHtml ? { built_html: nextBuiltHtml } : {}),
+    },
+  };
+  if (photos !== null) update.restaurant_photos = photos.length > 0 ? photos : null;
+
   const { error } = await admin
     .from("organizations")
-    .update({ background_image_url: null })
+    .update(update)
     .eq("id", org_id);
 
   if (error) {

@@ -69,6 +69,16 @@ export function PreviewShell({
   const paneRef = useRef<HTMLDivElement>(null);
   const builtHtml = settings.built_html ?? null;
 
+  // Same fallback as the public layout: hero-only restaurants get one gallery
+  // tile instead of an all-placeholder grid.
+  const photos = org?.restaurant_photos ?? [];
+  const previewGallery =
+    photos.length > 0
+      ? photos
+      : org?.background_image_url
+        ? [org.background_image_url]
+        : [];
+
   // Scale the fixed-width frame down to fit the pane (never upscale — a wider
   // pane just centers the design frame with themed margins). Uses transform
   // scale: sticky/fixed elements and tab-switch remeasure stay correct, and
@@ -198,7 +208,7 @@ export function PreviewShell({
                         ),
                         org?.mobile_background_image_url ?? null,
                       ),
-                      org?.restaurant_photos ?? [],
+                      previewGallery,
                     ),
                   ),
                   frameWidth,

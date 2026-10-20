@@ -2,11 +2,18 @@ import { NextResponse } from "next/server";
 import { callHaikuLow, type HaikuMeta } from "@/lib/ai-models";
 import { ingestDemoMenuItems } from "@/lib/demo-menu";
 import { requireStaffForOrgId } from "@/lib/api-auth";
+import { validateBuiltHtml, validateSiteWiring } from "@/lib/build-validation";
 
 // Shared core: every template uses the same data contract, wiring, image rules, cart,
 // chatbot, and verification. Template-specific style is appended below.
 const CORE_RULES = `You are Tablecraft's restaurant website builder (Haiku 5.5, medium effort).
 Build ONE complete, self-contained single-page website: <!DOCTYPE html>, inline <style> in <head> (Google Fonts via preconnect + stylesheet link), inline <script> at the end of <body>. No markdown fences, no explanations, no JSON, only the raw HTML.
+
+OUTPUT COMPLETENESS AND BUDGET (hard requirement)
+- Return ONE complete document. It is invalid unless it ends with </script></body></html> and every opened <script> has a closing </script>.
+- Aim for 45,000-55,000 characters total; never exceed 60,000. If you are running long, cut decorative CSS/JS, long comments, and optional interactions. Never cut the closing tags, init(), menu, booking, cart, or chatbot wiring.
+- Priority when space is tight: complete document > working controls and data wiring > required sections > optional creative effects.
+- Keep comments short (section headers and required CONSOLE HOOK markers only). Reuse shared CSS classes. No large inline SVG illustrations, base64 assets, or huge data blobs; small UI icons are fine.
 
 BRIEF FIDELITY
 - Use the given restaurant name, tagline, vibe, and owner paragraph as-is.
@@ -22,10 +29,13 @@ const ORG_SLUG = "<slug>"; const API_BOOKINGS = "/api/bookings";
 const MENU_ITEMS = [...]; /* CONSOLE HOOK: MENU_ITEMS (console swaps in live DB rows here) */ 8-10 items shaped {"name": "...", "price": 45, "category": "...", "description": "..."}: keys double-quoted JSON-style, price a number in AED.
 const HERO_IMAGE_URL = ""; (desktop/tablet hero URL from the brief, or "")
 const HERO_IMAGE_URL_MOBILE = ""; (mobile hero URL from the brief, or "")
-const GALLERY_IMAGES = []; (gallery images only)
+const GALLERY_IMAGES = [{ "src": "https://...", "caption": "..." }]; (gallery images only; objects, never bare strings; use [] when none)
 const CART_SETTINGS = { mode: "pickup", delivery_enabled: false, delivery_fee: 0, min_order: 0 }; /* CONSOLE HOOK: CART_SETTINGS (mirrors the console cart config; pickup by default) */
 const CHAT_SLOTS = { name: null, party_size: null, date: null, time: null };
 const CHAT_HISTORY = [];
+
+DATA DECLARATIONS
+- Declare HERO_IMAGE_URL, HERO_IMAGE_URL_MOBILE, GALLERY_IMAGES, MENU_ITEMS, and CART_SETTINGS as plain literals with exactly these names. The console rewrites these declarations: no backticks, concatenation, or computed values.
 
 NETWORK RULE
 - ONLY these endpoints exist: POST /api/bookings, POST /api/cart/checkout, POST /api/chat/bookings. Never fetch /api/booking-actions, /api/menu-manager, /api/design-settings, or any other invented /api/* URL.
@@ -36,10 +46,23 @@ NETWORK RULE
 IMAGE SLOTS (strict, per breakpoint)
 - HERO_IMAGE_URL is the desktop and tablet hero (above 720px). Use the Hero image URL from the brief, or "" when none. Never put a gallery image here.
 - HERO_IMAGE_URL_MOBILE is the mobile hero (720px and below). Use the Mobile hero image URL from the brief, or "" when none. Never put the desktop hero here and never fall back to it.
-- GALLERY_IMAGES holds gallery images only. Never reuse the hero image in the gallery.
+- GALLERY_IMAGES holds gallery images only. Never reuse the hero image in the gallery unless the brief explicitly says no gallery images were provided (see the fallback rule below).
 - Each breakpoint shows only its own const. Above 720px the hero image layer renders only when HERO_IMAGE_URL is non-empty. At 720px and below (matchMedia("(max-width:720px)") or the CSS @media equivalent) the mobile image layer renders only when HERO_IMAGE_URL_MOBILE is non-empty. When a breakpoint's const is empty, that breakpoint hides its image layer and the pure CSS art shows instead. An empty mobile const does NOT reuse the desktop image, and an empty desktop const does NOT fall back to the mobile image.
-- Implement each slot as a background layer or <img>, re-evaluated on resize and media change. Add a CSS fallback of two layers toggled by @media (max-width:720px): the desktop layer hidden at 720px and below, the mobile layer shown only at 720px and below and hidden when HERO_IMAGE_URL_MOBILE is empty. Each breakpoint's choice must hold even if JS fails, and no broken-image icon may ever show.
 - Never invent image URLs (no imgur, unsplash, picsum guesses). Use only the exact URLs from the brief. Any image slot without a URL renders no <img> and shows a styled gradient placeholder instead. This covers the logo (a text wordmark when no logo URL), hero, mobile hero, and every gallery tile.
+
+STATIC FIRST PAINT (hero and gallery must survive JS failure)
+- Hero: render the exact desktop URL in a static <img data-tc-hero="desktop" src="<url>" alt="" aria-hidden="true"> and the exact mobile URL in <img data-tc-hero="mobile" src="<url>" ...>. Use CSS @media (max-width:720px) to show only the matching layer. If a URL is empty, omit that <img> and render the CSS-art layer.
+- The consts are still required. In init(), call applyHeroArt() to sync the <img> src values from HERO_IMAGE_URL/HERO_IMAGE_URL_MOBILE. Add resize and matchMedia("(max-width:720px)") listeners that call it again.
+- Gallery: render the initial tiles as static markup with <img data-tc-gallery="0" src="<url>"> and the caption. Fill missing slots with gradient placeholders. Do not leave the gallery grid empty for JS.
+- init() must also call applyGallery() to re-sync the static tiles from GALLERY_IMAGES.
+- The same URL appears twice: once in the const (live source for console updates) and once in the static <img> (no-JS first paint). They must match.
+
+BOOT CONTRACT (no dead controls)
+- Define exactly one init() function and call it once at the very end of the script, immediately before </script>.
+- init() must call the page's own render/apply/setup functions (for example renderFilters(), renderMenu(), renderCart(), applyHeroArt(), applyGallery(), setupBooking(), setupChat(), updateHeader(), revealCheck()).
+- Never define an apply/render/setup function and leave it uncalled.
+- Attach the delegated [data-nav] click listener, hashchange, drawer, chat, booking, and cart listeners in init(). They must work on first paint.
+- If a view switch throws, fall back to showing the main view; never leave both views hidden.
 
 DESIGN BASICS
 - Typography: one expressive display serif for headings and one clean sans for body/UI, chosen to match the vibe.
@@ -88,7 +111,10 @@ STORY, STATS, STATEMENT BAND
 
 GALLERY
 - A perfect rectangle with zero empty gaps. 12-column CSS grid with grid-auto-flow: dense. Every tile has an explicit grid-column span, and each row's spans sum to exactly 12 (e.g. 7+5, 4+4+4, 6+6, 3+3+3+3). Tiles in the same row have equal heights so edges line up. Verify the span arithmetic row by row before finishing.
-- Gradient placeholder tiles where images are missing. Never fill gaps by duplicating the hero or repeating a gallery image. One gallery image means one filled tile plus placeholders.
+- GALLERY_IMAGES is an array of objects: [{ "src": "...", "caption": "..." }]. Every tile reads GALLERY_IMAGES[i].src and .caption; never expect a bare string.
+- Render a fixed set of 6-10 gallery tiles statically from the brief (enough for every provided gallery image, up to 10). Every tile includes <img data-tc-gallery="<index>" alt=""> (omit src when there is no image) and a visible <figcaption>. Missing images show a gradient placeholder behind the empty img; the console fills src when photos are added. The static tiles are mandatory.
+- Gradient placeholder tiles where images are missing. Never fill gaps by repeating a gallery image. If gallery images were provided, never use the hero in the gallery.
+- HERO FALLBACK: if no gallery images were provided and a hero URL exists, use the hero as ONE fallback tile (caption e.g. "Our place"). Never duplicate it across tiles. This is the only case where the hero may appear in the gallery.
 
 VISIT AND FOOTER
 - Visit: hours, address, and contact, plus each branch as its own location. Use the provided contact data verbatim. When none is provided, use neutral placeholders.
@@ -125,7 +151,7 @@ PAGE PRIORITY: simple, clean, interactive, and animated. Hover treatments stay s
 
 HERO A: TEXT CENTERED (required)
 - One centered column: small uppercase kicker (cuisine or city), a large serif h1 with one accent-colored phrase, a one-line subline, then two buttons side by side: "Book a table" (primary, anchors to #booking) and "View menu" (outline, anchors to #menu).
-- Background: the HERO_IMAGE_URL layer at low opacity behind a soft tinted overlay when set; at 720px and below the HERO_IMAGE_URL_MOBILE layer takes that role when set. When a breakpoint's const is empty, use a restrained CSS-art background (gradient or thin line pattern) that matches the vibe.
+- Background: a static <img data-tc-hero="desktop" src="<heroUrl>"> layer at low opacity behind a soft tinted overlay when set; at 720px and below the static <img data-tc-hero="mobile" src="<mobileHeroUrl>"> layer takes that role when set. JS syncs the same images from the consts in init(); it is not the only path. When a breakpoint's URL is empty, use a restrained CSS-art background (gradient or thin line pattern) that matches the vibe.
 - Motion: the kicker, h1, subline, and buttons fade and rise one after another on load (opacity and translateY only). The background drifts very slowly (20-30s) and stops under prefers-reduced-motion.
 - Mobile (720px and below): copy stays centered at the top, just below the fixed header. The art sits behind the copy at reduced opacity, or below the copy in normal flow at max 40vh.
 
@@ -143,11 +169,12 @@ const STYLE_ATTENTION_SEEKING = `STYLE GOAL: attention-seeking and creative. Bol
 
 HERO B: TEXT LEFT, IMAGE RIGHT (required)
 - Left column: kicker, a very large display headline (clamp-based, can run 3 lines) with one word animated (a slow gradient sweep or a color cycle), then a short subline. Directly under the subline, left-aligned, two buttons: "Book a table" (primary, to #booking) and "View menu" (secondary, to #menu).
-- Right column: if HERO_IMAGE_URL is set, show it in an arched or rotated frame that tilts toward the pointer on hover, with a soft glow behind it and a slow floating motion. If it is empty, use a CSS-art composition (layered shapes, rings, or a plate-like circle) with the same motion.
+- Right column: if HERO_IMAGE_URL is set, put the static <img data-tc-hero="desktop" src="<heroUrl>"> inside the arched or rotated frame that tilts toward the pointer on hover, with a soft glow behind it and a slow floating motion. Do not replace it with a JS-only background. If it is empty, use a CSS-art composition (layered shapes, rings, or a plate-like circle) with the same motion.
 - Motion on load: headline lines slide up in sequence (opacity and translateY only), buttons follow, and the image frame scales in from 96% to 100%.
-- Mobile (720px and below): text stacks above the image. The image sits in normal flow, max 40vh, horizontally centered, and never overlaps the text. HERO_IMAGE_URL_MOBILE replaces the right-column image on mobile when set; when empty, the mobile CSS art shows.
+- Mobile (720px and below): text stacks above the image. The image sits in normal flow, max 40vh, horizontally centered, and never overlaps the text. The static <img data-tc-hero="mobile" src="<mobileHeroUrl>"> replaces the right-column image on mobile when set; when empty, the mobile CSS art shows.
 
-CREATIVE INTERACTIONS (use several, fit them to the vibe, never repeat the same set across generations)
+CREATIVE INTERACTIONS (choose at most 3-4 that fit the vibe; never repeat the same set across generations)
+- These are optional. Completeness and working controls outrank every effect. Drop any effect that would push the document over the output budget.
 - Custom cursor follower: a small ring that grows over links and buttons. Disabled on touch devices and under prefers-reduced-motion.
 - Magnetic primary buttons that shift slightly toward the pointer.
 - A horizontal marquee band of the restaurant name or tagline between sections, looping forever. It is continuous ambient motion, separate from reveal.
@@ -172,6 +199,16 @@ const BUILD_PROMPTS: Record<"professional" | "attention-seeking", string> = {
   professional: PROMPT_PROFESSIONAL,
   "attention-seeking": PROMPT_ATTENTION_SEEKING,
 };
+
+/** Strip accidental markdown fences and enforce a generous hard cap. */
+function cleanModelHtml(text: string): string {
+  return text
+    .replace(/^```html\s*/i, "")
+    .replace(/^```\s*/, "")
+    .replace(/\s*```$/, "")
+    .trim()
+    .slice(0, 200000);
+}
 
 /**
  * POST /api/ai/build
@@ -272,7 +309,7 @@ export async function POST(request: Request) {
     try {
       const drafted = await callHaikuLow(
         `Write a 3-4 sentence warm, inviting owner paragraph for a restaurant named "${name}" (${tagline || "no tagline"}) with this vibe: ${vibe}. No intro fluff like "Welcome to...". Return only the paragraph, no quotes.`,
-        { maxTokens: 500 },
+        { maxTokens: 500, disableThinking: true },
       );
       paragraph = drafted.trim().slice(0, 2000);
     } catch {
@@ -287,9 +324,9 @@ export async function POST(request: Request) {
     `Vibe/aesthetic (REQUIRED, apply first — palette, hero animation, and tone must all express it): ${vibe}`,
     paragraph ? `Owner paragraph (must use): ${paragraph}` : `Owner paragraph: none`,
     logoUrl ? `Logo URL (must use): ${logoUrl}` : `Logo: none provided, use placeholder`,
-    heroUrl ? `Hero image (must use ONLY for HERO_IMAGE_URL, never in gallery): ${heroUrl}` : `Hero image: none provided, leave HERO_IMAGE_URL empty`,
-    heroMobileUrl ? `Mobile hero image (must use ONLY for HERO_IMAGE_URL_MOBILE - mobile-only at 720px and below, never in the gallery and never as the desktop hero): ${heroMobileUrl}` : `Mobile hero image: none provided, leave HERO_IMAGE_URL_MOBILE empty so mobile shows the pure CSS-art hero (do not reuse the desktop image on mobile)`,
-    imageUrls.length > 0 ? `Gallery images (must use ONLY for GALLERY_IMAGES, never reuse the hero image - even a single gallery image fills just one tile, rest stay placeholders): ${imageUrls.join(", ")}` : `Gallery images: none provided, use placeholders`,
+    heroUrl ? `Hero image (use the exact URL in BOTH const HERO_IMAGE_URL and the static <img data-tc-hero="desktop" src="...">; never in the gallery): ${heroUrl}` : `Hero image: none provided, leave HERO_IMAGE_URL empty and omit the desktop static image`,
+    heroMobileUrl ? `Mobile hero image (use the exact URL in BOTH const HERO_IMAGE_URL_MOBILE and the static <img data-tc-hero="mobile" src="...">; mobile-only at 720px and below, never in the gallery and never as the desktop hero): ${heroMobileUrl}` : `Mobile hero image: none provided, leave HERO_IMAGE_URL_MOBILE empty so mobile shows the pure CSS-art hero (do not reuse the desktop image on mobile)`,
+    imageUrls.length > 0 ? `Gallery images (use ONLY for GALLERY_IMAGES as {src, caption} objects and the static data-tc-gallery tiles; never reuse the hero image - even a single gallery image fills just one tile, rest stay placeholders): ${imageUrls.join(", ")}` : heroUrl ? `Gallery images: none provided. Use the hero image as ONE fallback gallery tile only (never duplicate it).` : `Gallery images: none provided, use placeholders`,
     contactPhone ? `Contact phone (must show in visit + footer): ${contactPhone}` : `Contact phone: none provided`,
     contactEmail ? `Contact email (must show in visit + footer): ${contactEmail}` : `Contact email: none provided`,
     contactAddress ? `Contact address (must show in visit + footer): ${contactAddress}` : `Contact address: none provided`,
@@ -298,21 +335,164 @@ export async function POST(request: Request) {
   ].join("\n");
 
   try {
+    const galleryUrlsForBuild =
+      imageUrls.length > 0 ? imageUrls : heroUrl ? [heroUrl] : [];
+    const validationOpts = {
+      heroUrl,
+      heroMobileUrl,
+      galleryUrls: galleryUrlsForBuild,
+      requireBootCall: true,
+      requireMobileHeroConst: true,
+      requireGalleryObjects: galleryUrlsForBuild.length > 0,
+      orgSlug,
+    };
+
     let buildMeta: HaikuMeta = {};
-    const text = await callHaikuLow(prompt, { system: BUILD_PROMPTS[templates], maxTokens: 100000, effort: "medium", onMeta: (m) => { buildMeta = m; } });
-    // Strip markdown fences if the model adds them; otherwise keep raw HTML.
-    const html = text
-      .replace(/^```html\s*/i, "")
-      .replace(/^```\s*/, "")
-      .replace(/\s*```$/, "")
-      .trim()
-      .slice(0, 100000);
+    const buildOpts = {
+      system: BUILD_PROMPTS[templates],
+      // Align with the real long-form output budget. The old 100k request was
+      // above the model's practical cap; thinking is disabled below so the
+      // whole budget goes to HTML.
+      maxTokens: 64000,
+      effort: "medium" as const,
+      // Thinking tokens count toward max_tokens. A 60k-char page needs the
+      // whole output budget; extended thinking was silently eating it.
+      disableThinking: true,
+      onMeta: (m: HaikuMeta) => {
+        buildMeta = m;
+      },
+    };
+
+    const text = await callHaikuLow(prompt, buildOpts);
+    let html = cleanModelHtml(text);
+    const warnings: string[] = [];
+    let repaired = false;
+
+    let check = validateBuiltHtml(html, validationOpts);
+    if (!check.ok || buildMeta.stopReason === "max_tokens") {
+      console.warn(
+        `[AI BUILD] first pass invalid for ${orgSlug}: stop=${buildMeta.stopReason ?? "?"} chars=${html.length} errors=${check.errors.join(" | ") || "none"}`,
+      );
+
+      // Repair 1: ask for only the missing tail. This preserves the design and
+      // is much cheaper than regenerating a 60k-char page.
+      try {
+        let repairMeta: HaikuMeta = {};
+        const continuation = await callHaikuLow(
+          [
+            "You are completing a truncated HTML document for Tablecraft.",
+            "The document below is complete up to its final character.",
+            "Return ONLY the missing continuation, starting with the exact next character.",
+            "Do not repeat existing text and do not wrap it in markdown fences.",
+            "Finish any open function, add the missing init() call (it must call renderFilters, renderMenu, renderCart, applyHeroArt, applyGallery, setupBooking, setupChat, updateHeader, revealCheck), attach all remaining listeners, and close </script></body></html>.",
+            "",
+            "HTML so far:",
+            html,
+          ].join("\n"),
+          {
+            maxTokens: 20000,
+            effort: "medium",
+            disableThinking: true,
+            onMeta: (m) => {
+              repairMeta = m;
+            },
+          },
+        );
+        const stitched = cleanModelHtml(html + continuation);
+        const stitchedCheck = validateBuiltHtml(stitched, validationOpts);
+        if (stitchedCheck.ok) {
+          html = stitched;
+          check = stitchedCheck;
+          repaired = true;
+          console.log(
+            `[AI BUILD] repaired truncated output for ${orgSlug}: ${html.length} chars repair_tokens=${repairMeta.outputTokens ?? "?"} stop=${repairMeta.stopReason ?? "?"}`,
+          );
+        } else {
+          warnings.push(...stitchedCheck.errors);
+          console.warn(
+            `[AI BUILD] continuation failed for ${orgSlug}: ${stitchedCheck.errors.join(" | ")}`,
+          );
+        }
+      } catch (e) {
+        console.error(
+          "[AI BUILD] continuation repair failed:",
+          e instanceof Error ? e.message.slice(0, 300) : e,
+        );
+      }
+
+      // Repair 2: compact full rebuild. Drop optional effects before wiring.
+      if (!check.ok) {
+        try {
+          const compactPrompt = `${prompt}\n\nIMPORTANT: The previous attempt was cut off by the output limit. Regenerate the COMPLETE document from scratch, but keep it under 55,000 characters. Drop optional creative effects before required wiring. It must end with </script></body></html> and include init() with every render/apply/setup call.`;
+          let compactMeta: HaikuMeta = {};
+          const compactText = await callHaikuLow(compactPrompt, {
+            ...buildOpts,
+            onMeta: (m) => {
+              compactMeta = m;
+            },
+          });
+          const compactHtml = cleanModelHtml(compactText);
+          const compactCheck = validateBuiltHtml(compactHtml, validationOpts);
+          if (compactCheck.ok) {
+            html = compactHtml;
+            check = compactCheck;
+            repaired = true;
+            console.log(
+              `[AI BUILD] compact rebuild succeeded for ${orgSlug}: ${html.length} chars stop=${compactMeta.stopReason ?? "?"}`,
+            );
+          } else {
+            warnings.push(...compactCheck.errors);
+            console.warn(
+              `[AI BUILD] compact rebuild invalid for ${orgSlug}: ${compactCheck.errors.join(" | ")}`,
+            );
+          }
+        } catch (e) {
+          console.error(
+            "[AI BUILD] compact rebuild failed:",
+            e instanceof Error ? e.message.slice(0, 300) : e,
+          );
+        }
+      }
+    }
+
+    warnings.push(...check.warnings);
+    if (html.length > 60000) {
+      warnings.push(
+        `output is ${html.length} chars (target 45k-55k, hard ceiling 60k) — watch for truncation`,
+      );
+    }
+
+    // Never persist a document we know is truncated/broken. The public page
+    // falls back to the settings-driven design renderer when built_html is
+    // absent, which is a far better failure mode than a dead site.
+    if (!check.ok) {
+      console.error(
+        `[AI BUILD] refusing to save invalid HTML for ${orgSlug}: ${check.errors.join(" | ")}`,
+      );
+      return NextResponse.json(
+        {
+          error: "The AI build was incomplete. Please retry — no broken site was saved.",
+          details: check.errors,
+          warnings: [...new Set(warnings)],
+          stopReason: buildMeta.stopReason,
+          charCount: html.length,
+        },
+        { status: 502 },
+      );
+    }
+
+    const wiring = validateSiteWiring(html, orgSlug);
+    warnings.push(...wiring.issues);
+
     console.log(
       `[AI BUILD] html chars: ${html.length} ` +
         `output_tokens: ${buildMeta.outputTokens ?? "?"} ` +
         `input_tokens: ${buildMeta.inputTokens ?? "?"} ` +
-        `stop: ${buildMeta.stopReason ?? "?"}`,
+        `stop: ${buildMeta.stopReason ?? "?"} ` +
+        `repaired: ${repaired} ` +
+        `wiring: ${wiring.ok ? "ok" : "issues"}`,
     );
+
     // Persist: the built HTML IS the site. Merge into design_settings so the
     // public page + console preview serve it (no-op when orgId absent, e.g. tests).
     let connected = false;
@@ -334,31 +514,73 @@ export async function POST(request: Request) {
           .update({ design_settings: { ...(await readSettings()), built_html: nextHtml } })
           .eq("id", orgId);
       };
-      try {
-        await saveHtml(html);
-      } catch (e) {
-        console.error("[AI BUILD] persist failed (returning HTML anyway):", e instanceof Error ? e.message.slice(0, 200) : e);
-      }
-      // Automatic combine (once, at creation): Haiku 5.5 medium verifies/fixes
-      // the console wiring in the built HTML and saves it back. Non-fatal —
-      // the raw build stands if this fails. No extra quota (covered by the build).
-      try {
-        const { verifyAndFixSiteHtml } = await import("@/lib/ai-connect");
-        let combineOut = "?";
-        const fixed = await verifyAndFixSiteHtml(html, {
-          orgSlug,
-          name,
-          onMeta: (m) => {
-            combineOut = String(m.outputTokens ?? "?");
-          },
-        });
-        await saveHtml(fixed);
-        finalHtml = fixed;
+
+      // The full-document combine rewrite is the riskiest call in the pipeline.
+      // Skip it when deterministic checks already prove the site is wired.
+      if (wiring.ok) {
         connected = true;
-        console.log(`[AI COMBINE] auto-connect for ${orgSlug}: ${html.length} → ${fixed.length} chars output_tokens: ${combineOut}`);
-      } catch (e) {
-        console.error("[AI COMBINE] auto-connect failed (raw build kept):", e instanceof Error ? e.message.slice(0, 300) : e);
+        console.log(`[AI COMBINE] skipped for ${orgSlug}: deterministic wiring checks passed`);
+      } else {
+        try {
+          const { verifyAndFixSiteHtml } = await import("@/lib/ai-connect");
+          let combineOut = "?";
+          let combineStop = "?";
+          const fixed = await verifyAndFixSiteHtml(html, {
+            orgSlug,
+            name,
+            onMeta: (m) => {
+              combineOut = String(m.outputTokens ?? "?");
+              combineStop = String(m.stopReason ?? "?");
+            },
+          });
+          const fixedCheck = validateBuiltHtml(fixed, validationOpts);
+          const fixedWiring = validateSiteWiring(fixed, orgSlug);
+          if (!fixedCheck.ok || !fixedWiring.ok) {
+            const issues = [...fixedCheck.errors, ...fixedWiring.issues];
+            warnings.push(...issues);
+            console.error(`[AI COMBINE] rejected for ${orgSlug}: ${issues.join(" | ")}`);
+          } else {
+            finalHtml = fixed;
+            connected = true;
+            console.log(
+              `[AI COMBINE] auto-connect for ${orgSlug}: ${html.length} → ${fixed.length} chars output_tokens: ${combineOut} stop: ${combineStop}`,
+            );
+          }
+        } catch (e) {
+          console.error(
+            "[AI COMBINE] auto-connect failed (raw build kept):",
+            e instanceof Error ? e.message.slice(0, 300) : e,
+          );
+        }
       }
+
+      const finalWiring = validateSiteWiring(finalHtml, orgSlug);
+      if (!finalWiring.ok) {
+        console.error(
+          `[AI BUILD] refusing to save unwired site for ${orgSlug}: ${finalWiring.issues.join(" | ")}`,
+        );
+        return NextResponse.json(
+          {
+            error:
+              "The AI build is missing required booking/cart/chat wiring. Please retry — no broken site was saved.",
+            details: finalWiring.issues,
+            warnings: [...new Set(warnings)],
+            stopReason: buildMeta.stopReason,
+            charCount: html.length,
+          },
+          { status: 502 },
+        );
+      }
+
+      try {
+        await saveHtml(finalHtml);
+      } catch (e) {
+        console.error(
+          "[AI BUILD] persist failed (returning HTML anyway):",
+          e instanceof Error ? e.message.slice(0, 200) : e,
+        );
+      }
+
       // Demo menu ingest: the build invents MENU_ITEMS (it has no DB access).
       // Parse them out of the final HTML and save to menu_items so the console
       // Menu section shows the same items as the site. SEED-ONLY: runs only
@@ -377,20 +599,21 @@ export async function POST(request: Request) {
         console.error("[AI BUILD] demo menu ingest failed:", e instanceof Error ? e.message.slice(0, 200) : e);
       }
     }
-    // Final sanity scan: forbidden invented endpoints + unbalanced script tags.
-    // Logs loudly (and reports in the response) so bad output is caught here,
-    // not discovered later as blank pages and 404s.
-    const FORBIDDEN_API_URLS = ["/api/booking-actions", "/api/menu-manager", "/api/design-settings"];
-    const warnings: string[] = FORBIDDEN_API_URLS.filter((u) => finalHtml.includes(u)).map(
-      (u) => `forbidden endpoint in HTML: ${u}`,
-    );
-    const openScripts = (finalHtml.match(/<script(?=[\s>])/gi) ?? []).length;
-    const closeScripts = (finalHtml.match(/<\/script\s*>/gi) ?? []).length;
-    if (openScripts !== closeScripts) warnings.push(`unbalanced script tags: ${openScripts} open vs ${closeScripts} close`);
-    if (warnings.length > 0) {
-      console.error(`[AI BUILD] output warnings for ${orgSlug}: ${warnings.join(" | ")}`);
+
+    const finalWarnings = [...new Set(warnings)];
+    if (finalWarnings.length > 0) {
+      console.error(`[AI BUILD] output warnings for ${orgSlug}: ${finalWarnings.join(" | ")}`);
     }
-    return NextResponse.json({ model: "claude-haiku-5-5", effort: "medium", html: finalHtml, connected, warnings });
+    return NextResponse.json({
+      model: "claude-haiku-5-5",
+      effort: "medium",
+      html: finalHtml,
+      connected,
+      warnings: finalWarnings,
+      stopReason: buildMeta.stopReason,
+      charCount: finalHtml.length,
+      repaired,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Build failed";
     const status = msg.includes("CLAUDE_API") ? 500 : 502;

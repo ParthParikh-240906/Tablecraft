@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { callGptSolHigh } from "@/lib/ai-models";
 import { requireStaffForOrgId } from "@/lib/api-auth";
+import { validateBuiltHtml } from "@/lib/build-validation";
+import {
+  extractGalleryUrls,
+  extractStringConst,
+  withGalleryCleared,
+  withHeroCleared,
+} from "@/lib/built-site";
 
 export type AnchorEdit = { find: string; replace: string; summary?: string };
 export type AnchorEditStatus = AnchorEdit & {
@@ -24,6 +31,9 @@ Hard rules:
 - LOGO RULE: when the request asks to add/set/use a logo (e.g. 'use "logo" image as the logo'), swap the header/brand logo <img> src to that gallery URL AND return its exact URL in the top-level "logo_url" field so the console also saves it as the restaurant logo. Omit "logo_url" for non-logo requests.
 - NEVER touch <script> contents, endpoint URLs (/api/bookings, /api/cart/checkout, /api/chat/bookings), ORG_SLUG, the MENU_ITEMS data array, or /* CONSOLE HOOK */ markers unless the request explicitly demands it (a hero/logo/menu/image request explicitly demands editing ONLY its corresponding const/img src: HERO_IMAGE_URL* for hero, logo <img> for logo, MENU_ITEMS for menu).
 - When additional creative direction is provided alongside the edit request, apply BOTH (the direction refines how the request is carried out, not an optional hint).
+- The page must remain a complete HTML document: never remove </script>, </body>, </html>, the single init() call, or any render/apply/setup call inside it.
+- When changing a hero or gallery image, update both the data declaration and the matching static fallback (<img data-tc-hero="desktop|mobile"> or <img data-tc-gallery="N">) so the no-JS view matches.
+- Preserve the existing GALLERY_IMAGES shape: new pages use {src, caption} objects; legacy pages may use bare URL strings. Never change the shape.
 - If a request cannot be done with anchored replacements, return {"edits": []}.`;
 
 /** Classify each edit's anchor against the stored HTML (preserves summary). */
@@ -64,6 +74,55 @@ export function resolveAnchorSequence(html: string, edits: AnchorEdit[]): { stat
 /** sha256 of a page, hex — binds a preview to its apply (exact bytes). */
 export function hashPage(html: string): string {
   return createHash("sha256").update(html, "utf8").digest("hex");
+}
+
+type FinalizedEdit = {
+  html: string;
+  hero: string | null;
+  mobileHero: string | null;
+  gallery: string[] | null;
+  heroChanged: boolean;
+  mobileHeroChanged: boolean;
+  galleryChanged: boolean;
+};
+
+/**
+ * Keep the DB image sources and the stored HTML in sync after an edit.
+ *
+ * `withLiveHero()` / `withLiveGallery()` run on every serve and prefer the org
+ * row, so an edit that only changes the const would be overwritten on the next
+ * request. This helper detects those changes and returns the values the apply
+ * path must write to `organizations`.
+ *
+ * It also clears static fallback tiles when the edit intentionally removes an
+ * image, so the no-JS view doesn't keep showing the deleted photo.
+ */
+export function finalizeEditedHtml(before: string, next: string): FinalizedEdit {
+  const beforeHero = extractStringConst(before, "HERO_IMAGE_URL");
+  const hero = extractStringConst(next, "HERO_IMAGE_URL");
+  const beforeMobileHero = extractStringConst(before, "HERO_IMAGE_URL_MOBILE");
+  const mobileHero = extractStringConst(next, "HERO_IMAGE_URL_MOBILE");
+  const beforeGallery = extractGalleryUrls(before);
+  const gallery = extractGalleryUrls(next);
+
+  let html = next;
+  if (hero === "") html = withHeroCleared(html, "desktop");
+  if (mobileHero === "") html = withHeroCleared(html, "mobile");
+  if (beforeGallery !== null && gallery !== null && gallery.length === 0) {
+    html = withGalleryCleared(html);
+  }
+
+  return {
+    html,
+    hero,
+    mobileHero,
+    gallery,
+    heroChanged: hero !== null && hero !== beforeHero,
+    mobileHeroChanged: mobileHero !== null && mobileHero !== beforeMobileHero,
+    galleryChanged:
+      gallery !== null &&
+      (beforeGallery === null || gallery.join("\n") !== beforeGallery.join("\n")),
+  };
 }
 
 /**
@@ -144,7 +203,18 @@ export async function POST(request: Request) {
       );
     }
     const checked = sequence.statuses;
-    const next = sequence.html;
+    const finalized = finalizeEditedHtml(builtHtml, sequence.html);
+    const next = finalized.html;
+    const nextCheck = validateBuiltHtml(next);
+    if (!nextCheck.ok) {
+      return NextResponse.json(
+        {
+          error: "That edit would break the page — rephrase it or preview again.",
+          details: nextCheck.errors,
+        },
+        { status: 422 },
+      );
+    }
     if (typeof body.previewHash === "string" && body.previewHash.length > 0 && hashPage(next) !== body.previewHash) {
       return NextResponse.json(
         { error: "Site changed since preview — re-run Preview edit to see the current result" },
@@ -165,12 +235,34 @@ export async function POST(request: Request) {
     );
     const update: Record<string, unknown> = { design_settings: { ...settings, built_html: next } };
     if (logoUrl) update.logo_url = logoUrl;
+    // Keep the org-row image sources in sync with the edited HTML. The live
+    // helpers prefer these columns on the next request.
+    if (finalized.heroChanged) update.background_image_url = finalized.hero || null;
+    if (finalized.mobileHeroChanged) {
+      update.mobile_background_image_url = finalized.mobileHero || null;
+    }
+    if (finalized.galleryChanged && finalized.gallery !== null) {
+      update.restaurant_photos = finalized.gallery.length > 0 ? finalized.gallery : null;
+    }
     await admin
       .from("organizations")
       .update(update)
       .eq("id", orgId);
-    console.log(`[AI EDIT] applied ${checked.length} anchor edit(s) for org ${orgId}${logoUrl ? " + logo_url" : ""}`);
-    return NextResponse.json({ applied: true, count: checked.length, logo_url: logoUrl });
+    const synced = [
+      finalized.heroChanged ? "hero" : "",
+      finalized.mobileHeroChanged ? "mobile-hero" : "",
+      finalized.galleryChanged ? "gallery" : "",
+      logoUrl ? "logo" : "",
+    ].filter(Boolean);
+    console.log(
+      `[AI EDIT] applied ${checked.length} anchor edit(s) for org ${orgId}${synced.length ? ` + ${synced.join(", ")}` : ""}`,
+    );
+    return NextResponse.json({
+      applied: true,
+      count: checked.length,
+      logo_url: logoUrl,
+      synced,
+    });
   }
 
   // Per-OWNER monthly edit quota (free 3 / pro 30 / max 100) aggregated
@@ -238,16 +330,20 @@ export async function POST(request: Request) {
     const logoText = [prompt, improvise].filter(Boolean).join("\n");
     const logoUrl = modelLogoUrl ?? resolveLogoUrl(null, logoText);
     // Exact post-apply bytes, so the console preview toggle shows precisely
-    // what Apply would write. Computed locally — zero model cost.
+    // what Apply would write. Computed locally — zero model cost. Finalize
+    // first so hero/gallery clearing and the preview hash match the apply path.
     const combined = resolveAnchorSequence(builtHtml, [...pendingEdits, ...edits]);
+    const finalized = finalizeEditedHtml(builtHtml, combined.html);
+    const previewCheck = validateBuiltHtml(finalized.html);
     return NextResponse.json({
       model: "gpt-6.1-sol",
       effort: "medium",
       preview: true,
       edits: combined.statuses,
-      patchedHtml: combined.html,
-      previewHash: hashPage(combined.html),
+      patchedHtml: finalized.html,
+      previewHash: hashPage(finalized.html),
       logo_url: logoUrl,
+      warnings: previewCheck.errors,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Edit failed";

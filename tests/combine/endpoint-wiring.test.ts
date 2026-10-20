@@ -40,4 +40,13 @@ describe("combine hard rules", () => {
     expect(src).toContain("cart_config");
     expect(src).toContain("/cart");
   });
+
+  it("combine validates output and disables thinking before rewriting the page", async () => {
+    const src = await import("node:fs/promises").then((fs) =>
+      fs.readFile("lib/ai-connect.ts", "utf8"),
+    );
+    expect(src).toContain("validateBuiltHtml");
+    expect(src).toContain("disableThinking: true");
+    expect(src).toContain("Combine returned invalid HTML");
+  });
 });

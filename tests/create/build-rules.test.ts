@@ -60,4 +60,19 @@ describe("create build hard rules", () => {
     expect(src).toContain("HERO_IMAGE_URL_MOBILE");
     expect(src).toContain("heroMobileUrl");
   });
+
+  it("build prompt enforces completeness, static-first images, and boot wiring", async () => {
+    const src = await import("node:fs/promises").then((fs) =>
+      fs.readFile("app/api/ai/build/route.ts", "utf8"),
+    );
+    expect(src).toContain("OUTPUT COMPLETENESS AND BUDGET");
+    expect(src).toContain("STATIC FIRST PAINT");
+    expect(src).toContain("BOOT CONTRACT");
+    expect(src).toContain("data-tc-hero");
+    expect(src).toContain("data-tc-gallery");
+    expect(src).toContain("init()");
+    expect(src).toContain("disableThinking: true");
+    expect(src).toContain("validateBuiltHtml");
+    expect(src).toContain("validateSiteWiring");
+  });
 });

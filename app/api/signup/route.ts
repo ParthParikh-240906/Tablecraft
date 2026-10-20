@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getThemeColors } from "@/lib/theme";
+import { buildAiGallerySeed } from "@/lib/gallery";
 import bcrypt from "bcryptjs";
 
 /**
@@ -432,22 +433,31 @@ export async function POST(request: Request) {
     }
   }
 
-  // --- Mirror creation photos into the console AI gallery ---
-  // The console gallery reads design_settings.ai_gallery; without this the
-  // uploads are invisible there ("No images yet"). Non-fatal.
-  if (restaurantImageUrls.length > 0) {
-    try {
-      const gallerySeed = restaurantImageUrls.slice(0, 20).map((url, i) => ({
-        url,
-        name: `photo-${i + 1}`,
-      }));
+  // --- Mirror every creation image into the console AI gallery ---
+  // The console Image Gallery and the Website Edits picker both read
+  // design_settings.ai_gallery. Hero / mobile hero / logo uploads used to be
+  // invisible there because only restaurant photos were seeded.
+  // Merge (never replace) other design_settings keys. Non-fatal.
+  try {
+    const existingSettings = ((org as { design_settings?: Record<string, unknown> })
+      .design_settings ?? {}) as Record<string, unknown>;
+    const gallerySeed = buildAiGallerySeed({
+      logoUrl,
+      heroUrl,
+      heroMobileUrl,
+      photos: restaurantImageUrls,
+      existing: existingSettings.ai_gallery,
+    });
+    if (gallerySeed.length > 0) {
       await admin
         .from("organizations")
-        .update({ design_settings: { ai_gallery: gallerySeed } })
+        .update({
+          design_settings: { ...existingSettings, ai_gallery: gallerySeed },
+        })
         .eq("id", org.id);
-    } catch (e) {
-      console.error("[SIGNUP] ai_gallery seed failed:", e instanceof Error ? e.message.slice(0, 200) : e);
     }
+  } catch (e) {
+    console.error("[SIGNUP] ai_gallery seed failed:", e instanceof Error ? e.message.slice(0, 200) : e);
   }
 
   return NextResponse.json(

@@ -701,7 +701,8 @@ export default function CreateRestaurantPage() {
                     className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors"
                   />
                   <p className="text-xs text-neutral-500 mt-1">
-                    Shown in the website hero section on desktop and tablet. Gallery photos are never reused for the hero.
+                    Shown in the website hero section on desktop and tablet. Also saved to your console
+                    Image Gallery so you can reuse it in edits. Gallery photos are never reused for the hero.
                   </p>
                 </div>
                 <div>
@@ -716,7 +717,8 @@ export default function CreateRestaurantPage() {
                     className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors"
                   />
                   <p className="text-xs text-neutral-500 mt-1">
-                    Shown on phones (720px and below) instead of the desktop hero. If left empty, mobile gets the CSS-art hero.
+                    Shown on phones (720px and below) instead of the desktop hero. Also saved to your
+                    console Image Gallery. If left empty, mobile gets the CSS-art hero.
                   </p>
                 </div>
                 <div>
@@ -732,7 +734,8 @@ export default function CreateRestaurantPage() {
                     className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-[15px] text-neutral-950 outline-none focus:border-black transition-colors"
                   />
                   <p className="text-xs text-neutral-500 mt-1">
-                    Upload one or more photos. They will be displayed as an auto-advancing carousel on your landing page.
+                    Upload one or more photos for the gallery. If you skip this, your hero image becomes
+                    the single gallery fallback tile so the gallery is never empty.
                   </p>
                 </div>
               </div>

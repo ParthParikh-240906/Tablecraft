@@ -1,4 +1,5 @@
 import { callHaikuLow, type HaikuMeta } from "@/lib/ai-models";
+import { validateBuiltHtml } from "@/lib/build-validation";
 
 /**
  * lib/ai-connect.ts — automatic post-build connection pass ("combine").
@@ -13,7 +14,10 @@ import { callHaikuLow, type HaikuMeta } from "@/lib/ai-models";
  */
 
 export const COMBINE_MODEL = "claude-haiku-5-5";
-export const COMBINE_MAX_OUTPUT_TOKENS = 32000;
+// A full built page is ~60-70k chars. 32k output tokens was tight enough to
+// truncate the rewrite; thinking is disabled below so the whole budget goes
+// to HTML. Output is validated regardless of the cap.
+export const COMBINE_MAX_OUTPUT_TOKENS = 64000;
 
 export const COMBINE_VERIFY_SYSTEM = `You are Tablecraft's connection model (Haiku 5.5, medium effort).
 You receive a complete restaurant website (single self-contained HTML file) plus the org slug.
@@ -28,6 +32,9 @@ Checklist — fix violations in place, change nothing else (colors, fonts, layou
 - Chatbot: if sendChatMessage is an unwired stub, wire it fully — keep JS slot state { name, party_size, date, time } plus a history array capped at 10 {role, content} entries; POST JSON { message, slots, history, orgSlug: ORG_SLUG, autoBook: true } to /api/chat/bookings (the backend books automatically once slots complete — never promise a booking before res.bookingId arrives); update slots from res.slots, append user + assistant turns to history (cap 10), render res.response through addMessage(text, "bot"), show the typing indicator while awaiting; on res.pendingCombo render its message plus a Confirm button POSTing { orgSlug, customerName, partySize, datetime, tableIds } to /api/bookings. Mark with /* CONSOLE HOOK: chatbot backend (Haiku 5.5 via /api/chat/bookings) */.
 - Every /* CONSOLE HOOK */ marker from the input is preserved byte-for-byte.
 - Preserve const HERO_IMAGE_URL and const HERO_IMAGE_URL_MOBILE byte-for-byte (values and declaration shapes); never merge, duplicate, or swap them — each const feeds its own breakpoint (desktop/tablet vs <=720px), and an empty mobile const means the mobile image layer hides so pure CSS art shows on mobile.
+- Preserve every static hero/gallery fallback: <img data-tc-hero="desktop|mobile" src="..."> and <img data-tc-gallery="N" src="...">. They are the no-JS first paint and are rewritten by the console; never delete them or strip their data-tc-* attributes.
+- Preserve the existing GALLERY_IMAGES shape: new build pages use {src, caption} objects; legacy pages may use bare URL strings. Never change the shape. Preserve the single init() call at the end of the script, including every render/apply/setup call inside it.
+- The returned document MUST end with </script></body></html> and every opened <script> must be closed. If you cannot return a complete document, return the input unchanged instead of a partial one.
 - Chatbot combo offers: while a pendingCombo offer stands, later chat POSTs echo pendingTables so a typed yes books the exact offered tables; a header restart button clears slots, history, and rendered messages, then re-sends the greeting.
 - Never invent image URLs; never add sections, copy, or styling.
 - Never leave a dead view: anchor links scroll; any JS section switch keeps one view visible (fall back to the main page on error).
@@ -41,17 +48,27 @@ export async function verifyAndFixSiteHtml(
   html: string,
   opts: { orgSlug: string; name: string; onMeta?: (m: HaikuMeta) => void },
 ): Promise<string> {
+  const inputCheck = validateBuiltHtml(html);
+  if (!inputCheck.ok) {
+    throw new Error(
+      `Combine refused: input HTML is incomplete (${inputCheck.errors.join("; ")})`,
+    );
+  }
+
   const text = await callHaikuLow(
     [
       `orgSlug: ${opts.orgSlug}`,
       `Restaurant name: ${opts.name}`,
       `HTML to verify and fix:`,
-      html.slice(0, 100000),
+      html.slice(0, 200000),
     ].join("\n"),
     {
       system: COMBINE_VERIFY_SYSTEM,
       maxTokens: COMBINE_MAX_OUTPUT_TOKENS,
       effort: "medium",
+      // Thinking tokens count against max_tokens; the full page needs the
+      // entire output budget.
+      disableThinking: true,
       ...(opts.onMeta ? { onMeta: opts.onMeta } : {}),
     },
   );
@@ -60,7 +77,14 @@ export async function verifyAndFixSiteHtml(
     .replace(/^```\s*/, "")
     .replace(/\s*```$/, "")
     .trim()
-    .slice(0, 100000);
+    .slice(0, 200000);
   if (!fixed) throw new Error("Combine verify-and-fix returned no HTML");
+
+  const outputCheck = validateBuiltHtml(fixed);
+  if (!outputCheck.ok) {
+    throw new Error(
+      `Combine returned invalid HTML (${outputCheck.errors.join("; ")})`,
+    );
+  }
   return fixed;
 }

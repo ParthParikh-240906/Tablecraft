@@ -4,7 +4,20 @@
  */
 import { describe, it, expect } from "vitest";
 import vm from "node:vm";
-import { withBuiltSiteGuards, withLiveHero, withLiveHeroMobile, withLiveMenu, withPreviewChrome, extractChatbotAccent } from "@/lib/built-site";
+import {
+  withBuiltSiteGuards,
+  withLiveHero,
+  withLiveHeroMobile,
+  withLiveGallery,
+  withLiveMenu,
+  withPreviewChrome,
+  extractChatbotAccent,
+  extractGalleryUrls,
+  extractStringConst,
+  withGalleryCleared,
+  withHeroCleared,
+  withHeroRemoved,
+} from "@/lib/built-site";
 
 describe("withBuiltSiteGuards", () => {
   it("injects the guard before </body>", () => {
@@ -21,6 +34,14 @@ describe("withBuiltSiteGuards", () => {
   it("appends when no </body> exists and leaves empty input alone", () => {
     expect(withBuiltSiteGuards("<p>x</p>")).toContain("data-tc-nav-guard");
     expect(withBuiltSiteGuards("")).toBe("");
+  });
+
+  it("never injects into a truncated document with an open script", () => {
+    const truncated =
+      '<!DOCTYPE html><html><body><script>function sendChatMessage(){';
+    const out = withBuiltSiteGuards(truncated);
+    expect(out).toBe(truncated);
+    expect(out).not.toContain("data-tc-nav-guard");
   });
 
   it("guard distinguishes #/cart routes from #id anchors", () => {
@@ -382,6 +403,85 @@ describe("withLiveHeroMobile", () => {
     const out = withLiveHeroMobile(html, "https://x/mobile.jpg");
     expect(out).toContain('const HERO_IMAGE_URL = "";');
     expect(out).toContain('const HERO_IMAGE_URL_MOBILE = "https://x/mobile.jpg";');
+  });
+});
+
+describe("static-first hero/gallery sync", () => {
+  it("updates the const and the static hero img", () => {
+    const html = `<script>const HERO_IMAGE_URL = "";</script><img data-tc-hero="desktop" src="old.jpg">`;
+    const out = withLiveHero(html, "https://x/new.jpg");
+    expect(out).toContain('const HERO_IMAGE_URL = "https://x/new.jpg";');
+    expect(out).toContain('src="https://x/new.jpg"');
+    expect(out).not.toContain('src="old.jpg"');
+  });
+
+  it("handles single-quoted and backtick consts", () => {
+    const single = `<script>const HERO_IMAGE_URL = '';</script>`;
+    expect(withLiveHero(single, "https://x/a.jpg")).toContain('"https://x/a.jpg"');
+    const backtick = "<script>const HERO_IMAGE_URL = ``;</script>";
+    expect(withLiveHero(backtick, "https://x/b.jpg")).toContain('"https://x/b.jpg"');
+  });
+
+  it("updates the mobile marker without touching the desktop marker", () => {
+    const html = `<script>const HERO_IMAGE_URL = "d.jpg";const HERO_IMAGE_URL_MOBILE = "";</script>
+<img data-tc-hero="desktop" src="d.jpg"><img data-tc-hero="mobile" src="old.jpg">`;
+    const out = withLiveHeroMobile(html, "https://x/mobile.jpg");
+    expect(out).toContain('src="d.jpg"');
+    expect(out).toContain('src="https://x/mobile.jpg"');
+    expect(out).toContain('const HERO_IMAGE_URL = "d.jpg";');
+  });
+
+  it("injects gallery objects and syncs static tiles for new builds", () => {
+    const html = `<script>const GALLERY_IMAGES = [{src: "old.jpg", caption: "Old caption"}];</script>
+<img data-tc-gallery="0" src="old.jpg"><img data-tc-gallery="1" src="">`;
+    const out = withLiveGallery(html, ["https://x/a.jpg", "https://x/b.jpg"]);
+    expect(out).toContain('"src":"https://x/a.jpg"');
+    expect(out).toContain('"caption":"Photo 1"');
+    expect(out).toContain('src="https://x/a.jpg"');
+    expect(out).toContain('src="https://x/b.jpg"');
+  });
+
+  it("preserves an existing caption for a URL that stays", () => {
+    const html = `<script>const GALLERY_IMAGES = [{src: "https://x/a.jpg", caption: "The room"}];</script>`;
+    const out = withLiveGallery(html, ["https://x/a.jpg"]);
+    expect(out).toContain('"caption":"The room"');
+  });
+
+  it("injects strings for legacy gallery consumers", () => {
+    const html = `<script>const GALLERY_IMAGES = [];</script>
+<div id="galleryGrid"></div>`;
+    const out = withLiveGallery(html, ["https://x/a.jpg"]);
+    expect(out).toContain('const GALLERY_IMAGES = ["https://x/a.jpg"];');
+    expect(out).not.toContain('"src"');
+  });
+
+  it("extracts consts and gallery URLs", () => {
+    const html = `<script>const HERO_IMAGE_URL = "https://x/h.jpg";
+const GALLERY_IMAGES = [{src: "https://x/a.jpg", caption: "A"}, {src: "https://x/b.jpg", caption: "B"}];
+const HERO_IMAGE_URL_MOBILE = "";</script>`;
+    expect(extractStringConst(html, "HERO_IMAGE_URL")).toBe("https://x/h.jpg");
+    expect(extractStringConst(html, "HERO_IMAGE_URL_MOBILE")).toBe("");
+    expect(extractStringConst(html, "MISSING")).toBeNull();
+    expect(extractGalleryUrls(html)).toEqual(["https://x/a.jpg", "https://x/b.jpg"]);
+    expect(extractGalleryUrls("<p>none</p>")).toBeNull();
+  });
+
+  it("clears static image srcs when an edit removes the image", () => {
+    const html = `<img data-tc-hero="desktop" src="https://x/h.jpg"><img data-tc-gallery="0" src="https://x/a.jpg">`;
+    const hero = withHeroCleared(html, "desktop");
+    expect(hero).toContain('data-tc-hero="desktop"');
+    expect(hero).not.toContain('src="https://x/h.jpg"');
+    expect(hero).toContain("hidden");
+    const gallery = withGalleryCleared(hero);
+    expect(gallery).not.toContain('src="https://x/a.jpg"');
+  });
+
+  it("clears both the hero const and static fallback on console delete", () => {
+    const html = `<script>const HERO_IMAGE_URL = "https://x/h.jpg";</script><img data-tc-hero="desktop" src="https://x/h.jpg">`;
+    const out = withHeroRemoved(html, "desktop");
+    expect(out).toContain('const HERO_IMAGE_URL = "";');
+    expect(out).not.toContain('src="https://x/h.jpg"');
+    expect(out).toContain("hidden");
   });
 });
 

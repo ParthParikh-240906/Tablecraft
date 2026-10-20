@@ -64,27 +64,29 @@ export default async function PublicLayout({
       // Fall back to the baked-in const.
     }
     // Heroes stay live (creation hero uploads); gallery stays live without a rebuild.
-    // Hero and gallery are strictly separate sources; each hero const feeds its
-    // own breakpoint (desktop/tablet vs mobile) and empty = CSS-art hero.
-    liveHtml = withLiveHero(
-      liveHtml,
+    // Each hero const feeds its own breakpoint (desktop/tablet vs mobile) and
+    // empty = CSS-art hero. Hero and gallery are separate sources, except when
+    // no gallery photos exist: the hero becomes the single fallback tile so a
+    // hero-only restaurant never shows an all-placeholder gallery.
+    const liveHeroUrl =
       typeof (org as { background_image_url?: unknown }).background_image_url === "string"
         ? ((org as { background_image_url: string }).background_image_url as string)
-        : null,
-    );
-    liveHtml = withLiveHeroMobile(
-      liveHtml,
+        : null;
+    const liveMobileHeroUrl =
       typeof (org as { mobile_background_image_url?: unknown }).mobile_background_image_url === "string"
         ? ((org as { mobile_background_image_url: string }).mobile_background_image_url as string)
-        : null,
-    );
+        : null;
+    const livePhotos = Array.isArray((org as { restaurant_photos?: unknown }).restaurant_photos)
+      ? ((org as { restaurant_photos: unknown[] }).restaurant_photos.filter(
+          (u): u is string => typeof u === "string",
+        ) as string[])
+      : [];
+
+    liveHtml = withLiveHero(liveHtml, liveHeroUrl);
+    liveHtml = withLiveHeroMobile(liveHtml, liveMobileHeroUrl);
     liveHtml = withLiveGallery(
       liveHtml,
-      Array.isArray((org as { restaurant_photos?: unknown }).restaurant_photos)
-        ? ((org as { restaurant_photos: unknown[] }).restaurant_photos.filter(
-            (u): u is string => typeof u === "string",
-          ) as string[])
-        : [],
+      livePhotos.length > 0 ? livePhotos : liveHeroUrl ? [liveHeroUrl] : [],
     );
     return (
       <div className="min-h-screen bg-black">

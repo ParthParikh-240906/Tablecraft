@@ -509,6 +509,7 @@ export function AiPanel({
             </h3>
             <p className="text-xs text-[var(--ink-soft)]">
               Every generation is kept here (newest first, up to {MAX_GALLERY_ITEMS}).
+              Creation uploads (logo, hero, mobile hero) are added automatically.
               Name each image (e.g. “logo”), then pick it by name on the Website tab.
             </p>
             <div className="flex items-center gap-2">
